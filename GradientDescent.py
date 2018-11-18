@@ -38,19 +38,24 @@ from sklearn.preprocessing import StandardScaler
 class GradientDescent:
     '''Base class for Gradient Descent'''
     _hypothesis = None
+    _regression = True
 
-    def __linear_hypothesis(self, X, theta):
-        return((X.dot(theta))[0])
-
-    def __logistic_hypothesis(self, X, theta):
-        # TODO: Add sigmoid function
-        return(X.dot(theta))
+    def __hypothesis(self, X, theta):
+        if self._regression:
+            return((X.dot(theta))[0])
+        else:
+            # TODO: add prediction based upon probability of class membership
+            pass
 
     def __error(self, h, y):
         return(h-y)
 
-    def __mse(self, e):
-        return(1/2 * np.mean(e**2))
+    def __cost(self, e):
+        if self._regression:
+            return(1/2 * np.mean(e**2))
+        else:
+            # TODO: compute cost using cross-entropy
+            pass
 
     def __cost_mesh(self, X, y, THETA):
         return(np.sum((X.dot(THETA) - y)**2)/(2*len(y)))
@@ -61,13 +66,13 @@ class GradientDescent:
     def __update(self, alpha, theta, gradient):
         return(theta - alpha * gradient)
 
-    def __encode_labels(self, X, y):
+    def encode_labels(self, X, y):
         le = LabelEncoder()
         X = X.apply(le.fit_transform)
         y = le.fit_transform(y)
         return(X, y)
 
-    def __scale(self, X, y, scaler):
+    def scale(self, X, y, scaler):
         # Select scaler
         if scaler == 'std':
             scaler = StandardScaler()
@@ -85,32 +90,22 @@ class GradientDescent:
         y = df['y']
         return(X, y)
 
-    def search(self, X, y, theta, alpha=0.001, hypothesis='linear', maxiter=0, precision=0.001, stop='i',
-               label_encoder=True, scaler='minmax'):
+    def search(self, X, y, theta, alpha=0.001, maxiter=0, regression=True, precision=0.001, stop='i'):
         J_history = []
         theta_history = []
         epochs = 0
         J = 0
         g = np.repeat(1, X.shape[1])
         converged = False
-
-        # Prepare Data
-        if label_encoder:
-            X, y = self.__encode_labels(X, y)
-        if scaler:
-            X, y = self.__scale(X, y, scaler)
+        _regression = regression
 
         while not converged:
             J_prior = J
             g_prior = g
 
-            if hypothesis == 'linear':
-                h = self.__linear_hypothesis(X, theta)
-            else:
-                h = self.__logistic_hypothesis(X, theta)
+            h = self.__hypothesis(X, theta)
             e = self.__error(h[0], y)
-            J = self.__mse(e)
-            print("Cost is " + str(J))
+            J = self.__cost(e)
             g = self.__gradient(X, e)
             theta = self.__update(alpha, theta, g)
 
@@ -146,3 +141,4 @@ np.random.seed(5)
 theta = np.random.rand(X.shape[1], 1)
 gd = GradientDescent()
 X, y, epochs, theta_history, J_history = gd.search(X, y, theta, stop='g')
+print(J_history)
