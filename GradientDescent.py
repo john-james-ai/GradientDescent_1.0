@@ -42,7 +42,7 @@ class GradientDescent:
 
     def __hypothesis(self, X, theta):
         if self._regression:
-            return((X.dot(theta))[0])
+            return(X.dot(theta))
         else:
             # TODO: add prediction based upon probability of class membership
             pass
@@ -64,7 +64,7 @@ class GradientDescent:
         return(X.T.dot(e)/X.shape[0])
 
     def __update(self, alpha, theta, gradient):
-        return(theta - alpha * gradient)
+        return(theta-(alpha * gradient))
 
     def encode_labels(self, X, y):
         le = LabelEncoder()
@@ -72,12 +72,12 @@ class GradientDescent:
         y = le.fit_transform(y)
         return(X, y)
 
-    def scale(self, X, y, scaler):
+    def scale(self, X, y, scaler='minmax'):
         # Select scaler
-        if scaler == 'std':
-            scaler = StandardScaler()
-        else:
+        if scaler == 'minmax':
             scaler = MinMaxScaler()
+        else:
+            scaler = StandardScaler()
 
         # Combine X and y into a dataframe
         y = pd.DataFrame({'y': y})
@@ -104,7 +104,7 @@ class GradientDescent:
             g_prior = g
 
             h = self.__hypothesis(X, theta)
-            e = self.__error(h[0], y)
+            e = self.__error(h, y)
             J = self.__cost(e)
             g = self.__gradient(X, e)
             theta = self.__update(alpha, theta, g)
@@ -113,10 +113,14 @@ class GradientDescent:
             J_history.append(J)
 
             if (stop == 'i'):
+                print("Absolute value difference in Costs")
+                print(abs(J-J_prior))
                 if abs(J-J_prior) <= precision:
                     converged = True
             else:
                 g_diff = np.absolute(g-g_prior)
+                print("Absolute difference in gradients")
+                print(g_diff)
                 g_close = g_diff < precision
                 if (np.all(g_close)):
                     converged = True
@@ -137,8 +141,10 @@ from data import data
 df = data.read()
 X = df.drop(columns='SalePrice')
 y = df['SalePrice']
-np.random.seed(5)
-theta = np.random.rand(X.shape[1], 1)
+theta = np.random.rand(X.shape[1])
 gd = GradientDescent()
-X, y, epochs, theta_history, J_history = gd.search(X, y, theta, stop='g')
+X, y = gd.encode_labels(X, y)
+X, y = gd.scale(X, y, 'minmax')
+X, y, epochs, theta_history, J_history = gd.search(X, y, theta, stop='i')
 print(J_history)
+print(theta_history)
