@@ -45,7 +45,7 @@ class GradientDescent:
         self._precision = 0.0001
         self._stop_condition = 'i'
         self._stop = False
-        self.J_train_history = []
+        self.J_history = []
         self.theta_history = []
         self.epochs = []
 
@@ -97,9 +97,10 @@ class GradientDescent:
         return(X, y)
 
     def _finished(self, J, J_prior, g, g_prior, epoch):
-        if epoch == self._maxiter:
-            self._stop = True
-            return(True)
+        if self._maxiter:
+            if epoch == self.maxiter:
+                self._stop = True
+                return(True)
         elif self._stop_condition == 'i' and abs(J-J_prior) < self._precision:
             self._stop = True
             return(True)
@@ -111,8 +112,8 @@ class GradientDescent:
                 return(True)
         return(False)
 
-    def search(self, X, y, theta, alpha=0.001, maxiter=0, regression=True, precision=0.001, stop_condition='i'):
-        self.J_train_history = []
+    def search(self, X, y, theta, alpha=0.001, maxiter=0, regression=True, precision=0.0001, stop_condition='i'):
+        self.J_history = []
         self.theta_history = []
         self.epochs = []
         self._maxiter = maxiter
@@ -124,7 +125,6 @@ class GradientDescent:
         J = 0
         epoch = 0
         g = np.repeat(1, X.shape[1])
-        converged = False
 
         while not self._stop:
             epoch += 1
@@ -138,13 +138,52 @@ class GradientDescent:
             theta = self._update(alpha, theta, g)
 
             self.theta_history.append(theta)
-            self.J_train_history.append(J)
+            self.J_history.append(J)
             self.epochs.append(epoch)
 
             if self._finished(J, J_prior, g, g_prior, epoch):
                 break
 
-        return(X, y, self.epochs, self.theta_history, self.J_train_history)
+        return(X, y, self.epochs, self.theta_history, self.J_history)
+
+    def display(self, save=False, path=None, interval=500):
+
+        fig, ax = plt.subplots()
+        line, = ax.plot([], [], 'r', lw=1.5)
+        point, = ax.plot([], [], 'bo')
+        epoch_display = ax.text(.6, 0.9, '', transform=ax.transAxes)
+        J_display = ax.text(.6, 0.8, '', transform=ax.transAxes)
+
+        # Concatenate np array of thetas into a single list
+        ax.plot(self.epochs, self.J_history, c='r')
+        ax.set_xlabel('Epochs')
+        ax.set_ylabel(r'$J(\theta)$')
+        ax.set_title('Gradient Descent Costs by Epoch')
+
+        def init():
+            line.set_data([], [])
+            point.set_data([], [])
+            epoch_display.set_text('')
+            J_display.set_text('')
+
+            return(line, point, epoch_display, J_display)
+
+        def animate(i):
+            # Animate points
+            point.set_data(self.epochs[i], self.J_history[i])
+
+            # Animate value display
+            epoch_display.set_text('Epochs = ' + str(i+1))
+            J_display.set_text(r'     $J(\theta)=$' +
+                               str(round(self.J_history[i], 4)))
+
+            return(line, point, epoch_display, J_display)
+
+        descent2d = animation.FuncAnimation(fig, animate, init_func=init,
+                                            frames=len(self.J_history), interval=interval,
+                                            blit=True)
+        plt.close(fig)
+        return(descent2d)
 
 
 class BGD(GradientDescent):
@@ -221,9 +260,11 @@ class SGD(GradientDescent):
         self.epochs = []
 
         J = math.inf
+        J_val = math.inf
         epoch = 0
         iteration = 0
         g = np.repeat(1, X.shape[1])
+        self.J_val_history.append(J_val)
 
         while not self._stop:
             epoch += 1
@@ -254,15 +295,18 @@ class SGD(GradientDescent):
 # %%
 from data import data
 df = data.read()
-df = df.iloc[0:10, :]
+#df = df.iloc[0:10, :]
 X = df.drop(columns='SalePrice')
 y = df['SalePrice']
 
-gd = SGD()
+gd = BGD()
+np.random.seed(5)
 theta = np.random.rand(X.shape[1])
 X, y = gd.encode_labels(X, y)
 X, y = gd.scale(X, y, 'minmax')
-X, y, epochs, iterations, theta_history, J_train_history, J_val_history = gd.search(
-    X, y, theta, maxiter=100000)
-print(J_val_history)
-print(iterations[-1])
+X, y, epochs, theta_history, J_history, = gd.search(
+    X, y, theta)
+ani = gd.display(interval=10)
+rc('animation', html='jshtml')
+rc
+HTML(ani.to_jshtml())
