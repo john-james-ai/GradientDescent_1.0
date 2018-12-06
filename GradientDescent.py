@@ -13,6 +13,7 @@ import itertools
 import math
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+plt.style.use('seaborn-notebook')
 import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
 from matplotlib import cm
@@ -46,18 +47,14 @@ class GradientDescent:
     def __init__(self):
         self._alg = "Batch Gradient Descent"
         self._unit = "Epoch"
-        self._stop = False
         self._J_history = []
         self._theta_history = []
         self._g_history = []
+        self._mse_history = []
         self._iterations = []
-        self._X = []
-        self._y = []
-        self._stop_criteria = "j"
         self._precision = 0.001
-        self._stop_value = 'a'
-        self._iteration = 0
-        self._max_iterations = 0
+        self._alpha = 0.01
+        self._self._searches = []
 
     def _hypothesis(self, X, theta):
         return(X.dot(theta))
@@ -68,7 +65,9 @@ class GradientDescent:
     def _cost(self, e):
         return(1/2 * np.mean(e**2))
 
-    def _mse(self, e):
+    def _mse(self, X, y, theta):
+        h = self._hypothesis(X, theta)
+        e = self._error(h, y)
         return(np.mean(e**2))
 
     def cost_mesh(self, X, y, THETA):
@@ -80,22 +79,31 @@ class GradientDescent:
     def _update(self, alpha, theta, gradient):
         return(theta-(alpha * gradient))
 
-    def encode_labels(self, X, y):
+    def _encode_labels(self, X, y):
         le = LabelEncoder()
-        X = X.apply(le.fit_transform)
-        y = le.fit_transform(y)
+        if isinstance(X, pd.core.frame.DataFrame):
+            X = X.apply(le.fit_transform)
+        else:
+            x = le.fit_transform(X)
+        if isinstance(y, pd.core.frame.DataFrame):
+            y = y.apply(le.fit_transform)
+        else:
+            y = le.fit_transform(y)
         return(X, y)
 
-    def scale(self, X, y, scaler='minmax', bias=False):
+    def _scale(self, X, y, scaler='minmax', bias=False):
         # Select scaler
         if scaler == 'minmax':
             scaler = MinMaxScaler()
         else:
             scaler = StandardScaler()
 
-        # Combine X and y into a dataframe
-        y = pd.DataFrame({'y': y})
-        df = pd.concat([X, y], axis=1)
+        # Put X and y into a dataframe
+        if isinstance(X, pd.core.frame.DataFrame):                
+            y = pd.DataFrame({'y': y})
+            df = pd.concat([X, y], axis=1)
+        else:
+            df = pd.DataFrame({'X':X, 'y':y})
 
         # Scale then return X and y
         df_scaled = scaler.fit_transform(df)
@@ -109,79 +117,122 @@ class GradientDescent:
         y = df['y']
         return(X, y)
 
-    def _finished_grad(self, current, prior):
-        if self._stop_value == 'a':
-            return(all(abs(y-x)<self._precision for x,y in zip(prior, current)))
-        else:
-            return(all(abs((y-x)/x)<self._precision for x,y in zip(prior, current)))
+    def prep_data(self, X,y, scaler='minmax', bias=True):        
+        X, y = self._encode_labels(X,y)
+        X, y = self._scale(X,y, scaler, bias)
+        return(X,y)        
 
-    def _finished_J(self, current, prior):
-        if prior > 0:
-            prior = max(prior, 10**-10)
-        else:
-            prior = min(prior, -10**-10)
-        if self._stop_value == 'a':
-            return(abs(current-prior) < self._precision)
-        else:
-            return(abs((current-prior)/prior) < self._precision)
+    def _zeros(self, d):
+        for k, v in d.items():
+            for i, j in v.items():
+                if type(j) is float or type(j) is int:
+                    if (j<10**-10) & (j>0):
+                        j = 10**-10
+                    elif (j>-10**-10) & (j<0):
+                        j = -10**-10
+                else: 
+                    for l in j:
+                        if (l<10**-10) & (l>0):
+                            l = 10**-10
+                        elif (l>-10**-10) & (l<0):
+                            l = -10**-10
+        return(d)
 
-    def _finished(self, current, prior):
-        if self._stop_criteria == 'j':
-            return(self._finished_J(current, prior))
-        else:
-            return(self._finished_grad(current, prior))    
+    def _finished_grad(self):
 
-    def _maxed_out(self, iter):
+        if self._stop_metric == 'a':
+            result = (all(abs(y-x)<self._precision for x,y in zip(self._state['g']['prior'], self._state['g']['current'])))
+        else:    
+            result = (all(abs((y-x)/x)<self._precision for x,y in zip(self._state['g']['prior'], self._state['g']['current'])))
+        self._state['g']['prior'] = self._state['g']['current']
+        return(result)
+
+    
+    def _finished_v(self):
+
+        if self._stop_metric == 'a':
+            result = (abs(self._state['v']['current']-self._state['v']['prior']) < self._precision)                        
+        else:
+            result = (abs((self._state['v']['current']-self._state['v']['prior'])/self._state['v']['prior']) < self._precision)
+        self._state['v']['prior'] = self._state['v']['current']
+        return(result)
+
+    def _finished_J(self):
+
+        if self._stop_metric == 'a':
+            result = (abs(self._state['j']['current']-self._state['j']['prior']) < self._precision)                        
+        else:
+            result = (abs((self._state['j']['current']-self._state['j']['prior'])/self._state['j']['prior']) < self._precision)
+        self._state['j']['prior'] = self._state['j']['current']
+        return(result)
+
+
+    def _maxed_out(self):
         if self._max_iterations:
-            if iter == self._max_iterations:
-                return(True)    
+            if self._iteration == self._max_iterations:
+                return(True)  
 
-    def search(self, X, y, theta, alpha=0.01, maxiter=0, precision=0.001,
-               stop_criteria='j', stop_value='a'):
+    def _finished(self):
+        self._state = self._zeros(self._state)
+        if self._maxed_out():
+            return(True)
+        elif self._stop_measure == 'j':
+            return(self._finished_J())
+        elif self._stop_measure == 'g':
+            return(self._finished_grad())    
+        else:
+            return(self._finished_v())
 
-        self._stop = False
+  
+
+    def search(self, X, y, theta, X_val=None, y_val=None, 
+               alpha=0.01, maxiter=0, precision=0.001,
+               stop_measure='j', stop_metric='a', n_val=0):
+
         self._J_history = []
         self._theta_history = []
         self._g_history = []
         self._iterations = []
-        self._X = X
-        self._y = y
+        self._mse_history = []
+        self._alpha = alpha
         self._precision = precision
-        self._stop_criteria = stop_criteria
-        self._stop_value = stop_value 
+        self._stop_measure = stop_measure
+        self._stop_metric = stop_metric 
         self._iteration = 0
         self._max_iterations = maxiter
-
-        J_prior = math.inf
-        g_prior = np.repeat(1, X.shape[1])
-
+        self._X = X
+        self._y = y
+        self._state = {'j':{'prior':10**10, 'current':1},
+                       'g':{'prior':np.repeat(10**10, X.shape[1]), 'current':np.repeat(1, X.shape[1])},
+                       'v':{'prior':10**10, 'current':1}}
+      
         start = datetime.datetime.now()
 
-        while not self._stop:
+        while not self._finished():
             self._iteration += 1
 
+            # Compute the costs and validation set error (if required)
             h = self._hypothesis(X, theta)
             e = self._error(h, y)
             J = self._cost(e)
             g = self._gradient(X, e)
 
+            if self._stop_measure == 'v':
+                mse = self._mse(X_val, y_val, theta)
+                self._mse_history.append(mse)
+                self._state['v']['current'] = mse
+            
+            # Save current computations in state
+            self._state['j']['current'] = J
+            self._state['g']['current'] = g.tolist()
+            
+            # Save iterations, costs and thetas in history 
             self._theta_history.append(theta.tolist())
-            self._J_history.append(J)
+            self._J_history.append(J)            
             self._g_history.append(g.tolist())
             self._iterations.append(self._iteration)
 
-            if self._maxed_out(self._iteration):
-                self._stop = True             
-            elif self._stop_criteria == 'j':
-                self._stop = self._finished(J, J_prior)
-            elif self._stop_criteria == 'g':
-                self._stop = self._finished(g, g_prior)
-            if self._stop:
-                break
-
             theta = self._update(alpha, theta, g)
-            J_prior = J
-            g_prior = g
 
         end = datetime.datetime.now()
         diff = end-start
@@ -192,9 +243,11 @@ class GradientDescent:
         d['y'] = y
         d['elapsed_ms'] = diff.total_seconds() * 1000
         d['alpha'] = alpha
+        d['precision'] = precision
         d['iterations'] = self._iterations
         d['theta_history'] = self._theta_history
         d['J_history'] = self._J_history
+        d['mse_history'] = self._mse_history
         d['gradient_history'] = self._g_history
 
         return(d)
@@ -221,11 +274,23 @@ class GradientDescent:
             result = result.iloc[0:n]
         return(result)
 
-    def display_costs(self, costs=None, interval=100, path=None, fps=60):
+    def display_costs(self, costs=None, nth=1,interval=100, path=None, fps=60):
 
         # Sets costs 
         if costs is None:
             costs = self._J_history
+
+        # Create iteration vector
+        iteration = list(range(0,len(costs)))
+
+        # Extract 100 datapoints plus last for animation
+        nth = math.floor(len(costs)/100)
+        nth = max(nth,1)
+        iteration_plot = iteration[::nth]
+        iteration_plot.append(iteration[-1])
+        costs_plot = costs[::nth]
+        costs_plot.append(costs[-1])
+
 
         # Establish figure and axes objects and lines and points
         fig, ax = plt.subplots()
@@ -236,12 +301,13 @@ class GradientDescent:
         J_display = ax.text(.7, 0.8, '', transform=ax.transAxes, fontsize=16)
 
         # Plot cost line
-        ax.plot(np.arange(len(costs)), costs, c='r')
+        ax.plot(np.arange(len(costs_plot)), costs_plot, c='r')
 
         # Set labels and title
+        title = self._alg + r'$\alpha$' + " = " + str(round(self._alpha,3)) + " " + r'$\epsilon$' + " = " + str(round(self._precision,5)) 
         ax.set_xlabel(self._unit)
         ax.set_ylabel(r'$J(\theta)$')
-        ax.set_title(self._alg)
+        ax.set_title(title)
 
         def init():
             line.set_data([], [])
@@ -253,20 +319,21 @@ class GradientDescent:
 
         def animate(i):
             # Animate points
-            point.set_data(i, costs[i])
+            point.set_data(iteration_plot[i], costs_plot[i])
 
             # Animate value display
-            epoch_display.set_text(self._unit + " = " + str(i+1))
+            epoch_display.set_text(self._unit + " = " + str(iteration_plot[i]))
             J_display.set_text(r'     $J(\theta)=$' +
-                               str(round(costs[i], 4)))
+                               str(round(costs_plot[i], 4)))
 
             return(line, point, epoch_display, J_display)
 
         display = animation.FuncAnimation(fig, animate, init_func=init,
-                                          frames=len(costs), interval=interval,
+                                          frames=len(costs_plot), interval=interval,
                                           blit=True, repeat_delay=100)
         if path:
-            display.save(path, writer='imagemagick', fps=fps)
+            face_edge_colors = {'facecolor': 'w', 'edgecolor': 'w'}
+            display.save(path, writer='imagemagick', fps=fps, savefig_kwargs = face_edge_colors)
 
         plt.close(fig)
         return(display)
@@ -279,15 +346,28 @@ class GradientDescent:
             cost_history = self._J_history
         
         if len(theta_history[0]) > 2:
-            raise Exception("Surface only works on 2-dimensional X arrays")        
+            raise Exception("Surface only works on 2-dimensional X arrays")  
+
+        # Create iteration vector
+        iteration_all = list(range(1,len(theta_history)+1))
+
+        # Extract 100 datapoints for animation
+        nth = math.floor(len(theta_history)/100)
+        nth = max(nth,1)
+        iteration = iteration_all[::nth]
+        iteration.append(iteration_all[-1])
+        theta = theta_history[::nth]
+        theta.append(theta_history[-1])
+        costs = cost_history[::nth]  
+        costs.append(cost_history[-1])      
 
         # Designate plot area
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111, projection='3d')
         
         # Create the x=theta0, y=theta1 grid for plotting
-        theta0 = [item[0] for item in theta_history]
-        theta1 = [item[1] for item in theta_history]
+        theta0 = [item[0] for item in theta]
+        theta1 = [item[1] for item in theta]
 
         # Establish boundaries of plot
         theta0_min = min(-1, min(theta0))
@@ -312,12 +392,13 @@ class GradientDescent:
         ax.yaxis._axinfo["grid"]['color'] =  (1,1,1,0)
         ax.zaxis._axinfo["grid"]['color'] =  (1,1,1,0)
         # Make surface plot
+        title = self._alg + r'$\alpha$' + " = " + str(round(self._alpha,3)) + " " + r'$\epsilon$' + " = " + str(round(self._precision,5)) 
         ax.plot_surface(theta0_mesh, theta1_mesh, Js, rstride=1,
                 cstride=1, cmap='jet', alpha=0.5, linewidth=0)
         ax.set_xlabel(r'Intercept($\theta_0$)')
         ax.set_ylabel(r'Slope($\theta_1$)')
         ax.set_zlabel(r'Cost $J(\theta)$')
-        ax.set_title(self._alg, pad=30)
+        ax.set_title(title, pad=30)
         ax.view_init(elev=30., azim=30)
 
         # Build the empty line plot at the initiation of the animation
@@ -349,11 +430,11 @@ class GradientDescent:
         def animate(i):
             # Animate 3d Line
             line3d.set_data(theta0[:i], theta1[:i])
-            line3d.set_3d_properties(cost_history[:i])
+            line3d.set_3d_properties(costs[:i])
 
             # Animate 3d points
             point3d.set_data(theta0[i], theta1[i])
-            point3d.set_3d_properties(cost_history[i])
+            point3d.set_3d_properties(costs[i])
 
             # Animate 2d Line
             line2d.set_data(theta0[:i], theta1[:i])
@@ -364,9 +445,9 @@ class GradientDescent:
             point2d.set_3d_properties(0)
 
             # Update display
-            display.set_text('Epoch: '+ str(i) + r'$\quad\theta_0=$ ' +
+            display.set_text('Epoch: '+ str(iteration[i]) + r'$\quad\theta_0=$ ' +
                             str(round(theta0[i],3)) + r'$\quad\theta_1=$ ' + str(round(theta1[i],3)) +
-                            r'$\quad J(\theta)=$ ' + str(np.round(cost_history[i], 5)))
+                            r'$\quad J(\theta)=$ ' + str(np.round(costs[i], 5)))
 
 
             return(line3d, point3d, line2d, point2d, display)
@@ -375,7 +456,8 @@ class GradientDescent:
         surface_ani = animation.FuncAnimation(fig, animate, init_func=init, frames=len(theta0),
                                             interval=interval, blit=True, repeat_delay=100)
         if path:
-            surface_ani.save(path, writer='imagemagick', fps=fps)
+            face_edge_colors = {'facecolor': 'w', 'edgecolor': 'w'}
+            surface_ani.save(path, writer='imagemagick', fps=fps, savefig_kwargs=face_edge_colors)
         plt.close(fig)
         return(surface_ani)
 
@@ -389,12 +471,25 @@ class GradientDescent:
         if self._X.shape[1] > 2:
             raise Exception("Show_fit only works on 2-dimensional X arrays")    
 
+        # Create iteration vector
+        iteration_all = list(range(1, len(theta_history)+1))
+
+        # Extract 100 datapoints for plotting
+        nth = math.floor(len(theta_history)/100)
+        nth = max(nth,1)
+        iteration = iteration_all[::nth]
+        iteration.append(iteration_all[-1])
+        theta = theta_history[::nth]
+        theta.append(theta_history[-1])
+        costs = J_history[::nth]
+        costs.append(J_history[-1])        
+
         # Extract data for plotting
         X = self._X
         y = self._y
         x = [item[1] for item in X]
-        theta0 = [item[0] for item in theta_history]
-        theta1 = [item[1] for item in theta_history]
+        theta0 = [item[0] for item in theta]
+        theta1 = [item[1] for item in theta]
 
         # Render scatterplot
         fig, ax = plt.subplots()
@@ -404,8 +499,8 @@ class GradientDescent:
         line, = ax.plot([],[],'r-', lw=2)
 
         # Annotations and labels
-        title = "Model Fit by " + self._alg
-        display = ax.text(0.1, 0.9, '', transform=ax.transAxes)
+        title = "Model Fit By " + self._alg + r'$\alpha$' + " = " + str(round(self._alpha,3)) + " " + r'$\epsilon$' + " = " + str(round(self._precision,5))
+        display = ax.text(0.1, 0.9, '', transform=ax.transAxes, fontsize=16)
         ax.set_xlabel('X')
         ax.set_ylabel('y')
         ax.set_title(title)
@@ -420,75 +515,72 @@ class GradientDescent:
         def animate(i):
 
             # Animate Line
-            y=X.dot(theta_history[i])
+            y=X.dot(theta[i])
             line.set_data(x,y)
 
             # Animate text
-            display.set_text('Epoch: '+ str(i) + r'$\quad\theta_0=$ ' +
+            display.set_text('Epoch: '+ str(iteration[i]) + r'$\quad\theta_0=$ ' +
                             str(round(theta0[i],3)) + r'$\quad\theta_1=$ ' + str(round(theta1[i],3)) +
-                            r'$\quad J(\theta)=$ ' + str(round(J_history[i], 3)))
+                            r'$\quad J(\theta)=$ ' + str(round(costs[i], 3)))
             return (line, display)
 
         # create animation using the animate() function
-        line_gd = animation.FuncAnimation(fig, animate, init_func=init, frames=len(theta_history),
+        line_gd = animation.FuncAnimation(fig, animate, init_func=init, frames=len(theta),
                                             interval=interval, blit=True, repeat_delay=100)
         if path:
-            line_gd.save(path, writer='imagemagick', fps=fps)
+            face_edge_colors = {'facecolor': 'w', 'edgecolor': 'w'}
+            line_gd.save(path, writer='imagemagick', fps=fps, savefig_kwargs=face_edge_colors)
         plt.close(fig)
         return(line_gd)  
 
-    def _iterations_plot(self, searches):
+    def _iterations_plot(self):
         df = pd.DataFrame()
-        for s in searches:
+        for s in self._searches:
             df2 = pd.DataFrame({'Alpha': round(s['alpha'],2),
                                 'Iterations': s['iterations'][-1]}, index=[0])
             df = df.append(df2)
-        fig, ax = plt.subplots()
-        sns.set(style="whitegrid", font_scale=2)
-        iterations = sns.barplot(x=df.iloc[:,0], y=df.iloc[:,1], ax=ax)
-        return(iterations) 
+        sns.set(style="whitegrid", font_scale=1)
+        p = sns.barplot(x=df.iloc[:,0], y=df.iloc[:,1])
+        return(p) 
 
-    def _duration_plot(self, searches):
+    def _duration_plot(self):
         df = pd.DataFrame()
-        for s in searches:
+        for s in self._searches:
             df2 = pd.DataFrame({'Alpha': round(s['alpha'],2),
                                 'Elapsed (ms)': s['elapsed_ms']}, index=[0])
             df = df.append(df2)
-        fig, ax = plt.subplots()
-        sns.set(style="whitegrid", font_scale=2)
-        duration = sns.barplot(x=df.iloc[:,0], y=df.iloc[:,1], ax=ax)
-        return(duration)
+        sns.set(style="whitegrid", font_scale=1)
+        p = sns.barplot(x=df.iloc[:,0], y=df.iloc[:,1])
+        return(p)
 
-    def _learning_rate_plot(self, searches):
+    def learning_rate_plot(self):
         df = pd.DataFrame()
-        for s in searches:
+        for s in self._searches:
             df2 = pd.DataFrame({'Iteration': s['iterations'],
                                 'Cost': s['J_history'],
                                 'Learning Rate': round(s['alpha'],2)})
             df = df.append(df2)
-        fig, ax = plt.subplots()
-        sns.set(style="whitegrid", font_scale=2)
-        lr = sns.lineplot(x=df.iloc[:,0], y=df.iloc[:,1], hue=df.iloc[:,2], ax=ax)
-        return(lr)
+        sns.set(style="whitegrid", font_scale=1)        
+        p = sns.lineplot(x=df.iloc[:,0], y=df.iloc[:,1], hue=df.iloc[:,2], 
+                         legend='full')
+        return(p)
 
-    def _evaluation_plot(self, searches, X_test, y_test):
-        df = pd.DataFrame()
-        for s in searches:
+    def _validation_plot(self, X_test, y_test):
+        df = pd.DataFrame()        
+        for s in self._searches:
             theta = s['theta_history'][-1]
-            h = self._hypothesis(X = X_test, theta=theta)
-            e = self._error(h, y_test)
-            mse = self._mse(e)
+            mse = self._mse(X_test, y_test, theta)
             df2 = pd.DataFrame({'Learning Rate': round(s['alpha'],2),
                                 'MSE': mse}, index=[0])
             df = df.append(df2)
-        fig, ax = plt.subplots()
-        sns.set(style="whitegrid", font_scale=2)
-        mse = sns.barplot(x=df.iloc[:,0], y=df.iloc[:,1], ax=ax)        
-        return(df, searches)
+        sns.set(style="whitegrid", font_scale=1)
+        p = sns.barplot(x=df.iloc[:,0], y=df.iloc[:,1])      
+ 
+        return(df, p)
 
-    def _tune_summary(self, searches, mse=None):
+    def _evaluate_summary(self, mse=None):
         df = pd.DataFrame()
-        for s in searches:
+        for s in self._searches:
             df2 = pd.DataFrame({'Algorithm': self._alg,
                                 'Learning Rate': round(s['alpha'],2),
                                 'Iterations': len(s['iterations']),
@@ -500,25 +592,60 @@ class GradientDescent:
         return(df)
 
 
-    def tune(self, X, y, theta, alpha, X_test=None, y_test=None, maxiter=100, precision=0.001,
-               stop_criteria='j', stop_value='a'):
-        searches = [self.search(X=X,y=y,theta=theta, alpha=ALPHA, maxiter=maxiter,
-                    precision=precision)
-                    for ALPHA in alpha]
-        plots = {}
-        lr = self._learning_rate_plot(searches)
-        duration = self._duration_plot(searches)  
-        iterations = self._iterations_plot(searches)
+    def evaluate(self, X, y, theta, alpha, X_test=None, y_test=None, maxiter=100, precision=0.001,
+               stop_measure='j', stop_metric='a'):
+
+        fig = plt.figure(figsize=(12,10))
+        gs = fig.add_gridspec(2,2)
+
+        # Rerun search to convergence for duration, iteration, and cross-validation plots
+        self._searches = [self.search(X=X,y=y,theta=theta, alpha=ALPHA, 
+                    precision=precision, stop_measure=stop_measure, stop_metric=stop_metric)
+                    for ALPHA in alpha]   
+        # Learning Rate                
+        ax0 = fig.add_subplot(gs[0,0])
+        ax0 = self._learning_rate_plot()
+        ax0.set_facecolor('w')
+        ax0.tick_params(colors='k')
+        ax0.xaxis.label.set_color('k')
+        ax0.yaxis.label.set_color('k')
+        ax0.set_xlabel('Iterations')
+        ax0.set_ylabel('Cost')
+        title = 'Convergence by Learning Rate and Precision ' + r'$\epsilon$' + " = " + str(round(self._precision,5)) 
+        ax0.set_title(title, color='k')
+        
+        # Duration Plot
+        ax1 = fig.add_subplot(gs[0,1])
+        ax1 = self._duration_plot()  
+        ax1.set_xlabel('Learning Rate')
+        ax1.set_ylabel('Duration (ms)')
+        title = 'Computation Time by Learning Rate and Precision ' + r'$\epsilon$' + " = " + str(round(self._precision,5)) 
+        ax1.set_title(title)
+
+        # Iterations Plot
+        ax2 = fig.add_subplot(gs[1,0])
+        ax2 = self._iterations_plot()
+        ax2.set_xlabel('Learning Rate')
+        ax2.set_ylabel('Iterations')
+        title = 'Iterations by Learning Rate and Precision ' + r'$\epsilon$' + " = " + str(round(self._precision,5)) 
+        ax2.set_title(title)    
+
+        # Validation Plot
         if X_test is not None:
-            mse, searches = self._evaluation_plot(searches, X_test, y_test)                    
+            ax3 = fig.add_subplot(gs[1,1])
+            mse, ax3 = self._validation_plot(X_test, y_test)  
+            ax3.set_xlabel('Learning Rate')
+            ax3.set_ylabel('Mean Squared Error')
+            title = 'Cross-Validation Performance by Learning Rate and Precision ' + r'$\epsilon$' + " = " + str(round(self._precision,5)) 
+            ax3.set_title(title)                                
         else:
-            mse = None
-        df = self._tune_summary(searches, mse)
-        plots['learning_rate'] = lr
-        plots['duration'] = duration
-        plots['iterations'] = iterations
-        plots['evaluation'] = mse
-        return(df, plots)
+            mse=None        
+        df = self._evaluate_summary(mse)
+
+        suptitle = self._alg + ' Diagnostics'
+        fig.suptitle(suptitle, y=1.05)
+        fig.tight_layout()
+        return(df, fig)
     
 
 class BGD(GradientDescent):
@@ -535,9 +662,10 @@ class BGD(GradientDescent):
         self._y = []
         self._iteration = 0
         self._max_iterations = 0
-        self._stop_criteria = "j"
+        self._stop_measure = "j"
         self._precision = 0.001
-        self._stop_value = 'a'
+        self._stop_metric = 'a'
+        self._searches = []
 
 
 class SGD(GradientDescent):
@@ -564,9 +692,10 @@ class SGD(GradientDescent):
         self._y_i = []
         self._X_i_smooth = []
         self._y_i_smooth = []               
-        self._stop_criteria = "j"
+        self._stop_measure = "j"
         self._precision = 0.001
-        self._stop_value = 'a'
+        self._stop_metric = 'a'
+        self._searches = []
 
 
     def _shuffle(self, X, y):
@@ -578,7 +707,7 @@ class SGD(GradientDescent):
         return(X, y)
 
     def search(self, X, y, theta, alpha=0.01, maxiter=0, 
-               stop_criteria='j', stop_value='a',
+               stop_measure='j', stop_metric='a',
                precision=0.0001, check_grad=100):
         self._J_history = []
         self._J_history_smooth = []        
@@ -602,9 +731,9 @@ class SGD(GradientDescent):
         self._X_i_smooth = []
         self._y_i_smooth = []    
 
-        self._stop_criteria = stop_criteria
+        self._stop_measure = stop_measure
         self._precision = precision
-        self._stop_value = stop_value  
+        self._stop_metric = stop_metric  
 
         epoch = 0
         g_prior = np.repeat(1, X.shape[1])
@@ -649,9 +778,9 @@ class SGD(GradientDescent):
 
                     if self._maxed_out(self._iteration):
                         self._stop = True
-                    elif self._stop_criteria == 'j':
+                    elif self._stop_measure == 'j':
                         self._stop = self._finished(J_smooth, J_prior)
-                    elif self._stop_criteria == 'g':
+                    elif self._stop_measure == 'g':
                         self._stop = self._finished(g_smooth, g_prior)
                     if self._stop:
                         break
@@ -743,9 +872,9 @@ class MBGD(GradientDescent):
         self._iteration = 0
         self._iterations = []
         self._max_iterations = 0
-        self._stop_criteria = "j"
+        self._stop_measure = "j"
         self._precision = 0.001
-        self._stop_value = 'a'
+        self._stop_metric = 'a'
 
     def _shuffle(self, X, y):
         y = np.expand_dims(y, axis=1)
@@ -761,7 +890,7 @@ class MBGD(GradientDescent):
         return(X, y)
 
     def search(self, X, y, theta, alpha=0.01, batch_size = 50,
-               stop_criteria = 'j', stop_value = 'a',
+               stop_measure = 'j', stop_metric = 'a',
                maxiter=0, precision=0.0001):
         self._J_history = []
         self._theta_history = []
@@ -771,8 +900,8 @@ class MBGD(GradientDescent):
         self._batches = []
         self._iterations = []
         self._iteration = 0
-        self._stop_criteria = stop_criteria
-        self._stop_value = stop_value
+        self._stop_measure = stop_measure
+        self._stop_metric = stop_metric
         self._max_iterations = maxiter
         self._batch_size = batch_size
         self._X = X
@@ -806,9 +935,9 @@ class MBGD(GradientDescent):
 
                 if self._maxed_out(self._iteration):
                     self._stop = True
-                elif self._stop_criteria == 'j':
+                elif self._stop_measure == 'j':
                     self._stop = self._finished(J, J_prior)
-                elif self._stop_criteria == 'g':
+                elif self._stop_measure == 'g':
                     self._stop = self._finished(g, g_prior)
                 if self._stop:
                     break
@@ -850,37 +979,40 @@ class MBGD(GradientDescent):
             result = result.iloc[0:n]
         return(result)
 # %%
-from data import data
-ames = data.read()
-ames = ames[['Area', 'SalePrice']]
-df = ames.sample(n=100, random_state=50, axis=0)
-test = ames.loc[~ames.index.isin(df.index),:]
-test = test.dropna()
-df = df.reset_index(drop=True)
-test = test.reset_index(drop=True)
-X = df[['Area']]
-y = df['SalePrice']
-X_test = test[['Area']]
-y_test = test[['SalePrice']]
+# from data import data
+# ames = data.read()
+# ames = ames[['Area', 'SalePrice']]
+# df = ames.sample(n=100, random_state=50, axis=0)
+# test = ames.loc[~ames.index.isin(df.index),:]
+# test = test.dropna()
+# df = df.reset_index(drop=True)
+# test = test.reset_index(drop=True)
+# X = df[['Area']]
+# y = df['SalePrice']
+# X_test = test[['Area']]
+# y_test = test[['SalePrice']]
 
-#%%
-gd = BGD()
-np.random.seed(50)
-X, y = gd.encode_labels(X, y)
-X, y = gd.scale(X, y, 'minmax', bias=True)
-X_test, y_test = gd.encode_labels(X_test, y_test)
-X_test, y_test = gd.scale(X_test, y_test, 'minmax', bias=True)
-theta = np.array([-1,0])
-#gd.search(X,y, theta)
-alpha = np.arange(0.01,0.1,0.02)
-ts, p = gd.tune(X, y, theta, X_test = X_test, y_test=y_test, maxiter = 100, alpha=alpha, stop_criteria=None)
-ts
-p
-plt.show()
-#report = gd.report(n=20)
-#report
+
+# gd = BGD()
+# np.random.seed(50)
+# X, y = gd.encode_labels(X, y)
+# X, y = gd.scale(X, y, 'minmax', bias=True)
+# X_test, y_test = gd.encode_labels(X_test, y_test)
+# X_test, y_test = gd.scale(X_test, y_test, 'minmax', bias=True)
+# theta = np.array([-1,0])
+# #gd.search(X,y, theta)
+# alpha = np.arange(0.01,0.1,0.02)
+# ts, p = gd.tune(X, y, theta, X_test = X_test, y_test=y_test, maxiter = 100, alpha=alpha, stop_measure=None)
+# ts
+# p
+# plt.show()
+# report = gd.report(n=20)
+# report
+
+
 
 # %%
+# ts
 # ani = gd.display_costs(costs= search['J_history'], interval=100)
 # HTML(ani.to_jshtml())
 # rc('animation', html='jshtml')
