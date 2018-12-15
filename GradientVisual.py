@@ -1,8 +1,31 @@
 
 # %%
 # =========================================================================== #
-#                             Gradient Descent                                #
+#                             GRADIENT VISUAL                                 #
 # =========================================================================== #
+'''
+    Module for visualizing and evaluating gradient descent algorithms. It is 
+    comprised of an abstract base class that defines methods common among the 
+    various gradient descent algorithms. It also has concrete classes for each
+    gradient descent variant, including:
+    - Batch Gradient Descent
+    - Stochastic Gradient Descent
+    - Mini-batch Gradient Descent
+
+    Visualization classes also exist for several gradient descent optimization
+    algorithms, including:
+    - Momentum 
+    - Nesterov Accelerated Gradient
+    - Adagrad
+    - Adadelta
+    - RMSProp
+    - Adam
+    - Adamax
+    - Nadam    
+'''
+# --------------------------------------------------------------------------- #
+#                                LIBRARIES                                    #
+# --------------------------------------------------------------------------- #
 import inspect
 import os
 import sys
@@ -27,233 +50,28 @@ import numpy as np
 from numpy import array, newaxis
 import pandas as pd
 import seaborn as sns
-from sklearn import linear_model
-from sklearn.datasets import make_regression
-from sklearn import preprocessing
-from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import StandardScaler
 from textwrap import wrap
 rcParams['animation.embed_limit'] = 60
 rc('animation', html='jshtml')
 rc
 # --------------------------------------------------------------------------- #
-#                       Gradient Descent Base Class                           #
+#                         GRADIENTVISUAL BASE CLASS                           #
 # --------------------------------------------------------------------------- #
-
-
-class GradientDescent:
-    '''Base class for Gradient Descent'''
+class GradientVisual:
+    '''
+    Base class for all gradient descent variants and optimization algorithms.
+    '''
 
     def __init__(self):
-        self._alg = "Batch Gradient Descent"
-        self._unit = "Epoch"
-        self._J_history = []
-        self._theta_history = []
-        self._g_history = []
-        self._mse_history = []
-        self._iterations = []
-        self._precision = 0.001
-        self._alpha = 0.01
-        self._searches = []
+        self._search = None
 
-    def _hypothesis(self, X, theta):
-        return(X.dot(theta))
-
-    def _error(self, h, y):
-        return(h-y)
-
-    def _cost(self, e):
-        return(1/2 * np.mean(e**2))
-
-    def _mse(self, X, y, theta):
-        h = self._hypothesis(X, theta)
-        e = self._error(h, y)
-        return(np.mean(e**2))
-
-    def cost_mesh(self, X, y, THETA):
-        return(np.sum((X.dot(THETA) - y)**2)/(2*len(y)))
-
-    def _gradient(self, X, e):
-        return(X.T.dot(e)/X.shape[0])
-
-    def _update(self, alpha, theta, gradient):
-        return(theta-(alpha * gradient))
-
-    def _encode_labels(self, X, y):
-        le = LabelEncoder()
-        if isinstance(X, pd.core.frame.DataFrame):
-            X = X.apply(le.fit_transform)
+    def _get_search(self, search=None):
+        if search is None:
+            if self._search is None:
+                raise Exception('No gradient search object provided')
         else:
-            x = le.fit_transform(X)
-        if isinstance(y, pd.core.frame.DataFrame):
-            y = y.apply(le.fit_transform)
-        else:
-            y = le.fit_transform(y)
-        return(X, y)
-
-    def _scale(self, X, y, scaler='minmax', bias=False):
-        # Select scaler
-        if scaler == 'minmax':
-            scaler = MinMaxScaler()
-        else:
-            scaler = StandardScaler()
-
-        # Put X and y into a dataframe
-        if isinstance(X, pd.core.frame.DataFrame):                
-            y = pd.DataFrame({'y': y})
-            df = pd.concat([X, y], axis=1)
-        else:
-            df = pd.DataFrame({'X':X, 'y':y})
-
-        # Scale then return X and y
-        df_scaled = scaler.fit_transform(df)
-        df = pd.DataFrame(df_scaled, columns=df.columns)
-
-        # Add bias term
-        if bias:
-            X0 = pd.DataFrame(np.ones((df.shape[0], 1)), columns=['X0'])
-            df = pd.concat([X0, df], axis=1)
-        X = df.drop(columns=['y']).values
-        y = df['y']
-        return(X, y)
-
-    def prep_data(self, X,y, scaler='minmax', bias=True):        
-        X, y = self._encode_labels(X,y)
-        X, y = self._scale(X,y, scaler, bias)
-        return(X,y)        
-
-    def _zeros(self, d):
-        for k, v in d.items():
-            for i, j in v.items():
-                if type(j) is float or type(j) is int:
-                    if (j<10**-10) & (j>0):
-                        j = 10**-10
-                    elif (j>-10**-10) & (j<0):
-                        j = -10**-10
-                else: 
-                    for l in j:
-                        if (l<10**-10) & (l>0):
-                            l = 10**-10
-                        elif (l>-10**-10) & (l<0):
-                            l = -10**-10
-        return(d)
-
-    def _finished_grad(self):
-
-        if self._stop_metric == 'a':
-            result = (all(abs(y-x)<self._precision for x,y in zip(self._state['g']['prior'], self._state['g']['current'])))
-        else:    
-            result = (all(abs((y-x)/x)<self._precision for x,y in zip(self._state['g']['prior'], self._state['g']['current'])))
-        self._state['g']['prior'] = self._state['g']['current']
-        return(result)
-
-    
-    def _finished_v(self):
-
-        if self._stop_metric == 'a':
-            result = (abs(self._state['v']['current']-self._state['v']['prior']) < self._precision)                        
-        else:
-            result = (abs((self._state['v']['current']-self._state['v']['prior'])/self._state['v']['prior']) < self._precision)
-        self._state['v']['prior'] = self._state['v']['current']
-        return(result)
-
-    def _finished_J(self):
-
-        if self._stop_metric == 'a':
-            result = (abs(self._state['j']['current']-self._state['j']['prior']) < self._precision)                        
-        else:
-            result = (abs((self._state['j']['current']-self._state['j']['prior'])/self._state['j']['prior']) < self._precision)
-        self._state['j']['prior'] = self._state['j']['current']
-        return(result)
-
-
-    def _maxed_out(self):
-        if self._max_iterations:
-            if self._iteration == self._max_iterations:
-                return(True)  
-
-    def _finished(self):
-        self._state = self._zeros(self._state)
-        if self._maxed_out():
-            return(True)
-        elif self._stop_measure == 'j':
-            return(self._finished_J())
-        elif self._stop_measure == 'g':
-            return(self._finished_grad())    
-        else:
-            return(self._finished_v())
-
-  
-
-    def search(self, X, y, theta, X_val=None, y_val=None, 
-               alpha=0.01, maxiter=0, precision=0.001,
-               stop_measure='j', stop_metric='a', n_val=0):
-
-        self._J_history = []
-        self._theta_history = []
-        self._g_history = []
-        self._iterations = []
-        self._mse_history = []
-        self._alpha = alpha
-        self._precision = precision
-        self._stop_measure = stop_measure
-        self._stop_metric = stop_metric 
-        self._iteration = 0
-        self._max_iterations = maxiter
-        self._X = X
-        self._y = y
-        self._state = {'j':{'prior':10**10, 'current':1},
-                       'g':{'prior':np.repeat(10**10, X.shape[1]), 'current':np.repeat(1, X.shape[1])},
-                       'v':{'prior':10**10, 'current':1}}
-      
-        start = datetime.datetime.now()
-
-        while not self._finished():
-            self._iteration += 1
-
-            # Compute the costs and validation set error (if required)
-            h = self._hypothesis(X, theta)
-            e = self._error(h, y)
-            J = self._cost(e)
-            g = self._gradient(X, e)
-
-            if X_val is not None:
-                mse = self._mse(X_val, y_val, theta)
-                self._mse_history.append(mse)
-                self._state['v']['current'] = mse
-            
-            # Save current computations in state
-            self._state['j']['current'] = J
-            self._state['g']['current'] = g.tolist()
-            
-            # Save iterations, costs and thetas in history 
-            self._theta_history.append(theta.tolist())
-            self._J_history.append(J)            
-            self._g_history.append(g.tolist())
-            self._iterations.append(self._iteration)
-
-            theta = self._update(alpha, theta, g)
-
-        end = datetime.datetime.now()
-        diff = end-start
-
-        d = dict()
-        d['alg'] = self._alg
-        d['X'] = X
-        d['y'] = y
-        d['elapsed_ms'] = diff.total_seconds() * 1000
-        d['alpha'] = alpha
-        d['precision'] = precision
-        d['stop_measure'] = self._stop_measure
-        d['stop_metric'] = self._stop_metric
-        d['iterations'] = self._iterations
-        d['theta_history'] = self._theta_history
-        d['J_history'] = self._J_history
-        d['mse_history'] = self._mse_history
-        d['gradient_history'] = self._g_history
-
-        return(d)
+            self._search = search
+        return(self._search)
 
     def _todf(self, x, stub):
         n = len(x[0])
@@ -265,13 +83,15 @@ class GradientDescent:
             df = pd.concat([df, df_vec], axis=1)
         return(df)
 
-    def report(self, n=0):
+    def report(self, search=None, thetas=False, gradients=False):
 
-        # Epochs dataframe
-        iterations = pd.DataFrame(self._iterations, columns=[self._unit])
-        costs = pd.DataFrame(self._J_history, columns=['Cost'])
-        thetas = self._todf(self._theta_history, stub='theta_')
-        gradients = self._todf(self._g_history, stub='gradient_')
+        search = self._get_search(search)
+
+        # Format 
+        iterations = pd.DataFrame(search['iteration'], columns=['Iteration'])
+        costs = pd.DataFrame(search['J_history'], columns=['Cost'])
+        thetas = self._todf(search['theta_history'], stub='theta_')
+        gradients = self._todf(search['g_history'], stub='gradient_')
         result = pd.concat([iterations, thetas, costs, gradients], axis=1)
         if n:
             result = result.iloc[0:n]
@@ -1023,384 +843,4 @@ class GradientDescent:
         eval = self._evaluation_summary()                
         return(eval, diagnostic)
     
-
-class BGD(GradientDescent):
-    def __init__(self):
-        self._alg = "Batch Gradient Descent"
-        self._unit = "Epoch"
-        self._J_history = []
-        self._theta_history = []
-        self._h_history = []
-        self._g_history = []
-        self._stop = False
-        self._epochs = []
-        self._X = []
-        self._y = []
-        self._iteration = 0
-        self._max_iterations = 0
-        self._stop_measure = "j"
-        self._precision = 0.001
-        self._stop_metric = 'a'
-        self._searches = []
-
-
-class SGD(GradientDescent):
-
-    def __init__(self):
-        self._alg = "Stochastic Gradient Descent"
-        self._unit = "Iteration"
-        self._J_history = []
-        self._J_history_smooth = []
-        self._theta_history = []
-        self._theta_history_smooth = []
-        self._h_history = []
-        self._g_history = []
-        self._stop = False
-        self._epochs = []
-        self._epochs_smooth = []
-        self._iteration = 0
-        self._max_iterations = 0
-        self._iterations = []
-        self._iterations_smooth = []
-        self._X = []
-        self._y = []
-        self._X_i = []
-        self._y_i = []
-        self._X_i_smooth = []
-        self._y_i_smooth = []               
-        self._stop_measure = "j"
-        self._precision = 0.001
-        self._stop_metric = 'a'
-        self._searches = []
-
-
-    def _shuffle(self, X, y):
-        y = np.expand_dims(y, axis=1)
-        z = np.append(arr=X, values=y, axis=1)
-        np.random.shuffle(z)
-        X = np.delete(z, z.shape[1]-1, axis=1)
-        y = z[:, z.shape[1]-1]
-        return(X, y)
-
-    def search(self, X, y, theta, alpha=0.01, maxiter=0, 
-               stop_measure='j', stop_metric='a',
-               precision=0.0001, check_grad=100):
-        self._J_history = []
-        self._J_history_smooth = []        
-        self._theta_history = []
-        self._theta_history_smooth = []
-        self._h_history = []
-        self._h_history_smooth = []
-        self._g_history = []
-        self._g_history_smooth = []
-        self._stop = False
-        self._epochs = []
-        self._epochs_smooth = []
-        self._iteration = 0
-        self._max_iterations = maxiter
-        self._iterations = []
-        self._iterations_smooth = []
-        self._X = X
-        self._y = y
-        self._X_i = []
-        self._y_i = []
-        self._X_i_smooth = []
-        self._y_i_smooth = []    
-
-        self._stop_measure = stop_measure
-        self._precision = precision
-        self._stop_metric = stop_metric  
-
-        epoch = 0
-        g_prior = np.repeat(1, X.shape[1])
-        J_prior = math.inf
-        J_total = 0
-
-        start = datetime.datetime.now()
-
-        while not self._stop:
-            epoch += 1
-            X, y = self._shuffle(X, y)
-
-            for x_i, y_i in zip(X, y):
-                self._iteration += 1
-
-                h = self._hypothesis(x_i, theta)
-                e = self._error(h, y_i)
-                J = self._cost(e)
-                J_total += J
-                g = self._gradient(x_i, e)
-
-                self._h_history.append(h)
-                self._J_history.append(J)
-                self._theta_history.append(theta.tolist())
-                self._g_history.append(g.tolist())
-                self._epochs.append(epoch)
-                self._iterations.append(self._iteration)
-                self._X_i.append(x_i)
-                self._y_i.append(y_i)
-
-                if self._iteration % check_grad == 0:
-                    J_smooth = J_total / check_grad
-                    g_smooth = g
-                    self._h_history_smooth.append(h)
-                    self._J_history_smooth.append(J_smooth)
-                    self._theta_history_smooth.append(theta.tolist())
-                    self._g_history_smooth.append(g_smooth.tolist())
-                    self._epochs_smooth.append(epoch)
-                    self._iterations_smooth.append(self._iteration)
-                    self._X_i_smooth.append(x_i)
-                    self._y_i_smooth.append(y_i)                    
-
-                    if self._maxed_out(self._iteration):
-                        self._stop = True
-                    elif self._stop_measure == 'j':
-                        self._stop = self._finished(J_smooth, J_prior)
-                    elif self._stop_measure == 'g':
-                        self._stop = self._finished(g_smooth, g_prior)
-                    if self._stop:
-                        break
-                    
-                    J_prior = J_smooth
-                    g_prior = g_smooth
-                    J_total = 0
-
-                theta = self._update(alpha, theta, g)
-
-        end = datetime.datetime.now()
-        diff = end-start
-
-        d = dict()
-        d['alg'] = self._alg
-        d['X'] = X
-        d['y'] = y
-        d['X_i'] = self._X_i
-        d['y_i'] = self._y_i
-        d['elapsed_ms'] = diff.total_seconds() * 1000
-        d['alpha'] = alpha
-        d['epochs'] = self._epochs
-        d['epochs_smooth'] = self._epochs_smooth
-        d['iterations'] = self._iterations
-        d['iterations_smooth'] = self._iterations_smooth
-        d['h_history'] = self._h_history
-        d['theta_history'] = self._theta_history
-        d['theta_history_smooth'] = self._theta_history_smooth
-        d['J_history'] = self._J_history
-        d['J_history_smooth'] = self._J_history_smooth
-        d['g_history'] = self._g_history
-        d['g_history_smooth'] = self._g_history_smooth
-        
-
-        return(d)
-
-    def report_detail(self, data,n=0):
-
-        epochs = pd.DataFrame(data['Epoch'], columns=['Epoch'])
-        iterations = pd.DataFrame(data['Iteration'], columns=['Iteration'])
-        y = pd.DataFrame(data['y'], columns=['y'])
-        h = pd.DataFrame(data['h'], columns=['h'])
-        J = pd.DataFrame(data['J'], columns=['Cost'])
-
-        # Create thetas dataframe columns
-        thetas = self._todf(data['Theta'], stub='theta_')
-        gradients = self._todf(data['g'], stub='gradient_')
-        
-        result = pd.concat([epochs, iterations, thetas, y,
-                            h, J, gradients], axis=1, sort=False)
-        if n:
-            result = result.iloc[0:n]
-        return(result)
-
-    def report(self, n=0, smooth=False):
-        if smooth:
-            data = {'Epoch': self._epochs_smooth,
-                    'Iteration': self._iterations_smooth,
-                    'Theta': self._theta_history_smooth,
-                    'h': self._h_history_smooth,
-                    'y': self._y_i_smooth,
-                    'J': self._J_history_smooth,
-                    'g': self._g_history_smooth
-                    }
-            return(self.report_detail(data, n))
-        else:
-            data = {'Epoch': self._epochs,
-                    'Iteration': self._iterations,
-                    'Theta': self._theta_history,
-                    'h': self._h_history,
-                    'y': self._y_i,
-                    'J': self._J_history,
-                    'g': self._g_history
-                    }
-            return(self.report_detail(data, n))
-
-class MBGD(GradientDescent):
-
-    def __init__(self):
-        self._alg = "Mini-Batch Gradient Descent"
-        self._unit = "Batch"
-        self._J_history = []
-        self._theta_history = []
-        self._g_history = []
-        self._stop = False
-        self._epochs = []
-        self._X = []
-        self._y = []
-        self._iteration = 0
-        self._iterations = []
-        self._max_iterations = 0
-        self._stop_measure = "j"
-        self._precision = 0.001
-        self._stop_metric = 'a'
-
-    def _shuffle(self, X, y):
-        y = np.expand_dims(y, axis=1)
-        z = np.append(arr=X, values=y, axis=1)
-        np.random.shuffle(z)
-        X = np.delete(z, z.shape[1]-1, axis=1)
-        y = z[:, z.shape[1]-1]
-        return(X, y)
-
-    def _get_batch(self, X, y, batch):
-        X = X[batch:batch+self._batch_size,:]
-        y = y[batch:batch+self._batch_size]
-        return(X, y)
-
-    def search(self, X, y, theta, alpha=0.01, batch_size = 50,
-               stop_measure = 'j', stop_metric = 'a',
-               maxiter=0, precision=0.0001):
-        self._J_history = []
-        self._theta_history = []
-        self._g_history = []
-        self._stop = False
-        self._epochs = []
-        self._batches = []
-        self._iterations = []
-        self._iteration = 0
-        self._stop_measure = stop_measure
-        self._stop_metric = stop_metric
-        self._max_iterations = maxiter
-        self._batch_size = batch_size
-        self._X = X
-        self._y = y        
-
-        epoch = 0
-        n_batches = math.ceil(X.shape[0] / batch_size)
-        J_prior = math.inf
-        g_prior = np.repeat(1, X.shape[1])
-
-        start = datetime.datetime.now()
-
-        while not self._stop:
-            epoch += 1
-            X, y = self._shuffle(X, y)
-
-            for batch in np.arange(n_batches):
-                X_batch, y_batch = self._get_batch(X,y, batch)
-                self._iteration += 1
-                h = self._hypothesis(X_batch, theta)
-                e = self._error(h, y_batch)
-                J = self._cost(e)
-                g = self._gradient(X_batch, e)
-
-                self._iterations.append(self._iteration)
-                self._theta_history.append(theta.tolist())
-                self._J_history.append(J)
-                self._g_history.append(g.tolist())
-                self._epochs.append(epoch)
-                self._batches.append(batch+1)
-
-                if self._maxed_out(self._iteration):
-                    self._stop = True
-                elif self._stop_measure == 'j':
-                    self._stop = self._finished(J, J_prior)
-                elif self._stop_measure == 'g':
-                    self._stop = self._finished(g, g_prior)
-                if self._stop:
-                    break
-
-                theta = self._update(alpha, theta, g)                
-                J_prior = J
-                g_prior = g
-
-        end = datetime.datetime.now()
-        diff = end-start
-
-        d = dict()
-        d['alg'] = self._alg
-        d['X'] = X
-        d['y'] = y
-        d['elapsed_ms'] = diff.total_seconds() * 1000
-        d['alpha'] = alpha
-        d['batches'] = self._batches
-        d['epochs'] = self._epochs
-        d['iterations'] = self._iterations
-        d['theta_history'] = self._theta_history
-        d['J_history'] = self._J_history
-        d['gradient_history'] = self._g_history
-
-        return(d)
-
-    def report(self, n=0):
-
-        iterations = pd.DataFrame(self._iterations, columns=['Iteration'])
-        epochs = pd.DataFrame(self._epochs, columns=['Epoch'])
-        batches = pd.DataFrame(self._batches, columns=['Batch'])
-        J = pd.DataFrame(self._J_history, columns=['Cost'])
-        thetas = self._todf(self._theta_history, stub='theta_')
-        gradients = self._todf(self._g_history, stub='gradient_')
-
-        result = pd.concat([iterations, epochs, batches, thetas, 
-                            J, gradients], axis=1, sort=False)
-        if n:
-            result = result.iloc[0:n]
-        return(result)
-# %%
-# from data import data
-# ames = data.read()
-# ames = ames[['Area', 'SalePrice']]
-# df = ames.sample(n=100, random_state=50, axis=0)
-# test = ames.loc[~ames.index.isin(df.index),:]
-# test = test.dropna()
-# df = df.reset_index(drop=True)
-# test = test.reset_index(drop=True)
-# X = df[['Area']]
-# y = df['SalePrice']
-# X_val = test[['Area']]
-# y_val = test[['SalePrice']]
-
-
-# gd = BGD()
-# np.random.seed(50)
-# X, y = gd.encode_labels(X, y)
-# X, y = gd.scale(X, y, 'minmax', bias=True)
-# X_val, y_val = gd.encode_labels(X_val, y_val)
-# X_val, y_val = gd.scale(X_val, y_val, 'minmax', bias=True)
-# theta = np.array([-1,0])
-# #gd.search(X,y, theta)
-# alpha = np.arange(0.01,0.1,0.02)
-# ts, p = gd.tune(X, y, theta, X_val = X_val, y_val=y_val, maxiter = 100, alpha=alpha, stop_measure=None)
-# ts
-# p
-# plt.show()
-# report = gd.report(n=20)
-# report
-
-
-
-# %%
-# ts
-# ani = gd.display_costs(costs= search['J_history'], interval=100)
-# HTML(ani.to_jshtml())
-# rc('animation', html='jshtml')
-# rc
-# ani = gd.surface(theta_history = search['theta_history'], 
-#                  cost_history=search['J_history'], interval=100)
-# HTML(ani.to_jshtml())
-# rc('animation', html='jshtml')
-# rc
-# ani = gd.show_fit(theta_history = search['theta_history'], 
-#                   J_history = search['J_history'],
-#                   interval=100)
-# HTML(ani.to_jshtml())
-
 
