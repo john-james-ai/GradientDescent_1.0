@@ -1,0 +1,93 @@
+---
+title: "Gradient Descent: Step by Step Implementation and Tuning"
+author: "John James jjames@DecisionScients.com"
+date: '`r format(Sys.time(), "%d %B, %Y")`'
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    css: ../css/rmdStyles.css
+    number_sections: false
+bibliography: Machine Learning.bib
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  chunk_output_type: inline
+header-includes:
+  - \usepackage{placeins}
+  - \usepackage{booktabs}
+---
+
+```{r libraries, echo=FALSE, cache=FALSE, warning=FALSE, message=FALSE}
+library(data.table)
+library(dplyr)
+library(extrafont)
+library(grid)
+library(gridExtra)
+library(kableExtra)
+library(kfigr)
+library(knitr)
+library(png)
+library(reticulate)
+library(rmarkdown)
+library(xtable)
+```
+
+```{r knitr_init, echo=FALSE, cache=FALSE, warning=FALSE, message=FALSE}
+figures <- 'reports/figures/'
+options(knitr.table.format = "html")
+options(max.print=100, scipen=999, width = 800)
+knitr::opts_chunk$set(echo=FALSE,
+	             cache=FALSE,
+               prompt=FALSE,
+	             eval = TRUE,
+               tidy=TRUE,
+               root.dir = "..",
+               fig.height = 8,
+               fig.width = 20,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+knitr::opts_knit$set(width=100, figr.prefix = T, figr.link = T)
+knitr::opts_chunk$set(fig.path = figures)
+knitr::knit_hooks$set(inline = function(x) {
+  prettyNum(x, big.mark=",")
+})
+```
+
+```{r setup, echo=FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{python imports}
+import os, sys, inspect
+os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = '/ProgramData/Anaconda3/Library/plugins/platforms'
+LIBRARY_PATH = 'C:/Users/John/Documents/Data Science/Libraries'
+
+home = os.path.join(os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe()))), "src")
+sys.path.append(home)
+sys.path.append(LIBRARY_PATH)
+
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.animation import FuncAnimation
+from matplotlib import animation, rc
+import numpy as np
+import pandas as pd
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=UserWarning)
+```
+
+
+```{r bgd, child = '3-gradient.Rmd'}
+```
+
+
+
+
+
+# References

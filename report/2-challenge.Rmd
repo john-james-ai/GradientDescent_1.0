@@ -1,0 +1,9 @@
+# The Challenge
+We will motivate our study with a challenge. Kaggle [@KaggleInc2016] is hosting an ongoing competition to build a linear regression model to predict home prices using the Ames Iowa Housing Data [@DeCock2011]. 
+
+Compiled by Dean De Cock of Truman State University, the data set contains all residential home sales in Ames, Iowa between 2006 and 2010. There are 2920 observations and a large number of variables (23 nominal, 23 ordinal, 14 discrete, and 20 continuous). The training and test sets are comprised of 1460 observations each.
+
+At the time of this writing, the most accurate model predicted home prices on the test set with a root mean squared log error of 0.06628. Your challenge is to build a regression model using the gradient descent algorithms introduced here, that will predict home prices on the Ames Iowa Housing Data test set with a root mean squared log error of 0.10985 or lower. This will place you in the top 100 on the leadership board as of this writing. You may choose and engineer the features as you like, but you may only use the test set for your final evaluation. 
+
+The data may be obtained from the kaggle website https://www.kaggle.com/c/house-prices-advanced-regression-techniques/data
+

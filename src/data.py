@@ -83,19 +83,22 @@ def ames(train=0.7, test=None):
 #                                   AMES                                       #
 # ---------------------------------------------------------------------------- #    
 
-def demo(train=100, test=None):
+def demo(n=100, cv=True):
     '''
-    Splits training data into a training and test.
+    Reads data from file into a dataframe and splits the dataframe into 
+    a training and an optional validation set.
     Args:
-        train(num): Int or float.  If int, the training set size, if float, 
-                    the proportion of the training set to obtain
-        test(num):  Int or float.  If int, the test set size, if float, 
-                    the proportion of the training set to allocate to test
+        n(num): Int or float.  If int, the training set size, if float, 
+                the proportion of the observations to return as part of 
+                the training set. 
+        cv(bool): Yes if a validation set should be returned for 
+                  cross-validation. The validation set will be the complement
+                  of the training set.
     Return:
-        X_train (pd.Series): Training set input data
-        y_train (pd.Series): Training set output data
-        X_test (pd.Series): Test set input data
-        y_test (pd.Series): Test set output data
+        X_train (pd.DataFrame): Training set input data
+        y_train (pd.DataFrame): Training set output data
+        X_val (pd.DataFrame): Validation set input data (optional)
+        y_val (pd.DataFrame): Validation set output data (optional)
     '''
     X = ["GrLivArea"]
     y = ['SalePrice']
@@ -103,13 +106,19 @@ def demo(train=100, test=None):
     df = pd.read_csv("./data/interim/train.csv",
                      encoding="Latin-1", low_memory=False)
 
-    if train < 1:
-        test = 1 - train
-    else:
-        test = df.shape[0] - train        
-
     X = df[X]
     y = df[y]
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=train, test_size=test, shuffle=True, random_state=5)
-    return(X_train, X_test, y_train, y_test)    
+
+    if cv:
+        if n < 1:
+            test = 1 - n
+        else:
+            test = df.shape[0] - n        
+        X_train, X_val, y_train, y_val = train_test_split(
+                X, y, train_size=n, test_size=test, shuffle=True, random_state=5)
+        return(X_train, X_val, y_train, y_val)    
+    else:
+        test = None
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y, train_size=n, test_size=test, shuffle=True, random_state=5)
+        return(X_train, y_train)    

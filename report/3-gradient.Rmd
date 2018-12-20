@@ -1,0 +1,369 @@
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+TeX: {
+equationNumbers: {
+autoNumber: "all",
+formatNumber: function (n) {return ''+n}
+}
+}});</script>
+
+# The Gradient
+Understanding gradient descent requires an understanding of the gradient. This section aimes to:     
+* introduce the concept of the gradient as a generalization of the derivative,     
+* interpret the gradient as the direction of steepest ascent of an objective function, and       
+* show how to compute the gradient of an unknown objective function from data.
+
+Those with a solid background in multivariable calculus may want to skip ahead.
+
+So, the gradient is a fancy word for the multivariate version of the derivative.  Let's start with a review of the derivative, its properties and interpretation.
+
+## Derivative
+### Definition
+The derivative of a function $f$ at a point $x$ is the slope of the tangent line at $f(x)$. 
+
+```{python derivative, code=readLines('./src/derivative.py')}
+```
+
+![](../report/figures/derivative.png)
+`r kfigr::figr(label = "derivative", prefix = TRUE, link = TRUE, type="Figure")`: Geometric Interpretation of the Derivative 
+
+Consider a curve $y=f(x)=x^2$ as specified in `r kfigr::figr(label = "derivative", prefix = TRUE, link = TRUE, type="Figure")`. Select a value along the x-axis, say $a$, then designate the corresponding point on the curve, $P=f(a)$. Now, move along the x-axis some distance $h$ from $a$ to a new point $a+h$, then plot the corresponding point $Q=f(a+h)$. Next, draw the secant line $PQ$ connecting the two points. Now for the crucial part. Reduce $h$ such that the variable point $Q$ approaches the fixed point $P$ by sliding along the curve. At the same time we notice that, the secant changes direction and visibly approaches the tangent at $P$. It should be intuitively clear that the the tangent line is the limit approached by the secant as $h\to0$. The slope of the secant line connecting the points ($a+h,f(a+h)$) and ($a,f(a)$) is the difference in the $y$ values over the difference between the $x$ values. This **difference quotient** becomes:
+$$m=\frac{\Delta y}{\Delta x}=\frac{f(a+h)-f(a)}{h}$$
+
+As the absolute value of $h$ decreases, the value of $a+h$ approaches $a$, and the value of $f(a+h)$ approaches $f(a)$. Hence small values of $h$ that approach zero render secant lines that are increasingly better approximations of the tangent line to $f(x)$ at $a$. Since the limiting position as $h \to 0$ of the secant line is the tangent line, the difference quotient as $h \to 0$, if it exists, will be the slope of the tangent line at ($a, f(a)$). This limit is defined as the *derivative* of the function $f$ at $a$:
+$$f^\prime(a)=\lim_{h\to0}\frac{f(a+h)-f(a)}{h}\label{differential}$$
+When the limit exists, $f$ is said to be **differentiable** at $a$. A smooth function is differentiable if:   
+* it is continous at every point in its domain,   
+* it has no bends or cusps, and   
+* it has no vertical tangents (infinite slope).
+
+`r kfigr::figr(label = "non_differentiable", prefix = TRUE, link = TRUE, type="Figure")` illustrates two examples of non-differentiable functions.
+
+```{python non_differentiable, code=readLines('./src/non_differentiable.py')}
+```
+![](../report/figures/non_differentiable.png)
+`r kfigr::figr(label = "non_differentiable", prefix = TRUE, link = TRUE, type="Figure")`: Non-Differentiable Functions
+
+### Derivative Interpretation 
+Taking a derivative of a function at a point is synonymous to inspecting the graph of the function at that point with a powerful microscope. It tells us how steep the tangent line to the graph would be at the point upon which we are zooming. Let's inspect a graph of the polynomial function $y=f(x)=x^3-x$.
+```{python polynomial, code=readLines('./src/polynomial.py')}
+```
+
+![](../report/figures/polynomial.png)
+`r kfigr::figr(label = "polynomial", prefix = TRUE, link = TRUE, type="Figure")`: Polynomial
+
+Note that we've annotated the graph of this polynomial with a few tangent lines. Following the graph from the left to the right along the x-axis, the derivatives change from point-to-point as expected. As the graph increases, the derivatives appear to decrease until we encounter a horizontal tangent. This appears to occur at a local maximum. Moving beyond the local maximum the deratives continue to decrease as long as the function is concave down. Once the function begins to turn upward, the derivatives increase.  Another zero derivative point is encountered at local minimum and the derivatives continue to increase as the function approaches the top right of the plot. 
+
+We can summarize our observations as follows:  
+1. A positive derivative indicates that the function is increasing,     
+2. A zero derivative occurs when the function has arrived at a local maximum or minimum,   
+3. A decreasing derivative means that the function is decreasing,   
+4. The faster the rate of change, the steeper the tangent line.    
+
+The information contained in the derivative tells us several important characteristics of a function, including its behavior, critical points, and extrema. 
+
+### Tangent Line Equation
+Now that we've specified the derivative, we can derive the equation for the tangent line. The difference quotient is
+$$m=\frac{\Delta y}{\Delta x}=\frac{y-y_0}{x-x_0}=\frac{f(a+h)-f(a)}{(a+h)-a}=\frac{f(a+h)-f(a)}{h},$$
+where $h=(x-a)$.
+
+Using derivatives, we've shown that the slope $m$ approaches the slope of the tangent line $f^\prime(a)$ as $h\to0$. Substituting $f^\prime(a)$ for $m$ and rearranging into point slope form yields:
+$$y=f(a)+f^\prime(a)(x-a).$$
+Thus, we have the equation for the tangent line to $f(x)$ at $a$.
+
+### Tangent Line as the Best Local Linear Approximation
+The tangent line is the **best** local linear approximation to a function at the point of tangency. Why is this so? If we were to zoom into the graph of a function $f(x)$ at a point $a$ using a high-powered microscope (or look at it over a small enough interval), the curve of the function would appear to become increasingly straight. In fact, if we observe $f(x)$ at the intersection of the tangent line, the curve and the tangent line would become qualitatively indistinguishable for all points *near* the point of intersection. In fact, the tangent is the *unique* linear function that has the same function value $f(x)$ and derivative $f^\prime(x)$ at point $a$, in this sense it is **best linear approximation** to $f$ at $a$. (See [@bivens1986] for a formal proof.) 
+
+In the next section, we review techniques for computing derivatives.
+
+## Differentiation
+Differentiation is the process of finding the derivative of a function. There are two approaches to differentiation. One approach is to use the geometric definition, but this can be quite a slow and cumbersome process. Fortunately, we have a small number of rules that enable us to differentiate large classes of functions quickly.
+
+For the following exhibit, let, $u=x^2$, $v=4x^3$, and $y=u^9$
+
+`r kfigr::figr(label = "differential", prefix = TRUE, link = TRUE, type="Table")`: Differentiation Rules
+```{r differential, results='asis'}
+tbl <- "
+|     Rule         |  Definition             |                    Example                   |
+|------------------|:-----------------------:|:--------------------------------------------:|
+| Constants Rule   | $\\frac{d}{dx}c=0$      |  $\\frac{d}{dx}5=0$|
+| Power Rule   | $\\frac{d}{dx}x^n=nx^{n-1}$ |  $\\frac{d}{dx}v=12x^3$|
+| Constant Factor Rule | $\\frac{d}{dx}(cu)=c\\frac{du}{dx}$| $\\frac{d}{dx}3x^2=3\\frac{d}{dx}x^2=6x$|
+| Sum Rule | $\\frac{d}{dx}(u+v)=\\frac{du}{dx}+\\frac{dv}{dx}$ | $\\frac{d}{dx}(x^2+4x^3)=\\frac{d}{dx}x^2+\\frac{d}{dx}4x^3=2x+12x^2$|
+| Subtraction Rule |$\\frac{d}{dx}(u-v)=\\frac{du}{dx}-\\frac{dv}{dx}$ | $\\frac{d}{dx}(x^2-4x^3)=\\frac{d}{dx}x^2-\\frac{d}{dx}4x^3=2x-12x^2$|
+| Product Rule | $\\frac{d}{dx}(uv)=u\\frac{dv}{dx}+v\\frac{du}{dx}$ | $\\frac{d}{dx}(x^2\\times 4x^3)=x^2 \\times 12x^2 + 4x^3 \\times 2x$ |
+| Quotient Rule | $\\frac{d}{dx}(\\frac{u}{v})=\\frac{v\\frac{du}{dx}-u\\frac{dv}{dx}}{v^2}$ for $v\\ne 0$ | $\\frac{d}{dx}(\\frac{u}{v})=\\frac{4x^3\\times 2x - x^2\\times 12x^2}{16x^6}$ |
+| Chain Rule | $\\frac{dy}{dx}=\\frac{dy}{du}\\times \\frac{du}{dx}$ | $\\frac{dy}{dx} = 9u^8 \\times 2x = 9(x^2)^8 \\times 2x=18x^{17}$|
+
+"
+cat(tbl)
+```
+
+For practice, let's run through an example. 
+$$\frac{d}{dx}\bigg[\frac{2x+4}{3x-1}\bigg]^3$$
+1. Let $y=f(u)=u^3$ and $u=g(x)=\frac{2x+4}{3x-1}$    
+2. Then $f^\prime(u)=3u^2$ by the power rule.    
+3. Applying the quotient rule to obtain $g^\prime(x)$, we have    
+$$\frac{d}{dx}\bigg[\frac{2x+4}{3x-1}\bigg]= \frac{(3x-1)(2)-(2x+4)(3)}{(3x-1)^2}=\frac{-14}{(3x-1)^2}$$
+4. Hence, by the chain rule we have:  
+$$
+\begin{align}
+F^\prime(x) & =f^\prime(g(x))\times g^\prime(x) \\
+& = 3\bigg(\frac{2x+4}{3x-1}\bigg)^2 \times \frac{-14}{(3x-1)^2} \\
+& = \frac{-42(2x+4)^2}{(3x-1)^4}
+\end{align}
+$$ 
+As we've seen the rules of differentiation can allow us to find the derivatives relatively quickly without dealing with limits.  
+
+We've examined derivatives for single variable functions. Now, let's refresh ourselves on multivariate applications of the derivative.
+
+## Partial Derivative
+The partial derivative of a multivariable function is its derivative with respect to one of the variables, with the other variables held constant. It measures the rate of change along the axes of a multivariate function as the variables change.
+
+Let $z=f(x,y) = x^2+xy-y^2$
+
+```{python partial, code=readLines('./src/3d_partial.py')}
+```
+
+![](../report/figures/partial.png)
+`r kfigr::figr(label = "partial", prefix = TRUE, link = TRUE, type="Figure")`: Partial Derivatives
+
+It's graph is the surface plot in `r kfigr::figr(label = "partial", prefix = TRUE, link = TRUE, type="Figure")`.  Fix a value $y=0$ and just let $x$ vary. Taking the derivative with respect to $x$, leaving $y$ constant we have:
+$$\frac{\partial{f}}{\partial{x}}(x,y)=2x+y.$$
+This is indicated by the tangent line in `r kfigr::figr(label = "partial", prefix = TRUE, link = TRUE, type="Figure")` in the direction of the $x$ axis.  
+
+Let's take this piece, by piece.  The drivative of the first term $x^2$ is $2x$ by the power rule. 
+Since $y$ is a constant, the derivative of the second term $xy$ is $y$ by the power rule and the constant factor rule. Finally, since $y$ is a constant, its derivative is zero.  
+
+Similarly, if we take the partial derivative of $f(x,y)$ with respect to $y$, we have:
+$$\frac{\partial{f}}{\partial{y}}(x,y)=x-2y.$$
+This is the tangent line (`r kfigr::figr(label = "partial", prefix = TRUE, link = TRUE, type="Figure")`) in the direction of the $y$ axis. In this case, $x$ is the constant, so the derivative of the first term is $0^2=0$. The derivative of the second term is $x$ by the power rule and the constant factor rule. The derivative of $y^2$ is $2y$, again by the power rule.
+
+With that, we are ready to introduce the gradient.
+
+## The Gradient
+The gradient is the vector-valued, multi-variable generalization of the derivative [@gradient]. The gradient of a scalar-valued multivariable function $f(x,y,...)$, denoted as $\nabla{f}$, packages all if its partial derivative information into a vector, e.g.:
+$$
+\nabla{f} = 
+\begin{bmatrix}
+\frac{\partial{f}}{\partial{x}} \\
+\frac{\partial{f}}{\partial{y}} \\
+\vdots
+\end{bmatrix}
+$$
+
+### Gradient Example in Two Dimensions
+For example, let $f(x,y)=x^2+xy$, then the gradient is defined as:
+$$
+\nabla{f} = 
+\begin{bmatrix}
+\frac{\partial{f}}{\partial{x}} \\
+\frac{\partial{f}}{\partial{y}} \\
+\end{bmatrix}
+= 
+\begin{bmatrix}
+2x+y \\
+x \\
+\end{bmatrix}
+$$
+To determine the tangent plane, let's set $x=a=1$ and $y=b=3$. The gradient is now
+$$
+\nabla{f} = 
+\begin{bmatrix}
+\frac{\partial{f}}{\partial{x}} \\
+\frac{\partial{f}}{\partial{y}} \\
+\end{bmatrix}
+= 
+\begin{bmatrix}
+2x+y \\
+x \\
+\end{bmatrix}
+= \begin{bmatrix}
+5 \\
+3 \\
+\end{bmatrix}.
+$$
+
+### Gradient Example in Three Dimensions
+In this example, let $f(x,y,z)=x-xy+z^2$, then the gradient at $f(3,3,3)$ is:
+$$
+\nabla{f} = 
+\begin{bmatrix}
+\frac{\partial{f}}{\partial{x}} \\
+\frac{\partial{f}}{\partial{y}} \\
+\frac{\partial{f}}{\partial{z}} \\
+\end{bmatrix}
+= 
+\begin{bmatrix}
+1-y \\
+-x \\
+2z \\
+\end{bmatrix}
+= 
+\begin{bmatrix}
+-2 \\
+-3 \\
+6 \\
+\end{bmatrix}
+$$
+
+### Interpreting the Gradient
+The most germain interpretation of the gradient to optimization is that the gradient of a function $f$ is a vector that points in the direction of the **steepest ascent** of $f$ at a point.
+
+To prove this, we need to develop the **directional derivative**. The directional derivative is a generalization of the partial derivative that measures rates of change of a function in any arbitrary direction. First, we specify directions as unit vectors whose lengths equal 1. Let $\mathbb{u}$ be such a unit vector, $\|\mathbb{u}\|=1$. Then, lets define the *directional* *derivative* of $f$ in the direction of $\mathbb{u}$ as being the limit:
+$$D_uf(a)=\lim_{h\to0}\frac{f(a+\textit{h}\mathbb{u})-f(a)}{\textit{h}}.$$
+This is the rate of change of $f$ as $x\to a$ in the direction of $\mathbb{u}$. As we know, the tangent line is a good approximation of a single variable function at a point. Analogously, a multivariable function $f$, if differentiable, is well approximated by the tangent *plane*.  The linear function $g$ for the tangent plane is given by:
+$$g(x)=f(a)+f_{x1}(a)(x_1-a_1)+\dots +f_{xn}(a)(x_n-a_n).$$
+Therefore,
+$$
+\begin{align}
+D_uf(a) & = \lim_{h\to0}\frac{f(a+hu)-f(a)}{h} \\
+& = \lim_{h\to0}\frac{g(a+hu)-f(a)}{h} \\
+& = \lim_{h\to0}\frac{f_{x1}(a)hu_1+f_{x2}(a)hu_2+\dots+f_{xn}(a)hu_n}{h} \\
+& = f_{x1}(a)u_1+f_{x2}(a)u_2+\dots+f_{xn}(a)u_n,
+\end{align}
+$$
+where $x_i \in x_1,x_2,\cdots ,x_n$ and $f_{xi}=\frac{\partial{f}}{\partial{x_i}}$. 
+
+Observe that the gradient of $f$ is $<f_{x1}(a),f_{x2}(a),\dots+f_{xn}(a)>$. Hence we the directional derivative is simply the dot product of the gradient and the direction
+$$D_uf(a)=\nabla f(a)\cdot \mathbb{u}.$$
+
+The gradient $\nabla f(a)$ is a vector in a specific direction. Let $\mathbb{u}$ be a unit vector in any direction, and let $\theta$ be the angle between $\nabla f(a)$ and $\mathbb{u}$. Now we can rewrite the directional derivative
+$$D_uf(a)=\nabla f(a)\cdot\mathbb{u}=\|\nabla f(a)\|\space cos\space\theta$$
+
+Since $D_uf(a)$ is largest when $cos\space\theta=1$, $\theta$ must be 0. Hence, $u$ points in the direction of the gradient $\nabla f(a)$. So, we conclude that $\nabla f(a)$ points in the direction of the greatest increase of $f$, that is, the direction of the **steepest ascent**.
+
+## Computing the Gradient from Data
+To compute the gradient of a cost function, we need a cost function. This requires another function, a hypothesis function that we shall use to make our predictions. So we'll back into the computation of the gradient by first formulating a hypothesis function. From this, we'll derive the cost function. Finally, we'll put our multivariate calculus skills to work to specify the gradient. 
+
+Before we dive in, let's align on a bit of notation that we will use later. 
+```{r notation, results='asis'}
+tbl <- "
+|     Notation     |  Description |
+|------------------|:-----------------------------------------------------------------------|
+| $X$ | The set of training examples |
+| $Y$ | The set of labeled target values for the training examples |
+| $n$ | The number of variables in X$ |
+| $m$ | The number of observations in X$ |
+| $(x^{(i)},y^{(i)})$ | The $i$-th example pair in X (supervised learning) |
+| $x^{(i)}$ | The $i$-th example in X (unsupervised learning) |
+| $\\mathbb{R}$ | The set of real numbers. |
+| $X \\in \\mathbb{R}^{n\\times m}$ | Design matrix, where $X_{i,:}$ denotes $x^{(i)}$ |
+| $\\theta$ | A vector of parameters in \\mathbb{R^n} |
+| $h$ | A hypothesis function |
+| $h(x)$ | Label predicted by a function $h$ |
+| $J(\\theta)$ | A cost function with respect to $\\theta$  |
+| $\\nabla{J}$ | The gradient of a cost function $J$ |
+| $\\frac{\\partial J}{\\partial J_\\theta}$ | The gradient of a cost function $J$ with respect to parameters $\\theta$ |
+"
+cat(tbl)
+```
+
+### Hypothesis Function
+Recall that our task is to find as set of coefficients or parameters that the minimize the differences between our home price predictions and the actual sales prices. In otherwords, we seek to find an optimal set of parameters $\theta$ that minimize the costs associated with our predictions. A hypothesis function is simply that which produces the predictions for our data.   
+
+For illustration purposes, let's consider our prediction problem with a single predictor, living area. Ten observations were randomly sampled from our training set.
+```{python ames_line_code, code=readLines('./src/ames_line.py')}
+```
+
+
+`r kfigr::figr(label = "ames_table", prefix = TRUE, link = TRUE, type="Table")`: Sample Observations from Ames Iowa Housing Data Training Set
+```{r ames_table}
+rownames(py$ames) <- NULL
+knitr::kable(t(py$ames), format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
+```
+
+`r kfigr::figr(label = "ames_line_plot", prefix = TRUE, link = TRUE, type="Figure")` provides the scatterplot for our 10 samples from the training data. 
+
+![](../report/figures/ames_line.png)
+`r kfigr::figr(label = "ames_line_plot", prefix = TRUE, link = TRUE, type="Figure")`: Housing Prices by Living Area
+
+So, given data like this, how would we formulate a hypothesis function prices based upon living area? 
+Our $x$'s in `r kfigr::figr(label = "ames_table", prefix = TRUE, link = TRUE, type="Table")` are one-dimensional vectors in $\mathbb{R}$. More specifically, $x_1^{(i)}$ is the living area of the $i$-th house in training set $X$. If we had included, say overall condition as another predictor, $x_2^{(i)}$ would be the overall condition of the $i$-th house in training set $X$.
+
+Our hypothesis function $h: X\to Y$, such that $h(x)$ is a good predictor for the corresponding value of $y$. Let's say, as an initial choice, that home sales price can be appoximated as a linear function of living area.
+
+$$h_\theta(x)=\theta_0x_0+\theta_1x_1$$
+where:    
+* $x_0$ = 1 is the bias term (a convention to simplify our notation)     
+* $x_1$ = is the living area     
+* $\theta_0$ is the parameter for the bias term $x_0$           
+* $\theta_1$ is the parameter for the living area variable $x_1$         
+* $h_\theta(x)$ or more simply, $h(x)$, are our predictions.   
+
+We can simplify our notation so that
+$$h(x)=\displaystyle{\sum_{i=0}^n}\theta_ix_i=\theta^Tx,$$
+where the $\theta$ and $x$ on the right side of the equation are both vectors and $n$ is the number of input variables, not including $x_0$.
+
+Viola, the hypothesis function!
+
+Given our hypothesis function, we can now develop the cost function which quantifies the quality of our predictions. 
+
+### Cost Function
+To develop our intuition for the cost function, consider the following scatterplots of sample observations, each annotated with a different linear hypothesis function $h$.
+
+```{python costs_1_code, code=readLines('./src/ames_regression1.py')}
+```
+
+```{python costs_2_code, code=readLines('./src/ames_regression2.py')}
+```
+
+
+```{r cost_plots, fig.height=8}
+img1 <-  rasterGrob(as.raster(readPNG("./report/figures/ames_regression1.png")), interpolate = FALSE)
+img2 <-  rasterGrob(as.raster(readPNG("./report/figures/ames_regression2.png")), interpolate = FALSE)
+grid.arrange(img1, img2, ncol = 2)
+```
+`r kfigr::figr(label = "cost_plots", prefix = TRUE, link = TRUE, type="Figure")`: Two hypotheses mapping living area to house prices.
+
+The vertical distance between the predictions, denoted by the red lines in `r kfigr::figr(label = "cost_plots", prefix = TRUE, link = TRUE, type="Figure")` and the sales prices indicated by the blue dots represent the error. 
+
+We need to quantify the overall error or cost associated with our hypothesis function $h$. One approach would be to sum up the absolute values of the individual errors. The problem with this approach is that an optimization algorithm must measure the degree to which the cost changes with respect to some parameters. Therefore our cost function must be differentiable.
+
+Another approach would be to square the errors, then compute the mean. The mean squared (MSE) has a couple of appealing characteristics. It is always non-negataive and values closer to zero are better. It also incorporates both the bias and variance of $h$. 
+
+`r kfigr::figr(label = "costs_table", prefix = TRUE, link = TRUE, type="Table")`: Hypotheses squared error loss
+```{r costs_table}
+rownames(py$e_table_1) <- NULL
+rownames(py$e_table_2) <- NULL
+knitr::kable(list(py$e_table_1, py$e_table_2), digits = 0, format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
+```
+
+In `r kfigr::figr(label = "costs_table", prefix = TRUE, link = TRUE, type="Table")`, we've computed the MSE for the two hypothesis functions. The left plot in `r kfigr::figr(label = "cost_plots", prefix = TRUE, link = TRUE, type="Table")`, corresponding to the left table in `r kfigr::figr(label = "costs_table", prefix = TRUE, link = TRUE, type="Table")`, shows $h(x)=19,442.49 + 101.04x$. It has a mean squared error of approximately $2.29 e^{10}$. The plot on the right shows $h(x)=17,498.49 + 113.17x$. It has a mean squared error of approximately $2.78 e^{10}$.  According to this data, the first hypothesis does a better job of approximating the data.
+
+To state this formally, the cost function quantifies for each value of the $\theta$'s, how close the $h(x^{(i)})$'s are to the corresponding $y^{(i)}$'s.  Concretely our cost function is:
+$$J(\theta)=\frac{1}{2m}\displaystyle\sum_{i=1}^m(h_\theta(x^{(i)})-y^{(i)})^2$$
+Out of mathematical convenience, we take $\frac{1}{2}$ MSE.  It doesn't change the optimization problem and it cancels when we take its derivative. 
+
+### Gradient Computation
+We've defined a hypothesis function in terms of the data $x$ and some parameters $\theta$. We've developed a differentiable cost function in terms of our hypothesis function $h(x)$ and our sales price data $y$. Now, computing the gradient is simply a matter of taking the partial derivative of the $J(\theta)$, our cost function with respect to $\theta$.
+
+\begin{align}
+\small
+\frac{\partial}{\partial \theta_j}J(\theta) & = \small\frac{\partial}{\partial \theta_j} \bigg(\frac{1}{2m}\displaystyle\sum_{i=1}^m (h_\theta(x^{(i)})-y^{(i)})^2 \bigg) \\
+
+\small
+& = \small\frac{1}{2m}\displaystyle\sum_{i=1}^m \frac{\partial}{\partial \theta_j}(h_\theta(x^{(i)})-y^{(i)})^2 
+\quad \qquad \qquad  \qquad \qquad  \text{Constants rule} \\
+
+& = \small\frac{1}{2m}\displaystyle\sum_{i=1}^m 2(h_\theta(x^{(i)})-y^{(i)})\cdot \frac{\partial}{\partial \theta_j} (h_\theta(x^{(i)})-y^{(i)})
+\qquad \text{Power Rule & Chain Rule} \\
+
+& = \small\frac{1}{m}\displaystyle\sum_{i=1}^m (h_\theta(x^{(i)})-y^{(i)}) \cdot \frac{\partial}{\partial \theta_j} \displaystyle \sum_{j=0}^n(\theta_j x^{(i)}_j)-y^{(i)})
+\qquad \text{Definition of hypothesis} \\
+
+& = \small\frac{1}{m}\displaystyle\sum_{i=1}^m (h_\theta(x^{(i)})-y^{(i)})\cdot x^{(i)}_j
+\quad \qquad \qquad\qquad \qquad  \text{Partial Derivative Rule}
+
+\end{align}
+
+Two points. First, note that $(i)$ isn't the exponent, it denotes the $i$th observation in the training set. Second, most implementations of gradient descent ignore the $\frac{1}{m}$ component.  It doesn't effect the optimization and reduces the number of computations.  Thus we have:
+$$
+\nabla_\theta J =\frac{\partial}{\partial \theta_j}J(\theta)  = \displaystyle\sum_{i=1}^m (h_\theta(x^{(i)})-y^{(i)})\cdot x^{(i)}_j \quad\quad \text{for every j}
+$$
+
+Viola!
+
+## Key Take-Aways

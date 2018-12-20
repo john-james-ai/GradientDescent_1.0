@@ -1,0 +1,10 @@
+# Introduction
+Gradient descent optimization algorithms are fundamental tools in machine learning. They can be used to optimize virtually any differentiable function, and are the defacto standard for learning large neural networks. In this series, we examine gradient descent and its most popular variants, in order to:    
+
+* develop intuitions about the behavior of various algorithms,   
+* illuminate the strengths of weaknesses of the most commonly used variants,     
+* characterize the implementation challenges of the algorithms,    
+* investigate implementation strategies and best practices. 
+
+By the end of this series, you should be able to implement and evaluate gradient descent algorithms for a diverse range of learning problems. Moreover, the intuition you will have developed will enable a deeper level understanding of gradient-based optimization and machine language algorithms in general.
+

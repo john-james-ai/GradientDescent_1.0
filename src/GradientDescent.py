@@ -38,12 +38,17 @@ from matplotlib import animation, rc
 from matplotlib import colors as mcolors
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
+from sklearn import preprocessing
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
+
 import numpy as np
 from numpy import array, newaxis
 import pandas as pd
 import seaborn as sns
 
-from GradientSearch import BGDSearch, SGDSearch
+from GradientFit import BGDFit, SGDFit
 # --------------------------------------------------------------------------- #
 #                       GRADIENT DESCENT BASE CLASS                           #
 # --------------------------------------------------------------------------- #
@@ -67,6 +72,12 @@ class GradientDescent:
             df = pd.concat([df, df_vec], axis=1)
         return(df) 
 
+    def get_params(self):
+        return(self._request['hyper'])
+
+    def get_transformed_data(self):
+        return(self._request['data'])
+
     def detail(self):
         if self._summary is None:
             raise Exception('No search results to report.')
@@ -78,19 +89,57 @@ class GradientDescent:
             raise Exception('No search results to report.')
         else:
             return(self._summary)
+
+    def _encode_labels(self, X, y):
+        le = LabelEncoder()
+        X = X.apply(le.fit_transform)        
+        y = y.apply(le.fit_transform)
+        return(X, y)
+
+    def _scale(self, X, y, scaler='minmax', bias=True):
+        # Select scaler
+        if scaler == 'minmax':
+            scaler = MinMaxScaler()
+        else:
+            scaler = StandardScaler()        
+
+        # Put X and y into a dataframe
+        df = pd.concat([X, y], axis=1)
+
+        # Scale then recover dataframe with column names
+        df_scaled = scaler.fit_transform(df)
+        df = pd.DataFrame(df_scaled, columns=df.columns)
+
+        # Add bias term
+        if bias:
+            X0 = pd.DataFrame(np.ones((df.shape[0], 1)), columns=['X0'])
+            df = pd.concat([X0, df], axis=1)
+        X = df.drop(columns=y.columns)
+        y = df[y.columns].squeeze()
+        return(X, y)
+
+    def _prep_data(self, X,y, scaler='minmax', bias=True):        
+        X, y = self._encode_labels(X,y)
+        X, y = self._scale(X,y, scaler, bias)
+        return(X,y)         
+
   
-    def search(self, X, y, theta, X_val=None, y_val=None, 
+    def fit(self, X, y, theta, X_val=None, y_val=None, 
                alpha=0.01, maxiter=0, precision=0.001,
-               stop_measure='j', stop_metric='a', scaler='minmax'):
+               stop_measure='t', stop_metric='a', scaler='minmax'):
 
         # Set cross-validated flag if validation set included 
         cross_validated = all(v is not None for v in [X_val, y_val])
 
+        # Prepare Data
+        X, y = self._prep_data(X=X, y=y, scaler=scaler)
+        if cross_validated:
+            X_val, y_val = self._prep_data(X=X_val, y=y_val, scaler=scaler)                    
+
         # Package request
         self._request = dict()
         self._request['alg'] = self._alg        
-        self._request['data'] = {'X': X, 'y':y, 'X_val':X_val, 'y_val':y_val,
-                                 'scaler': scaler} 
+        self._request['data'] = {'X': X, 'y':y, 'X_val':X_val, 'y_val':y_val} 
         self._request['hyper'] = {'alpha': alpha, 'theta': theta,
                                   'maxiter': maxiter, 
                                   'precision': precision,
@@ -99,41 +148,35 @@ class GradientDescent:
                                   'cross_validated': cross_validated}
 
         # Run search and obtain result        
-        gd = BGDSearch()
+        gd = BGDFit()
         start = datetime.datetime.now()
-        gd.search(self._request)
+        gd.fit(self._request)
         end = datetime.datetime.now()
 
         # Extract Detail Results
         epochs = pd.DataFrame(gd.get_epochs(), columns=['epochs'])        
         iterations = pd.DataFrame(gd.get_iterations(), columns=['iterations'])        
         thetas = self._todf(gd.get_thetas(), stub='theta_')        
-        costs = pd.DataFrame(gd.get_costs(), columns=['cost'])        
-        self._detail = pd.concat([epochs, iterations, thetas, costs], axis=1)
+        J = pd.DataFrame(gd.get_costs(dataset='t'), columns=['cost'])   
+        self._detail = pd.concat([epochs, iterations, thetas, J], axis=1)
         
         if cross_validated:            
-            mse = pd.DataFrame(gd.get_mse(), columns=['mse'])
-            self._detail = pd.concat([epochs, iterations, thetas, costs, mse], axis=1)
+            J_val = pd.DataFrame(gd.get_costs(dataset='v'), columns=['cost_val'])               
+            self._detail = pd.concat([self._detail, J_val], axis=1)
 
         #Format stop condition
-        if self._request['hyper']['stop_measure'] == 'j':
-            stop_measure = 'Costs'
+        if self._request['hyper']['stop_measure'] == 't':
+            stop_measure = 'Training Set Costs'
         if self._request['hyper']['stop_measure'] == 'g':
             stop_measure = 'Gradient'
         if self._request['hyper']['stop_measure'] == 'v':
-            stop_measure = 'Validation Set MSE'            
+            stop_measure = 'Validation Set Costs'            
         if self._request['hyper']['stop_metric'] == 'a':
             stop_metric = 'Absolute Change'         
-        if self._request['hyper']['stop_metric'] == 'p':
+        if self._request['hyper']['stop_metric'] == 'r':
             stop_metric = 'Relative Change'         
-        stop = stop_metric + " in " + stop_measure
-
-        # Format validation set MSE 
-        mse_init = 'NA'
-        mse_final = 'NA'
-        if cross_validated:
-            mse_init = mse.iloc[0].item(),
-            mse_final = mse.iloc[-1].item()
+        stop = stop_metric + " in " + stop_measure + \
+               ' less than ' + str(precision) 
         
         # Package summary results
         self._summary = pd.DataFrame({'algorithm': gd.get_alg(),
@@ -145,103 +188,105 @@ class GradientDescent:
                                     'alpha': alpha,
                                     'stop': stop,
                                     'precision': precision,
-                                    'initial costs': costs.iloc[0].item(),
-                                    'final costs': costs.iloc[-1].item(),
-                                    'initial mse':mse_init,
-                                    'final mse': mse_final},
+                                    'initial_costs': J.iloc[0].item(),
+                                    'final_costs': J.iloc[-1].item()},
                                     index=[0])
+        if cross_validated:                                    
+            self._summary['initial_costs_val'] = J_val.iloc[0].item()
+            self._summary['final_costs_val'] = J_val.iloc[-1].item()
     
     def plot(self, path=None, show=True):
 
-        # Set figure dimensions 
-        if self._request['hyper']['cross_validated']:
-            height = 8
-            nrow = 2
-        else:
-            height=4
-            nrow = 1
-
         # Obtain matplotlib figure
-        fig = plt.figure(figsize=(12,height))
-        gs = fig.add_gridspec(nrow,2)
+        fig = plt.figure(figsize=(12,4))
+        gs = fig.add_gridspec(1,2)
         sns.set(style="whitegrid", font_scale=1)
         
-        # Cost bar plot
-        x = ['Initial Cost', 'Final Costs']
-        y = [self._summary['initial costs'].values.tolist(),
-             self._summary['final costs'].values.tolist()]
-        y = [item for sublist in y for item in sublist]
-        ax0 = fig.add_subplot(gs[0,0])
-        ax0 = sns.barplot(x,y)  
-        ax0.set_facecolor('w')
-        ax0.tick_params(colors='k')
-        ax0.xaxis.label.set_color('k')
-        ax0.yaxis.label.set_color('k')        
-        ax0.set_ylabel('Cost')
-        title = 'Initial and Final Costs ' + \
-                r'$\alpha$' + " = " + str(self._request['hyper']['alpha']) + " " + \
-                r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
-        rects = ax0.patches
-        for rect, label in zip(rects, y):
-            height = rect.get_height()
-            ax0.text(rect.get_x() + rect.get_width() / 2, height + .03, str(round(label,3)),
-                    ha='center', va='bottom')                
-        ax0.set_title(title, color='k')
-
-        # Cost Line Plot
-        x = self._detail['iterations']
-        y = self._detail['cost']
-        ax1 = fig.add_subplot(gs[0,1])
-        ax1 = sns.lineplot(x,y)
-        ax1.set_facecolor('w')
-        ax1.tick_params(colors='k')
-        ax1.xaxis.label.set_color('k')
-        ax1.yaxis.label.set_color('k')
-        ax1.set_xlabel('Iterations')
-        ax1.set_ylabel('Cost')
-        title = 'Costs by Iteration ' + \
-        r'$\alpha$' + " = " + str(self._request['hyper']['alpha']) + \
-        r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
-        ax1.set_title(title, color='k')
-
         if self._request['hyper']['cross_validated']:
-            # MSE bar plot
-            x = ['Initial MSE', 'Final MSE']
-            y = [self._summary['initial mse'].values.tolist(),
-                self._summary['final mse'].values.tolist()]
+            # Cost bar plot
+            x = ['Initial Cost', 'Final Costs', 'Initial Cost', 'Final Costs',]
+            y = [self._summary['initial_costs'].values.tolist(),
+                 self._summary['final_costs'].values.tolist(),
+                 self._summary['initial_costs_val'].values.tolist(),
+                 self._summary['final_costs_val'].values.tolist()]
+            z = ['Training Set', 'Training Set', 'Validation Set', 'Validation Set']
             y = [item for sublist in y for item in sublist]
-            ax2 = fig.add_subplot(gs[1,0])
-            ax2 = sns.barplot(x,y)  
-            ax2.set_facecolor('w')
-            ax2.tick_params(colors='k')
-            ax2.xaxis.label.set_color('k')
-            ax2.yaxis.label.set_color('k')
-            ax2.set_ylabel('Mean Squared Error (MSE)')
-            rects = ax2.patches
-            for rect, label in zip(rects, y):
-                height = rect.get_height()
-                ax2.text(rect.get_x() + rect.get_width() / 2, height + .03, str(round(label,3)),
-                        ha='center', va='bottom')              
-            title = 'Initial and Final Validation Set MSE ' + \
+            ax0 = fig.add_subplot(gs[0,0])
+            ax0 = sns.barplot(x,y, hue=z)  
+            ax0.set_facecolor('w')
+            ax0.tick_params(colors='k')
+            ax0.xaxis.label.set_color('k')
+            ax0.yaxis.label.set_color('k')        
+            ax0.set_ylabel('Cost')
+            title = self._alg + '\n' + 'Initial and Final Costs ' + '\n' + \
                     r'$\alpha$' + " = " + str(self._request['hyper']['alpha']) + " " + \
                     r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
-            ax2.set_title(title, color='k')
+            rects = ax0.patches
+            for rect, label in zip(rects, y):
+                height = rect.get_height()
+                ax0.text(rect.get_x() + rect.get_width() / 2, height + .03, str(round(label,3)),
+                        ha='center', va='bottom')                
+            ax0.set_title(title, color='k', pad=15)
 
-            # MSE Line Plot
-            x = self._detail['iterations']
-            y = self._detail['mse']
-            ax3 = fig.add_subplot(gs[1,1])
-            ax3 = sns.lineplot(x,y)
-            ax3.set_facecolor('w')
-            ax3.tick_params(colors='k')
-            ax3.xaxis.label.set_color('k')
-            ax3.yaxis.label.set_color('k')
-            ax3.set_xlabel('Iterations')
-            ax3.set_ylabel('MSE')
-            title = 'Mean Squared Error (MSE) by Iteration ' + \
+            # Cost Line Plot
+            df = pd.DataFrame()
+            df_train = pd.DataFrame({'Iteration': self._detail['iterations'],
+                                     'Costs': self._detail['cost'],
+                                     'Dataset': 'Train'})
+            df_val = pd.DataFrame({'Iteration': self._detail['iterations'],
+                                     'Costs': self._detail['cost_val'],
+                                     'Dataset': 'Validation'})
+            df = pd.concat([df_train, df_val], axis=0)
+            ax1 = fig.add_subplot(gs[0,1])
+            ax1 = sns.lineplot(x='Iteration', y='Costs', hue='Dataset', data=df)
+            ax1.set_facecolor('w')
+            ax1.tick_params(colors='k')
+            ax1.xaxis.label.set_color('k')
+            ax1.yaxis.label.set_color('k')
+            ax1.set_xlabel('Iterations')
+            ax1.set_ylabel('Cost')
+            title = self._alg + '\n' + 'Costs by Iteration ' + '\n' + \
             r'$\alpha$' + " = " + str(self._request['hyper']['alpha']) + \
             r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
-            ax3.set_title(title, color='k')
+            ax1.set_title(title, color='k', pad=15)
+        else:
+            # Cost bar plot
+            x = ['Initial Cost', 'Final Costs']
+            y = [self._summary['initial_costs'].values.tolist(),
+                self._summary['final_costs'].values.tolist()]
+            y = [item for sublist in y for item in sublist]
+            ax0 = fig.add_subplot(gs[0,0])
+            ax0 = sns.barplot(x,y)  
+            ax0.set_facecolor('w')
+            ax0.tick_params(colors='k')
+            ax0.xaxis.label.set_color('k')
+            ax0.yaxis.label.set_color('k')        
+            ax0.set_ylabel('Cost')
+            title = self._alg + '\n' + 'Initial and Final Costs ' + '\n' + \
+                    r'$\alpha$' + " = " + str(self._request['hyper']['alpha']) + " " + \
+                    r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
+            rects = ax0.patches
+            for rect, label in zip(rects, y):
+                height = rect.get_height()
+                ax0.text(rect.get_x() + rect.get_width() / 2, height + .03, str(round(label,3)),
+                        ha='center', va='bottom')                
+            ax0.set_title(title, color='k', pad=15)
+
+            # Cost Line Plot
+            x = self._detail['iterations']
+            y = self._detail['cost']
+            ax1 = fig.add_subplot(gs[0,1])
+            ax1 = sns.lineplot(x,y)
+            ax1.set_facecolor('w')
+            ax1.tick_params(colors='k')
+            ax1.xaxis.label.set_color('k')
+            ax1.yaxis.label.set_color('k')
+            ax1.set_xlabel('Iterations')
+            ax1.set_ylabel('Cost')
+            title = self._alg + '\n' + 'Costs by Iteration ' + '\n' + \
+            r'$\alpha$' + " = " + str(self._request['hyper']['alpha']) + \
+            r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
+            ax1.set_title(title, color='k', pad=15)
 
         fig.tight_layout()
         if show:
@@ -253,8 +298,9 @@ class GradientDescent:
                 os.makedirs(os.path.dirname(path))
                 fig.savefig(path, facecolor='w')
         plt.close(fig)        
+        return(fig)
 
-    def animate(self, path=None, nth=1,interval=100,  fps=30):
+    def animate(self, path=None, maxframes=500 ,interval=100,  fps=30):
 
         # Obtain data
         costs = list(self._detail['cost'])
@@ -262,8 +308,8 @@ class GradientDescent:
         # Create iteration vector
         iteration = list(range(0,len(costs)))
 
-        # Extract 100 datapoints plus last for animation
-        nth = math.floor(len(costs)/100)
+        # Extract maxframes datapoints plus last for animation
+        nth = math.floor(len(costs)/maxframes)
         nth = max(nth,1)
         iteration_plot = iteration[::nth]
         iteration_plot.append(iteration[-1])
@@ -284,15 +330,16 @@ class GradientDescent:
         ax.plot(iteration_plot, costs_plot, c='r')
 
         # Set labels and title
-        title = self._alg + r' $\alpha$' + " = " + str(round(self._request['hyper']['alpha'],3)) + " " + \
-                            r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
+        title = self._alg + '\n' + \
+                 r' $\alpha$' + " = " + str(round(self._request['hyper']['alpha'],3)) + " " + \
+                 r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
         ax.set_xlabel("Iteration")
         ax.set_ylabel(r'$J(\theta)$')
         ax.set_facecolor('w')
         ax.tick_params(colors='k')
         ax.xaxis.label.set_color('k')
         ax.yaxis.label.set_color('k')
-        ax.set_title(title, color='k')
+        ax.set_title(title, color='k', pad=15)
 
         def init():
             line.set_data([], [])
@@ -348,9 +395,9 @@ class SGD(GradientDescent):
     def __init__(self):
         pass
   
-    def search(self, X, y, theta, X_val=None, y_val=None, 
+    def fit(self, X, y, theta, X_val=None, y_val=None, 
                alpha=0.01, maxiter=0, precision=0.001,
-               stop_measure='j', stop_metric='a', check_grad=100,
+               stop_measure='t', stop_metric='a', check_grad=100,
                scaler='minmax'):
 
         # Set initial request parameters
@@ -376,7 +423,7 @@ class SGD(GradientDescent):
         self._request['hyper']['cross_validated'] = cross_validated
 
         # Run search and obtain result        
-        gd = SGDSearch()
+        gd = SGDFit()
         start = datetime.datetime.now()
         gd.search(self._request)
         end = datetime.datetime.now()
@@ -387,7 +434,7 @@ class SGD(GradientDescent):
         thetas = self._todf(gd.get_thetas(), stub='theta_')
         costs = pd.DataFrame(gd.get_costs(), columns=['Cost'])
         if cross_validated:
-            mse = pd.DataFrame(gd.get_mse(), columns=['MSE'])
+            rmse = pd.DataFrame(gd.get_rmse(), columns=['MSE'])
         search_log = pd.concat([iterations, thetas, costs], axis=1)
 
         # Package results
@@ -409,5 +456,5 @@ class SGD(GradientDescent):
         self._summary['summary']['Cost_Final'] = costs.iloc[-1]
 
         if cross_validated:
-            self._summary['summary']['MSE_Init'] = mse.iloc[0]
-            self._summary['summary']['MSE_Final'] = mse.iloc[-1]
+            self._summary['summary']['MSE_Init'] = rmse.iloc[0]
+            self._summary['summary']['MSE_Final'] = rmse.iloc[-1]

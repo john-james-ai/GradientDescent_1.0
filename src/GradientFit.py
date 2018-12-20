@@ -13,28 +13,27 @@ import math
 import numpy as np
 from numpy import array, newaxis
 import pandas as pd
-from sklearn import preprocessing
-from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score
 
 # --------------------------------------------------------------------------- #
 #                        Gradient Search Base Class                           #
 # --------------------------------------------------------------------------- #
 
 
-class GradientSearch:
+class GradientFit:
     '''Base class for Gradient Search'''
 
     def __init__(self):
         self._alg = "Batch Gradient Descent"
         self._request = dict()
         self._J_history = []
+        self._J_history_val = []
         self._theta_history = []
         self._g_history = []
-        self._mse_history = []
         self._iterations = []
         self._epochs = []
+        self._r2 = None
+        self._r2_val = None
         self._X = None
         self._y = None
 
@@ -53,47 +52,21 @@ class GradientSearch:
     def get_thetas(self):
         return(self._theta_history)
 
-    def get_costs(self):
-        return(self._J_history)
-
-    def get_mse(self):
-        if self._request['hyper']['cross_validated']:
-            return(self._mse_history)
+    def get_costs(self, dataset='t', init_final=None):
+        if dataset == 't' :
+            if init_final is None:
+                return(self._J_history)
+            elif init_final == 'i':
+                return(self._J_history[0])
+            else:
+                return(self._J_history[-1])
         else:
-            raise Exception("Search was not cross-validated. No MSE data available.")
-
-    def _encode_labels(self, X, y):
-        le = LabelEncoder()
-        X = X.apply(le.fit_transform)        
-        y = y.apply(le.fit_transform)
-        return(X, y)
-
-    def _scale(self, X, y, scaler='minmax', bias=True):
-        # Select scaler
-        if scaler == 'minmax':
-            scaler = MinMaxScaler()
-        else:
-            scaler = StandardScaler()        
-
-        # Put X and y into a dataframe
-        df = pd.concat([X, y], axis=1)
-
-        # Scale then recover dataframe with column names
-        df_scaled = scaler.fit_transform(df)
-        df = pd.DataFrame(df_scaled, columns=df.columns)
-
-        # Add bias term
-        if bias:
-            X0 = pd.DataFrame(np.ones((df.shape[0], 1)), columns=['X0'])
-            df = pd.concat([X0, df], axis=1)
-        X = df.drop(columns=y.columns)
-        y = df[y.columns].squeeze()
-        return(X, y)
-
-    def _prep_data(self, X,y, scaler='minmax', bias=True):        
-        X, y = self._encode_labels(X,y)
-        X, y = self._scale(X,y, scaler, bias)
-        return(X,y)         
+            if init_final is None:
+                return(self._J_history_val)
+            elif init_final == 'i':
+                return(self._J_history_val[0])
+            else:
+                return(self._J_history_val[-1])
 
     def _hypothesis(self, X, theta):
         return(X.dot(theta))
@@ -104,10 +77,9 @@ class GradientSearch:
     def _cost(self, e):
         return(1/2 * np.mean(e**2))
 
-    def _mse(self, X, y, theta):
+    def _compute_r2(self, X, y, theta):
         h = self._hypothesis(X, theta)
-        e = self._error(h,y)
-        return(np.mean(e**2))
+        return(r2_score(y, h))
 
     def _gradient(self, X, e):
         return(X.T.dot(e)/X.shape[0])
@@ -153,10 +125,10 @@ class GradientSearch:
     def _finished_J(self, state):
 
         if self._request['hyper']['stop_metric'] == 'a':
-            result = (abs(state['j']['current']-state['j']['prior']) < self._request['hyper']['precision'])                        
+            result = (abs(state['t']['current']-state['t']['prior']) < self._request['hyper']['precision'])                        
         else:
-            result = (abs((state['j']['current']-state['j']['prior'])/state['j']['prior']) < self._request['hyper']['precision'])
-        state['j']['prior'] = state['j']['current']
+            result = (abs((state['t']['current']-state['t']['prior'])/state['t']['prior']) < self._request['hyper']['precision'])
+        state['t']['prior'] = state['t']['current']
         return(result)
 
 
@@ -169,14 +141,14 @@ class GradientSearch:
         state = self._zeros(state)
         if self._maxed_out(iteration):
             return(True)
-        elif self._request['hyper']['stop_measure'] == 'j':
+        elif self._request['hyper']['stop_measure'] == 't':
             return(self._finished_J(state))
         elif self._request['hyper']['stop_measure'] == 'g':
             return(self._finished_grad(state))    
         else:
             return(self._finished_v(state))  
 
-    def search(self, request):
+    def fit(self, request):
 
         self._request = request
 
@@ -184,23 +156,22 @@ class GradientSearch:
         iteration = 0
         theta = self._request['hyper']['theta']
         self._J_history = []
+        self._J_history_val = []
         self._theta_history = []
         self._g_history = []
         self._iterations = []
         self._epochs = []
-        self._mse_history = []
+        self._r2 = None
+        self._r2_val = None
 
-        # Prepare data
-        self._X, self._y = self._prep_data(X=self._request['data']['X'],
-                                           y=self._request['data']['y'], 
-                                           scaler=self._request['data']['scaler'])
-        if self._request['hyper']['cross_validated']:
-            self._X_val, self._y_val = self._prep_data(X=self._request['data']['X_val'],
-                                                       y=self._request['data']['y_val'], 
-                                                       scaler=self._request['data']['scaler'])       
+        # Extract data
+        self._X = self._request['data']['X']
+        self._y = self._request['data']['y']
+        self._X_val = self._request['data']['X_val']
+        self._y_val = self._request['data']['y_val']
 
         # Initialize State Variables
-        state = {'j':{'prior':10**10, 'current':1},
+        state = {'t':{'prior':10**10, 'current':1},
                  'g':{'prior':np.repeat(10**10, self._request['data']['X'].shape[1]), 
                       'current':np.repeat(1, self._request['data']['X'].shape[1])},
                  'v':{'prior':10**10, 'current':1}}                                                             
@@ -214,28 +185,33 @@ class GradientSearch:
             J = self._cost(e)
             g = self._gradient(self._X, e)
 
-            if self._request['hyper']['cross_validated']:
-                mse = self._mse(self._X, self._y, theta)
-                self._mse_history.append(mse)
-                state['v']['current'] = mse
-            
             # Save current computations in state
-            state['j']['current'] = J
+            state['t']['current'] = J
             state['g']['current'] = g
-            
+
             # Save iterations, costs and thetas in history 
             self._theta_history.append(theta.tolist())
             self._J_history.append(J)            
             self._g_history.append(g)
             self._iterations.append(iteration)
-            self._epochs.append(iteration)
+            self._epochs.append(iteration)            
 
+            if self._request['hyper']['cross_validated']:
+                h_val = self._hypothesis(self._X_val, theta)
+                e_val = self._error(h_val, self._y_val)
+                J_val = self._cost(e_val)
+                
+                self._J_history_val.append(J_val)
+                state['v']['current'] = J_val
+            
+
+            
             theta = self._update(theta, g)
 
 # --------------------------------------------------------------------------- #
 #                       Batch Gradient Descent Search                         #
 # --------------------------------------------------------------------------- #            
-class BGDSearch(GradientSearch):
+class BGDFit(GradientFit):
     '''Batch Gradient Descent'''
 
     def __init__(self):
@@ -244,7 +220,7 @@ class BGDSearch(GradientSearch):
 # --------------------------------------------------------------------------- #
 #                     Stochastic Gradient Descent Search                      #
 # --------------------------------------------------------------------------- #            
-class SGDSearch(GradientSearch):
+class SGDFit(GradientFit):
 
     def __init__(self):
         self._alg = "Stochastic Gradient Descent"
@@ -281,7 +257,7 @@ class SGDSearch(GradientSearch):
         y = z[:, z.shape[1]-1]
         return(X, y)
 
-    def search(self, request):
+    def fit(self, request):
 
         self._request = request
         
@@ -295,21 +271,18 @@ class SGDSearch(GradientSearch):
         self._g_history = []
         self._iterations = []
         self._epochs = []
-        self._mse_history = []
-        state = {'j':{'prior':10**10, 'current':1},
+        self._rmse_history = []
+        state = {'t':{'prior':10**10, 'current':1},
                  'g':{'prior':np.repeat(10**10, self._request['data']['X'].shape[1]), 
                       'current':np.repeat(1, self._request['data']['X'].shape[1])},
                  'v':{'prior':10**10, 'current':1}}                   
 
-        # Prepare data
-        self._X, self._y = self._prep_data(X=self._request['data']['X'],
-                                           y=self._request['data']['y'], 
-                                           scaler=self._request['data']['scaler'])
-        if self._request['hyper']['cross_validated']:
-            self._X_val, self._y_val = self._prep_data(X=self._request['data']['X_val'],
-                                                       y=self._request['data']['y_val'], 
-                                                       scaler=self._request['data']['scaler'])  
-
+        # Extract data
+        self._X = self._request['data']['X']
+        self._y = self._request['data']['y']
+        self._X_val = self._request['data']['X_val']
+        self._y_val = self._request['data']['y_val']
+        
         while not self._finished(state, iteration):
             epoch += 1            
             X, y = self._shuffle(self._X, self._y)
@@ -331,13 +304,13 @@ class SGDSearch(GradientSearch):
                 self._iterations.append(iteration)
                 
                 if self._iteration % self._request['hyper']['check_grad'] == 0:
-                    state['j']['current'] = J_total / self._request['hyper']['check_grad']
+                    state['t']['current'] = J_total / self._request['hyper']['check_grad']
                     state['g']['current'] = g
 
                     if self._request['hyper']['cross_validated']:
-                        mse = self._mse(self._X_val, self._y_val, theta)
-                        self._mse_history.append(mse)
-                        state['v']['current'] = mse
+                        rmse = self._rmse(self._X_val, self._y_val, theta)
+                        self._rmse_history.append(rmse)
+                        state['v']['current'] = rmse
 
                     if self._finished(state, iteration):
                         break
