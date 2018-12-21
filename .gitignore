@@ -25,3 +25,4 @@ src/__pycache__/data.cpython-37.pyc
 src/__pycache__/GradientDescent.cpython-37.pyc
 src/__pycache__/GradientSearch.cpython-37.pyc
 report/data/sample.csv
+.ipynb_checkpoints

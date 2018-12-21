@@ -31,6 +31,7 @@ class GradientFit:
         self._theta_history = []
         self._g_history = []
         self._iterations = []
+        self._time = []
         self._epochs = []
         self._r2 = None
         self._r2_val = None
@@ -45,6 +46,9 @@ class GradientFit:
 
     def get_epochs(self):
         return(self._epochs)
+
+    def get_times(self):
+        return(self._time)
 
     def get_iterations(self):
         return(self._iterations)
@@ -87,66 +91,32 @@ class GradientFit:
     def _update(self, theta, gradient):
         return(theta-(self._request['hyper']['alpha'] * gradient))
 
-    def _zeros(self, d):
-        for k, v in d.items():
-            for i, j in v.items():
-                if isinstance(j, (float, int)):
-                    if (j<10**-10) & (j>0):
-                        j = 10**-10
-                    elif (j>-10**-10) & (j<0):
-                        j = -10**-10
-                else: 
-                    for l in j:
-                        if (l<10**-10) & (l>0):
-                            l = 10**-10
-                        elif (l>-10**-10) & (l<0):
-                            l = -10**-10
-        return(d)
-
-    def _finished_grad(self, state):
-
-        if self._request['hyper']['stop_metric'] == 'a':
-            result = (all(abs(y-x)<self._request['hyper']['precision'] for x,y in zip(state['g']['prior'], state['g']['current'])))
-        else:    
-            result = (all(abs((y-x)/x)<self._request['hyper']['precision'] for x,y in zip(state['g']['prior'], state['g']['current'])))
-        state['g']['prior'] = state['g']['current']
-        return(result)
-
-    
-    def _finished_v(self, state):
-
-        if self._request['hyper']['stop_metric'] == 'a':
-            result = (abs(state['v']['current']-state['v']['prior']) < self._request['hyper']['precision'])                        
-        else:
-            result = (abs((state['v']['current']-state['v']['prior'])/state['v']['prior']) < self._request['hyper']['precision'])
-        state['v']['prior'] = state['v']['current']
-        return(result)
-
-    def _finished_J(self, state):
-
-        if self._request['hyper']['stop_metric'] == 'a':
-            result = (abs(state['t']['current']-state['t']['prior']) < self._request['hyper']['precision'])                        
-        else:
-            result = (abs((state['t']['current']-state['t']['prior'])/state['t']['prior']) < self._request['hyper']['precision'])
-        state['t']['prior'] = state['t']['current']
-        return(result)
-
-
     def _maxed_out(self, iteration):
         if self._request['hyper']['maxiter']:
             if iteration == self._request['hyper']['maxiter']:
                 return(True)  
 
-    def _finished(self, state, iteration):
-        state = self._zeros(state)
-        if self._maxed_out(iteration):
+    def _finished(self, state):
+        if self._maxed_out(state['iteration']):
             return(True)
-        elif self._request['hyper']['stop_measure'] == 't':
-            return(self._finished_J(state))
-        elif self._request['hyper']['stop_measure'] == 'g':
-            return(self._finished_grad(state))    
+        elif self._request['hyper']['stop_metric'] == 'a':
+            return(abs(state['prior']-state['current']) < self._request['hyper']['precision'])
         else:
-            return(self._finished_v(state))  
+            if state['prior'] == 0:
+                state['prior'] = 10**-10
+            return(abs(state['prior']-state['current'])/abs(state['prior'])*100 < self._request['hyper']['precision'])    
+
+    def _update_state(self,state, iteration, J,J_val, g):
+        state['iteration'] = iteration
+        state['prior'] = state['current']
+        stop = self._request['hyper']['stop_measure']
+        if stop == 't':
+            state['current'] = J
+        elif stop == 'v':
+            state['current'] = J_val
+        else:
+            state['current'] = np.sqrt(np.sum(abs(g)**2))
+        return(state)
 
     def fit(self, request):
 
@@ -160,6 +130,7 @@ class GradientFit:
         self._theta_history = []
         self._g_history = []
         self._iterations = []
+        self._time = []
         self._epochs = []
         self._r2 = None
         self._r2_val = None
@@ -170,24 +141,18 @@ class GradientFit:
         self._X_val = self._request['data']['X_val']
         self._y_val = self._request['data']['y_val']
 
-        # Initialize State Variables
-        state = {'t':{'prior':10**10, 'current':1},
-                 'g':{'prior':np.repeat(10**10, self._request['data']['X'].shape[1]), 
-                      'current':np.repeat(1, self._request['data']['X'].shape[1])},
-                 'v':{'prior':10**10, 'current':1}}                                                             
+        # Initialize State 
+        state = {'prior':10**10, 'current':0, 'iteration':0}
 
-        while not self._finished(state, iteration):
+        while not self._finished(state):
             iteration += 1
 
             # Compute the costs and validation set error (if required)
             h = self._hypothesis(self._X, theta)
             e = self._error(h, self._y)
             J = self._cost(e)
+            J_val = None
             g = self._gradient(self._X, e)
-
-            # Save current computations in state
-            state['t']['current'] = J
-            state['g']['current'] = g
 
             # Save iterations, costs and thetas in history 
             self._theta_history.append(theta.tolist())
@@ -199,13 +164,13 @@ class GradientFit:
             if self._request['hyper']['cross_validated']:
                 h_val = self._hypothesis(self._X_val, theta)
                 e_val = self._error(h_val, self._y_val)
-                J_val = self._cost(e_val)
-                
+                J_val = self._cost(e_val)                
                 self._J_history_val.append(J_val)
-                state['v']['current'] = J_val
-            
 
-            
+            self._time.append(datetime.datetime.now())
+
+            state = self._update_state(state, iteration, J, J_val, g)
+                        
             theta = self._update(theta, g)
 
 # --------------------------------------------------------------------------- #

@@ -16,7 +16,7 @@ src = "c:\\Users\\John\\Documents\\Data Science\\Libraries\\GradientDescent\\src
 sys.path.append(src)
 from GradientDescent import BGD, SGD
 import data
-
+#%%
 # --------------------------------------------------------------------------- #
 #                             SEARCH FUNCTION                                 #  
 # --------------------------------------------------------------------------- #
@@ -30,6 +30,7 @@ def fit(X, y, theta, alpha, precision, maxiter, stop_measure, stop_metric,
         gd.animate(path=path_animate)
         rpt = gd.summary()
         return(rpt)
+#%%        
 # --------------------------------------------------------------------------- #
 #                            BRIEF TEST DRIVER                                #
 # --------------------------------------------------------------------------- #
@@ -40,14 +41,15 @@ def brief():
         precision = 0.01
         maxiter = 10000
         stop_measure = 'g'
-        stop_metric = 'r'
-        path_plot = "/BDG/figures/bgd_rel_chg_grad_cv.png"
-        path_animate = "/BDG/figures/bgd_rel_chg_grad_cv.gif"
+        stop_metric = 'a'
+        path_plot = "./test/figures/BGD/bgd_abs_chg_grad_cv.png"
+        #path_animate = "./test/figures/BGD/bgd_abs_chg_grad_cv.gif"
+        path_animate=None
         rpt = fit(X,y, theta, alpha, precision, maxiter, stop_measure, stop_metric,
                 X_val, y_val, path_plot, path_animate)
         return(rpt)
 
-
+#%%
 # --------------------------------------------------------------------------- #
 #                             FULL TEST DRIVER                                #
 # --------------------------------------------------------------------------- #
@@ -58,13 +60,13 @@ def full():
         y = [y] * 12
         theta = [np.array([-1,-1])] * 12
         alpha = [0.01] * 12
-        precision = [0.0001] * 12
+        precision = [0.001] * 12
         maxiter = [10000] * 12
         stop_measure = [['t'] * 4, ['g'] * 4,['v'] * 4]
         stop_measure = [item for sublist in stop_measure for item in sublist]
         stop_metric = ['a','a','r','r','a','a','r','r','a','a','r','r']
-        X_v = [None,X_val,None,X_val,None,X_val,None,X_val,None,X_val,None,X_val]
-        y_v = [None,y_val,None,y_val,None,y_val,None,y_val,None,y_val,None,y_val]
+        X_v = [None,X_val,None,X_val,None,X_val,None,X_val,X_val,X_val,X_val,X_val]
+        y_v = [None,y_val,None,y_val,None,y_val,None,y_val,y_val,y_val,y_val,y_val]
         path_plot = ["./test/figures/BGD/bgd_abs_chg_cost.png",
                 "./test/figures/BGD/bgd_abs_chg_cost_cv.png",
                 "./test/figures/BGD/bgd_rel_chg_cost.png",
@@ -80,20 +82,21 @@ def full():
                 "./test/figures/BGD/bgd_rel_chg_mse.png",
                 "./test/figures/BGD/bgd_rel_chg_mse_cv.png"]
 
-        path_animation = ["./test/figures/BGD/bgd_abs_chg_cost.gif",
-                "./test/figures/BGD/bgd_abs_chg_cost_cv.gif",
-                "./test/figures/BGD/bgd_rel_chg_cost.gif",
-                "./test/figures/BGD/bgd_rel_chg_cost_cv.gif",
+        # path_animation = ["./test/figures/BGD/bgd_abs_chg_cost.gif",
+        #         "./test/figures/BGD/bgd_abs_chg_cost_cv.gif",
+        #         "./test/figures/BGD/bgd_rel_chg_cost.gif",
+        #         "./test/figures/BGD/bgd_rel_chg_cost_cv.gif",
 
-                "./test/figures/BGD/bgd_abs_chg_grad.gif",
-                "./test/figures/BGD/bgd_abs_chg_grad_cv.gif",
-                "./test/figures/BGD/bgd_rel_chg_grad.gif",
-                "./test/figures/BGD/bgd_rel_chg_grad_cv.gif",
+        #         "./test/figures/BGD/bgd_abs_chg_grad.gif",
+        #         "./test/figures/BGD/bgd_abs_chg_grad_cv.gif",
+        #         "./test/figures/BGD/bgd_rel_chg_grad.gif",
+        #         "./test/figures/BGD/bgd_rel_chg_grad_cv.gif",
 
-                "./test/figures/BGD/bgd_abs_chg_mse.gif",
-                "./test/figures/BGD/bgd_abs_chg_mse_cv.gif",
-                "./test/figures/BGD/bgd_rel_chg_mse.gif",
-                "./test/figures/BGD/bgd_rel_chg_mse_cv.gif"]
+        #         "./test/figures/BGD/bgd_abs_chg_mse.gif",
+        #         "./test/figures/BGD/bgd_abs_chg_mse_cv.gif",
+        #         "./test/figures/BGD/bgd_rel_chg_mse.gif",
+        #         "./test/figures/BGD/bgd_rel_chg_mse_cv.gif"]
+        path_animation = [None] * 12
 
 
         #%%
@@ -107,5 +110,5 @@ def full():
                 report = pd.concat([report, rpt], axis=0, sort=True)
         return(report)
 #%%        
-report = full()        
+report = brief()        
 print(report)
