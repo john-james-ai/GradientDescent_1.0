@@ -84,59 +84,53 @@ class GradientLab:
             fig.savefig(path, facecolor='w')
                         
 
-    def _plot_costs(self, searches, directory=None, show=True):
-        # Obtain figure and gridspec objects
-        fig = plt.figure(figsize=(12,4))
-        gs = fig.add_gridspec(1,2)
+    def _plot_costs(self, search, directory=None, show=True):
+        # Group data and obtain keys
+        search_groups = search.groupby('stop_condition')   
+
+        # Set Grid Dimensions
+        cols = 2  
+        rows = math.ceil(search_groups.ngroups)
+        
+        # Obtain and initialize matplotlib figure
+        fig = plt.figure(figsize=(12,4*rows))        
         sns.set(style="whitegrid", font_scale=1)
 
-        # Parse Data
-        groups = searches.groupby(['alpha', 'precision'])
-        df = pd.DataFrame()
-        for group, data in groups:
-            df_plot = pd.DataFrame({'alpha': data['alpha'].iloc[0],
-                                    'precision': data['precision'].iloc[0],
-                                    'cost': data['cost'].iloc[-1],
-                                    'cost_val': data['cost_val'].iloc[-1]}, index=[0])
-            df = pd.concat([df,df_plot], axis=0)
+        # Render plots
+        i = 0
+        for condition, search in search_groups:
+            ax0 = plt.subplot2grid((rows,cols), (i,0))            
+            ax0 = sns.barplot(x='alpha', y='final_costs', hue='precision', data=search)
+            ax0.set_facecolor('w')
+            ax0.tick_params(colors='k')
+            ax0.xaxis.label.set_color('k')
+            ax0.yaxis.label.set_color('k')
+            ax0.set_xlabel('Learning Rate')
+            ax0.set_ylabel('Training Set Costs')
+            title = search['stop_condition'].iloc[0]
+            ax0.set_title(title, color='k')
 
-        # Configure Training Cost Plot
-        ax0 = fig.add_subplot(gs[0,0])
-        ax0 = sns.barplot(x='alpha', y='cost', hue='precision', data=df)
-        # Face, text, and label colors
-        ax0.set_facecolor('w')
-        ax0.tick_params(colors='k')
-        ax0.xaxis.label.set_color('k')
-        ax0.yaxis.label.set_color('k') 
-        # Axes labels
-        ax0.set_xlabel('Alpha')
-        ax0.set_ylabel('Cost')            
-        ax0.set_title("Training Set Costs")
-
-        # Configure Validation Cost Plot
-        ax1 = fig.add_subplot(gs[0,1])
-        ax1 = sns.barplot(x='alpha', y='cost_val', hue='precision', data=df)
-        # Face, text, and label colors
-        ax1.set_facecolor('w')
-        ax1.tick_params(colors='k')
-        ax1.xaxis.label.set_color('k')
-        ax1.yaxis.label.set_color('k') 
-        # Axes labels
-        ax1.set_xlabel('Alpha')
-        ax1.set_ylabel('Cost')            
-        ax1.set_title("Validation Set Costs")
+            ax1 = plt.subplot2grid((rows,cols), (i,1))
+            ax1 = sns.barplot(x='alpha', y='final_costs_val', hue='precision', data=search)
+            ax1.set_facecolor('w')
+            ax1.tick_params(colors='k')
+            ax1.xaxis.label.set_color('k')
+            ax1.yaxis.label.set_color('k')
+            ax1.set_xlabel('Learning Rate')
+            ax1.set_ylabel('Validation Set Costs')
+            title = search['stop_condition'].iloc[0]
+            ax1.set_title(title, color='k')
+            i += 1
 
         # Finalize plot and save
-        fig.subplots_adjust(top=0.8)
-        suptitle = searches['alg'].iloc[0] + '\n' + \
-                   'Final Costs' + '\n' + \
-                   searches['stop_condition'].iloc[0]
-        fig.suptitle(suptitle, y=1.1, fontsize=12)
-        fig.tight_layout()
+        suptitle = self._summary.alg.iloc[0] + '\n' + 'Cost Analysis' + '\n' + \
+                   'Stop Criteria: ' + search.stop_measure.iloc[0]           
+        fig.suptitle(suptitle)
+        fig.tight_layout(rect=[0,0,1,.9])
         if show:
             plt.show()
         if directory is not None:
-            filename = 'Final Costs ' + searches['stop_condition'].iloc[0] + '.png'
+            filename = 'Cost Analysis.png'
             self._save_fig(fig, directory, filename)
         plt.close(fig)
         return(fig)
@@ -153,8 +147,7 @@ class GradientLab:
         # Obtain and initialize matplotlib figure
         fig = plt.figure(figsize=(12,4*rows))        
         sns.set(style="whitegrid", font_scale=1)
-        suptitle = self._summary.alg.iloc[0] + '\n' + 'Computation Time' 
-
+        
         # Render plots
         i = 0
         for condition, search in search_groups:
@@ -169,11 +162,12 @@ class GradientLab:
             ax.yaxis.label.set_color('k')
             ax.set_xlabel('Learning Rate')
             ax.set_ylabel('Duration (ms)')
-            title = search['stop'].iloc[0]
+            title = search['stop_condition'].iloc[0]
             ax.set_title(title, color='k')
             i += 1
 
         # Finalize plot and save
+        suptitle = self._summary.alg.iloc[0] + '\n' + 'Computation Time' 
         fig.suptitle(suptitle)
         fig.tight_layout(rect=[0,0,1,.9])
         if show:
@@ -234,6 +228,10 @@ class GradientLab:
         for measure, data in detail:
             self._plot_curves(data, directory, show)
 
+    def plot_costs(self, directory=None, show=True):
+        searches = self._summary.groupby(['stop_measure'])
+        for measure, data in searches:
+            self._plot_costs(data, directory, show)
 
 
 
