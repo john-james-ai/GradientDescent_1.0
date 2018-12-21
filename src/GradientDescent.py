@@ -79,12 +79,6 @@ class GradientDescent:
     def get_transformed_data(self):
         return(self._request['data'])
 
-    def get_results(self):
-        if self._summary is None:
-            raise Exception('No search results to report.')
-        else:
-            return(self._results)
-
     def get_detail(self):
         if self._summary is None:
             raise Exception('No search results to report.')
@@ -199,7 +193,7 @@ class GradientDescent:
         self._detail['cross_validated'] = cross_validated
         
         # Package summary results
-        self._summary = pd.DataFrame({'algorithm': gd.get_alg(),
+        self._summary = pd.DataFrame({'alg': gd.get_alg(),
                                     'alpha': alpha,
                                     'precision': precision,
                                     'maxiter': maxiter,
@@ -220,12 +214,6 @@ class GradientDescent:
         if cross_validated:                                    
             self._summary['initial_costs_val'] = J_val.iloc[0].item()
             self._summary['final_costs_val'] = J_val.iloc[-1].item()
-
-        # Package Results
-        self._results = self._request['hyper']
-        self._results['alg'] = self._alg
-        self._results['summary'] = self._summary
-        self._results['detail'] = self._detail
     
     def plot(self, path=None, show=True):
 

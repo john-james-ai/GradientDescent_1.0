@@ -47,19 +47,21 @@ class GradientLab:
 
     def __init__(self):
         self._alg = 'Gradient Descent'
-        self._searches = None
+        self._summary = None
+        self._detail = None
 
     def report(self):
-        if self._searches is None:
+        if self._detail is None:
             raise Exception('Nothing to report')
         else:
-            return(self._searches)
+            return(self._detail)
         
     def fit(self, X, y, X_val, y_val, theta, alpha, precision, 
                stop_measure, stop_metric, maxiter=0, scaler='minmax'):
 
         bgd = BGD()
-        self._searches = pd.DataFrame()
+        self._summary = pd.DataFrame()
+        self._detail = pd.DataFrame()
         for measure in stop_measure:
             for metric in stop_metric:
                 for a in alpha:
@@ -67,8 +69,10 @@ class GradientLab:
                         bgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
                                 alpha=a, maxiter=maxiter, precision=p, stop_measure=measure, 
                                 stop_metric=metric, scaler=scaler)
-                        search = bgd.get_detail()
-                        self._searches = pd.concat([self._searches, search], axis=0)    
+                        detail = bgd.get_detail()
+                        summary = bgd.summary()
+                        self._detail = pd.concat([self._detail, detail], axis=0)    
+                        self._summary = pd.concat([self._summary, summary], axis=0)    
 
     def _plot_costs(self, searches, directory=None, show=True):
         # Obtain figure and gridspec objects
@@ -134,69 +138,49 @@ class GradientLab:
         return(fig)
 
 
-    def _plot_time(self, searches, directory=None, show=True):
-        # Obtain figure object
-        fig, ax = plt.subplots(figsize=(12,4))
-        sns.set(style="whitegrid", font_scale=1)
-
-        # Parse Data
-        groups = searches.groupby(['alpha', 'precision'])
-        df = pd.DataFrame()
-        for group, data in groups:
-            df_plot = pd.DataFrame({'alpha': data['alpha'].iloc[0],
-                                    'precision': data['precision'].iloc[0],
-                                    'duration': data['time'].iloc[-1] - data['time'].iloc[0]}, 
-                                    index=[0])
-            df = pd.concat([df,df_plot], axis=0)
-        
-        # Configure time plot
-        ax = sns.barplot(x='alpha', y='duration', hue='precision', data=df)        
-        # Face, text, and label colors
-        ax.set_facecolor('w')
-        ax.tick_params(colors='k')
-        ax.xaxis.label.set_color('k')
-        ax.yaxis.label.set_color('k') 
-        # Axes labels
-        ax.set_xlabel('Alpha')
-        ax.set_ylabel('Elapsed Time (ms)')            
-        ax.set_title("Training Time")
-
-        # Finalize figure and save
-        fig.tight_layout()
-        if show:
-            plt.show()
-        if directory is not None:
-            filename = 'Elapsed Time ' + searches['stop_condition'].iloc[0] + '.png'
-            if os.path.exists(directory):
-                path = os.path.join(os.path.abspath(directory), filename)
-                fig.savefig(path, facecolor='w')
-            else:
-                os.makedirs(directory)
-                path = os.path.join(os.path.abspath(directory),filename)
-                fig.savefig(path, facecolor='w')
-        plt.close(fig)
-        return(fig)
-
     def plot_costs(self, directory=None, show=True):
-        searches = self._searches.groupby(['stop_condition'])
-        for condition, data in searches:
+        detail = self._detail.groupby(['stop_condition'])
+        for condition, data in detail:
             self._plot_costs(data, directory, show)
 
     def plot_times(self, directory=None, show=True):
-        searches = self._searches.groupby(['stop_condition'])        
-        for condition, data in searches:
-            self._plot_time(data, directory, show)   
+        # Render plot
+        sns.set(style="whitegrid", font_scale=1)
+        g = sns.FacetGrid(self._summary, col='stop_condition', 
+                          hue='precision', col_wrap=2, 
+                          sharex=False, sharey=False, legend_out=True,
+                          height=4, aspect=2)
+        g.map_dataframe(sns.barplot, 'alpha', 'duration', 'precision')
+        g.add_legend()
+        suptitle = self._summary['alg'].iloc[0] + '\n' + \
+                    'Duration (ms)'        
+        g.fig.suptitle(suptitle, y=1.1)
+        g.fig.tight_layout()
+        
+        # Show and save plot
+        if show:
+            plt.show()
+        if directory is not None:
+            filename = 'Durations.png'
+            if os.path.exists(directory):
+                path = os.path.join(os.path.abspath(directory), filename)
+                g.savefig(path, facecolor='w')
+            else:
+                os.makedirs(directory)
+                path = os.path.join(os.path.abspath(directory),filename)
+                g.savefig(path, facecolor='w')
+
 
     def plot_curves(self, directory=None, show=True):
         # Render plot
         sns.set(style="whitegrid", font_scale=1)
-        g = sns.FacetGrid(self._searches, col='stop', 
+        g = sns.FacetGrid(self._detail, col='stop', 
                           hue='alpha', col_wrap=2, 
                           sharex=False, sharey=False, legend_out=True,
-                          height=2, aspect=2)
+                          height=4, aspect=2)
         g.map(sns.lineplot, 'iterations', 'cost', 'alpha')
         g.add_legend()
-        suptitle = self._searches['alg'].iloc[0] + '\n' + \
+        suptitle = self._detail['alg'].iloc[0] + '\n' + \
                     'Learning Curves'        
         g.fig.suptitle(suptitle, y=1.1)
         g.fig.tight_layout()
@@ -223,6 +207,6 @@ class GradientLab:
 class BGDLab(GradientLab):  
 
     def __init__(self):        
-        self._searches = None  
+        self._detail = None  
         self._alg = 'Batch Gradient Descent'
         

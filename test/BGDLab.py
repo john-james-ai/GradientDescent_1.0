@@ -35,4 +35,4 @@ lab = BGDLab()
 lab.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
            maxiter=maxiter, stop_measure=stop_measure, stop_metric=stop_metric)
 #%%%           
-lab.plot_curves(directory=directory)
+lab.plot_times(directory=directory)
