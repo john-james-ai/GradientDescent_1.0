@@ -74,6 +74,16 @@ class GradientLab:
                         self._detail = pd.concat([self._detail, detail], axis=0)    
                         self._summary = pd.concat([self._summary, summary], axis=0)    
 
+    def _save_fig(self, fig, directory, filename):
+        if os.path.exists(directory):
+            path = os.path.join(os.path.abspath(directory), filename)
+            fig.savefig(path, facecolor='w')
+        else:
+            os.makedirs(directory)
+            path = os.path.join(os.path.abspath(directory),filename)
+            fig.savefig(path, facecolor='w')
+                        
+
     def _plot_costs(self, searches, directory=None, show=True):
         # Obtain figure and gridspec objects
         fig = plt.figure(figsize=(12,4))
@@ -127,76 +137,102 @@ class GradientLab:
             plt.show()
         if directory is not None:
             filename = 'Final Costs ' + searches['stop_condition'].iloc[0] + '.png'
-            if os.path.exists(directory):
-                path = os.path.join(os.path.abspath(directory), filename)
-                fig.savefig(path, facecolor='w')
-            else:
-                os.makedirs(directory)
-                path = os.path.join(os.path.abspath(directory),filename)
-                fig.savefig(path, facecolor='w')
+            self._save_fig(fig, directory, filename)
         plt.close(fig)
         return(fig)
 
-
-    def plot_costs(self, directory=None, show=True):
-        detail = self._detail.groupby(['stop_condition'])
-        for condition, data in detail:
-            self._plot_costs(data, directory, show)
-
     def plot_times(self, directory=None, show=True):
-        # Render plot
+        # Group data and obtain keys
+        search_groups = self._summary.groupby('stop_condition')   
+
+        # Set Grid Dimensions
+        cols = 2  
+        rows = math.ceil(search_groups.ngroups/cols)
+        odd = True if search_groups.ngroups % cols != 0 else False
+
+        # Obtain and initialize matplotlib figure
+        fig = plt.figure(figsize=(12,4*rows))        
         sns.set(style="whitegrid", font_scale=1)
-        g = sns.FacetGrid(self._summary, col='stop_condition', 
-                          hue='precision', col_wrap=2, 
-                          sharex=False, sharey=False, legend_out=True,
-                          height=4, aspect=2)
-        g.map_dataframe(sns.barplot, 'alpha', 'duration', 'precision')
-        g.add_legend()
-        suptitle = self._summary['alg'].iloc[0] + '\n' + \
-                    'Duration (ms)'        
-        g.fig.suptitle(suptitle, y=1.1)
-        g.fig.tight_layout()
-        
-        # Show and save plot
+        suptitle = self._summary.alg.iloc[0] + '\n' + 'Computation Time' 
+
+        # Render plots
+        i = 0
+        for condition, search in search_groups:
+            if odd and i == search_groups.ngroups-1:
+                ax = plt.subplot2grid((rows,cols), (int(i/cols),0), colspan=cols)
+            else:
+                ax = plt.subplot2grid((rows,cols), (int(i/cols),i%cols))
+            ax = sns.barplot(x='alpha', y='duration', hue='precision', data=search)
+            ax.set_facecolor('w')
+            ax.tick_params(colors='k')
+            ax.xaxis.label.set_color('k')
+            ax.yaxis.label.set_color('k')
+            ax.set_xlabel('Learning Rate')
+            ax.set_ylabel('Duration (ms)')
+            title = search['stop'].iloc[0]
+            ax.set_title(title, color='k')
+            i += 1
+
+        # Finalize plot and save
+        fig.suptitle(suptitle)
+        fig.tight_layout(rect=[0,0,1,.9])
         if show:
             plt.show()
         if directory is not None:
-            filename = 'Durations.png'
-            if os.path.exists(directory):
-                path = os.path.join(os.path.abspath(directory), filename)
-                g.savefig(path, facecolor='w')
-            else:
-                os.makedirs(directory)
-                path = os.path.join(os.path.abspath(directory),filename)
-                g.savefig(path, facecolor='w')
+            filename = 'Computation Time.png'
+            self._save_fig(fig, directory, filename)
+        plt.close(fig)
+        return(fig)
 
+    def _plot_curves(self, searches, directory=None, show=True):
+
+        # Group data and obtain keys
+        search_groups = searches.groupby('stop')   
+
+        # Set Grid Dimensions
+        cols = 2  
+        rows = math.ceil(search_groups.ngroups/cols)
+        odd = True if search_groups.ngroups % cols != 0 else False
+
+        # Obtain and initialize matplotlib figure
+        fig = plt.figure(figsize=(12,4*rows))        
+        sns.set(style="whitegrid", font_scale=1)
+        suptitle = searches.alg.iloc[0] + '\n' + 'Learning Curves' + '\n' + \
+                   'Stopping Criteria: ' + searches.stop_measure.iloc[0] 
+        fig.suptitle(suptitle, y=1.1)
+
+        # Render plots
+        i = 0
+        for condition, search in search_groups:
+            if odd and i == search_groups.ngroups-1:
+                ax = plt.subplot2grid((rows,cols), (int(i/cols),0), colspan=cols)
+            else:
+                ax = plt.subplot2grid((rows,cols), (int(i/cols),i%cols))
+            ax = sns.lineplot(x='iterations', y='cost', hue='alpha', data=search, legend='full')
+            ax.set_facecolor('w')
+            ax.tick_params(colors='k')
+            ax.xaxis.label.set_color('k')
+            ax.yaxis.label.set_color('k')
+            ax.set_xlabel('Iterations')
+            ax.set_ylabel('Cost')
+            title = search['stop'].iloc[0]
+            ax.set_title(title, color='k')
+            i += 1
+
+        # Finalize plot and save
+        fig.tight_layout()
+        if show:
+            plt.show()
+        if directory is not None:
+            filename = 'Learning Curves by Stop Condition' + searches['stop_condition'].iloc[0] + '.png'
+            self._save_fig(fig, directory, filename)
+        plt.close(fig)
+        return(fig)
 
     def plot_curves(self, directory=None, show=True):
-        # Render plot
-        sns.set(style="whitegrid", font_scale=1)
-        g = sns.FacetGrid(self._detail, col='stop', 
-                          hue='alpha', col_wrap=2, 
-                          sharex=False, sharey=False, legend_out=True,
-                          height=4, aspect=2)
-        g.map(sns.lineplot, 'iterations', 'cost', 'alpha')
-        g.add_legend()
-        suptitle = self._detail['alg'].iloc[0] + '\n' + \
-                    'Learning Curves'        
-        g.fig.suptitle(suptitle, y=1.1)
-        g.fig.tight_layout()
-        
-        # Show and save plot
-        if show:
-            plt.show()
-        if directory is not None:
-            filename = 'Learning Curves.png'
-            if os.path.exists(directory):
-                path = os.path.join(os.path.abspath(directory), filename)
-                g.savefig(path, facecolor='w')
-            else:
-                os.makedirs(directory)
-                path = os.path.join(os.path.abspath(directory),filename)
-                g.savefig(path, facecolor='w')
+        detail = self._detail.groupby(['stop_measure'])
+        for measure, data in detail:
+            self._plot_curves(data, directory, show)
 
 
 
