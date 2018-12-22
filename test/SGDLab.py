@@ -14,7 +14,7 @@ import pandas as pd
 
 src = "c:\\Users\\John\\Documents\\Data Science\\Libraries\\GradientDescent\\src"
 sys.path.append(src)
-from GradientLab import BGDLab
+from GradientLab import SGDLab
 import data
 
 # Data
@@ -27,15 +27,16 @@ precision = [0.01, 0.001]
 maxiter = 5000
 stop_measure = ['t', 'v', 'g']
 stop_metric = ['a', 'r']
-directory = "./test/figures/BGD/Lab/"
+batch_size = [0.01, 0.1]
+directory = "./test/figures/SGD/Lab/"
 
 #%%
 # Run experiment
-lab = BGDLab()
+lab = SGDLab()
 lab.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_measure=stop_measure, stop_metric=stop_metric)
+           maxiter=maxiter, stop_measure=stop_measure, stop_metric=stop_metric, batch_size=batch_size)
 #%%%           
 lab.plot_costs(directory=directory)
 lab.plot_curves(directory=directory)
 lab.plot_times(directory=directory)
-lab.report()
+lab.report(n=5)

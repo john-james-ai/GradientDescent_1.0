@@ -31,12 +31,11 @@ class GradientFit:
         self._theta_history = []
         self._g_history = []
         self._iterations = []
-        self._time = []
         self._epochs = []
-        self._r2 = None
-        self._r2_val = None
         self._X = None
         self._y = None
+        self._X_val = None
+        self._y_val = None
 
     def get_alg(self):
         return(self._alg)
@@ -46,9 +45,6 @@ class GradientFit:
 
     def get_epochs(self):
         return(self._epochs)
-
-    def get_times(self):
-        return(self._time)
 
     def get_iterations(self):
         return(self._iterations)
@@ -130,10 +126,7 @@ class GradientFit:
         self._theta_history = []
         self._g_history = []
         self._iterations = []
-        self._time = []
         self._epochs = []
-        self._r2 = None
-        self._r2_val = None
 
         # Extract data
         self._X = self._request['data']['X']
@@ -167,8 +160,6 @@ class GradientFit:
                 J_val = self._cost(e_val)                
                 self._J_history_val.append(J_val)
 
-            self._time.append(datetime.datetime.now())
-
             state = self._update_state(state, iteration, J, J_val, g)
                         
             theta = self._update(theta, g)
@@ -188,97 +179,84 @@ class BGDFit(GradientFit):
 class SGDFit(GradientFit):
 
     def __init__(self):
-        self._alg = "Stochastic Gradient Descent"
-        self._unit = "Iteration"
+        self._alg = "Stochastic Batch Gradient Descent"
+        self._request = dict()
         self._J_history = []
-        self._J_history_smooth = []
+        self._J_history_val = []
         self._theta_history = []
-        self._theta_history_smooth = []
-        self._h_history = []
         self._g_history = []
-        self._stop = False
-        self._epochs = []
-        self._epochs_smooth = []
-        self._iteration = 0
-        self._max_iterations = 0
         self._iterations = []
-        self._iterations_smooth = []
-        self._X = []
-        self._y = []
-        self._X_i = []
-        self._y_i = []
-        self._X_i_smooth = []
-        self._y_i_smooth = []               
-        self._stop_criteria = "j"
-        self._precision = 0.001
-        self._stop_value = 'a'
+        self._epochs = []
+        self._X = None
+        self._y = None
+        self._X_val = None
+        self._y_val = None
 
 
     def _shuffle(self, X, y):
-        y = np.expand_dims(y, axis=1)
-        z = np.append(arr=X, values=y, axis=1)
-        np.random.shuffle(z)
-        X = np.delete(z, z.shape[1]-1, axis=1)
-        y = z[:, z.shape[1]-1]
+        y_var = y.name
+        df = pd.concat([X,y], axis=1)
+        df = df.sample(frac=1, replace=False, axis=0)
+        X = df.drop(labels = y_var, axis=1)
+        y = df[y_var]
         return(X, y)
 
     def fit(self, request):
 
         self._request = request
-        
+
         # Initialize search variables
         iteration = 0
         epoch = 0
-        J_total = 0
         theta = self._request['hyper']['theta']
         self._J_history = []
+        self._J_history_val = []
         self._theta_history = []
         self._g_history = []
         self._iterations = []
-        self._epochs = []
-        self._rmse_history = []
-        state = {'t':{'prior':10**10, 'current':1},
-                 'g':{'prior':np.repeat(10**10, self._request['data']['X'].shape[1]), 
-                      'current':np.repeat(1, self._request['data']['X'].shape[1])},
-                 'v':{'prior':10**10, 'current':1}}                   
+        self._epochs = []        
 
         # Extract data
         self._X = self._request['data']['X']
         self._y = self._request['data']['y']
         self._X_val = self._request['data']['X_val']
         self._y_val = self._request['data']['y_val']
+
+        # Initialize State 
+        state = {'prior':10**10, 'current':0, 'iteration':0}
         
-        while not self._finished(state, iteration):
+        # Compute number of iterations in each batch
+        iterations_per_batch = math.floor(self._X.shape[0] * self._request['hyper']['batch_size'])
+        
+        while not self._finished(state):
             epoch += 1            
             X, y = self._shuffle(self._X, self._y)
 
-            for x_i, y_i in zip(X, y):
+            for x_i, y_i in zip(X.values, y):
                 iteration += 1
 
                 h = self._hypothesis(x_i, theta)
                 e = self._error(h, y_i)
                 J = self._cost(e)
-                J_total += J
+                J_val = None
                 g = self._gradient(x_i, e)
 
-                self._h_history.append(h)
-                self._J_history.append(J)
-                self._theta_history.append(theta.tolist())
-                self._g_history.append(g)
-                self._epochs.append(epoch)
-                self._iterations.append(iteration)
-                
-                if self._iteration % self._request['hyper']['check_grad'] == 0:
-                    state['t']['current'] = J_total / self._request['hyper']['check_grad']
-                    state['g']['current'] = g
+                if iteration % iterations_per_batch == 0:
+                    self._J_history.append(J)
+                    self._theta_history.append(theta.tolist())
+                    self._g_history.append(g)
+                    self._epochs.append(epoch)
+                    self._iterations.append(iteration)
 
                     if self._request['hyper']['cross_validated']:
-                        rmse = self._rmse(self._X_val, self._y_val, theta)
-                        self._rmse_history.append(rmse)
-                        state['v']['current'] = rmse
+                        h_val = self._hypothesis(self._X_val, theta)
+                        e_val = self._error(h_val, self._y_val)
+                        J_val = self._cost(e_val)                
+                        self._J_history_val.append(J_val)
 
-                    if self._finished(state, iteration):
+                    state = self._update_state(state, iteration, J, J_val, g)
+
+                    if self._finished(state):
                         break
-                    J_total = 0
 
                 theta = self._update(theta, g)

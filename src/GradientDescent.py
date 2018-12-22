@@ -59,9 +59,8 @@ class GradientDescent:
 
     def __init__(self):
         self._alg = "Gradient Descent"
-        self._results = []
-        self._summary = pd.DataFrame()
-        self._detail = pd.DataFrame()
+        self._summary = None
+        self._detail = None
 
     def _todf(self, x, stub):
         n = len(x[0])
@@ -155,7 +154,9 @@ class GradientDescent:
 
         # Run search and obtain result        
         gd = BGDFit()
+        start = datetime.datetime.now()
         gd.fit(self._request)
+        end = datetime.datetime.now()
 
         # Format stop condition for reporting and plotting
         if self._request['hyper']['stop_measure'] == 't':
@@ -175,22 +176,17 @@ class GradientDescent:
         # Extract detail information
         epochs = pd.DataFrame(gd.get_epochs(), columns=['epochs'])        
         iterations = pd.DataFrame(gd.get_iterations(), columns=['iterations'])
-        times = pd.DataFrame(gd.get_times(), columns=['time'])        
         thetas = self._todf(gd.get_thetas(), stub='theta_')        
         J = pd.DataFrame(gd.get_costs(dataset='t'), columns=['cost'])   
-        self._detail = pd.concat([epochs, iterations, times, thetas, J], axis=1)        
+        self._detail = pd.concat([epochs, iterations, thetas, J], axis=1)        
         if cross_validated:            
             J_val = pd.DataFrame(gd.get_costs(dataset='v'), columns=['cost_val'])               
             self._detail = pd.concat([self._detail, J_val], axis=1)
         self._detail['alg'] = self._alg
         self._detail['alpha'] = alpha
-        self._detail['precision'] = precision
-        self._detail['maxiter'] = maxiter
         self._detail['stop'] = stop
         self._detail['stop_measure'] = stop_measure
-        self._detail['stop_metric'] = stop_metric
         self._detail['stop_condition'] = stop_condition
-        self._detail['cross_validated'] = cross_validated
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
@@ -200,20 +196,21 @@ class GradientDescent:
                                     'stop_measure': stop_measure,
                                     'stop_metric': stop_metric,
                                     'stop_condition': stop_condition,
-                                    'start':times.iloc[0].item(),
-                                    'end':times.iloc[-1].item(),
-                                    'duration':times.iloc[-1].item() - times.iloc[0].item(),
-                                    'epochs': epochs.shape[0],
-                                    'iterations': iterations.shape[0],
-                                    'alpha': alpha,
                                     'stop': stop,
-                                    'precision': precision,
+                                    'start':start,
+                                    'end':end,
+                                    'duration':end-start,
+                                    'epochs': epochs.iloc[-1].item(),
+                                    'iterations': iterations.iloc[-1].item(),
                                     'initial_costs': J.iloc[0].item(),
                                     'final_costs': J.iloc[-1].item()},
                                     index=[0])
         if cross_validated:                                    
             self._summary['initial_costs_val'] = J_val.iloc[0].item()
             self._summary['final_costs_val'] = J_val.iloc[-1].item()
+        else:
+            self._summary['initial_costs_val'] = None
+            self._summary['final_costs_val'] = None
     
     def plot(self, path=None, show=True):
 
@@ -424,6 +421,99 @@ class SGD(GradientDescent):
     '''Stochastic Gradient Descent'''
 
     def __init__(self):
-        pass
-  
+        self._alg = "Gradient Descent"        
+        self._summary = None
+        self._detail = None 
+
+    def fit(self, X, y, theta, X_val=None, y_val=None, batch_size=.1, 
+               alpha=0.01, maxiter=0, precision=0.001,
+               stop_measure='t', stop_metric='a', scaler='minmax'):
+
+        # Set cross-validated flag if validation set included 
+        cross_validated = all(v is not None for v in [X_val, y_val])
+
+        # Confirm cross-validated of validation set cost is chosen as stopping 
+        # condition
+        if stop_measure == 'v' and not cross_validated:
+            raise Exception('Validation set must be provided for this stopping criteria')
+
+        # Prepare Data
+        X, y = self._prep_data(X=X, y=y, scaler=scaler)
+        if cross_validated:
+            X_val, y_val = self._prep_data(X=X_val, y=y_val, scaler=scaler)                    
+
+        # Package request
+        self._request = dict()
+        self._request['alg'] = self._alg        
+        self._request['data'] = {'X': X, 'y':y, 'X_val':X_val, 'y_val':y_val} 
+        self._request['hyper'] = {'alpha': alpha, 'theta': theta,
+                                  'maxiter': maxiter, 
+                                  'precision': precision,
+                                  'batch_size': batch_size,
+                                  'stop_measure': stop_measure,
+                                  'stop_metric': stop_metric,
+                                  'cross_validated': cross_validated}
+
+        # Run search and obtain result        
+        gd = SGDFit()
+        start = datetime.datetime.now()
+        gd.fit(self._request)
+        end = datetime.datetime.now()
+
+        # Format hyperparameters
+        if self._request['hyper']['stop_measure'] == 't':
+            stop_measure = 'Training Set Costs'
+        if self._request['hyper']['stop_measure'] == 'g':
+            stop_measure = 'Gradient Norm'
+        if self._request['hyper']['stop_measure'] == 'v':
+            stop_measure = 'Validation Set Costs'            
+        if self._request['hyper']['stop_metric'] == 'a':
+            stop_metric = 'Absolute Change'         
+        if self._request['hyper']['stop_metric'] == 'r':
+            stop_metric = 'Relative Change'         
+        stop = stop_metric + " in " + stop_measure + \
+               ' less than ' + str(precision) 
+        stop_condition = stop_metric + " in " + stop_measure 
+        batch_size = 'Batch Size ' + str(batch_size)
+
+        # Extract detail information
+        epochs = pd.DataFrame(gd.get_epochs(), columns=['epochs'])        
+        iterations = pd.DataFrame(gd.get_iterations(), columns=['iterations'])
+        thetas = self._todf(gd.get_thetas(), stub='theta_')        
+        J = pd.DataFrame(gd.get_costs(dataset='t'), columns=['cost'])   
+        self._detail = pd.concat([epochs, iterations, thetas, J], axis=1)        
+        if cross_validated:            
+            J_val = pd.DataFrame(gd.get_costs(dataset='v'), columns=['cost_val'])               
+            self._detail = pd.concat([self._detail, J_val], axis=1)
+        self._detail['alg'] = self._alg
+        self._detail['alpha'] = alpha
+        self._detail['stop'] = stop
+        self._detail['stop_measure'] = stop_measure
+        self._detail['stop_condition'] = stop_condition
+        self._detail['batch_size'] = batch_size
+        
+        # Package summary results
+        self._summary = pd.DataFrame({'alg': gd.get_alg(),
+                                    'alpha': alpha,
+                                    'precision': precision,
+                                    'batch_size': batch_size,
+                                    'maxiter': maxiter,
+                                    'stop_measure': stop_measure,
+                                    'stop_metric': stop_metric,
+                                    'stop_condition': stop_condition,
+                                    'stop': stop,
+                                    'start':start,
+                                    'end':end,
+                                    'duration':end-start,
+                                    'epochs': epochs.iloc[-1].item(),
+                                    'iterations': iterations.iloc[-1].item(),
+                                    'initial_costs': J.iloc[0].item(),
+                                    'final_costs': J.iloc[-1].item()},
+                                    index=[0])
+        if cross_validated:                                    
+            self._summary['initial_costs_val'] = J_val.iloc[0].item()
+            self._summary['final_costs_val'] = J_val.iloc[-1].item()
+        else:
+            self._summary['initial_costs_val'] = None
+            self._summary['final_costs_val'] = None  
 
