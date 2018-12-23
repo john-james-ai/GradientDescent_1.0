@@ -25,7 +25,7 @@ theta = np.array([-1,-1])
 alpha = [0.01, 0.05]
 precision = [0.01, 0.001]
 maxiter = 5000
-stop_measure = ['t', 'v', 'g']
+stop_parameter = ['t', 'v', 'g']
 stop_metric = ['a', 'r']
 directory = "./test/figures/BGD/Lab/"
 
@@ -33,7 +33,7 @@ directory = "./test/figures/BGD/Lab/"
 # Run experiment
 lab = BGDLab()
 lab.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_measure=stop_measure, stop_metric=stop_metric)
+           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
 #%%%           
 lab.plot_costs(directory=directory)
 lab.plot_curves(directory=directory)

@@ -31,11 +31,10 @@ import math
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 plt.style.use('seaborn-notebook')
-import matplotlib.animation as animation
-from matplotlib.animation import FuncAnimation
 from matplotlib import cm
 from matplotlib import animation, rc
 from matplotlib import colors as mcolors
+from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 from sklearn import preprocessing
@@ -49,6 +48,7 @@ import pandas as pd
 import seaborn as sns
 
 from GradientFit import BGDFit, SGDFit
+from utils import save_fig, save_gif
 # --------------------------------------------------------------------------- #
 #                       GRADIENT DESCENT BASE CLASS                           #
 # --------------------------------------------------------------------------- #
@@ -126,14 +126,14 @@ class GradientDescent:
   
     def fit(self, X, y, theta, X_val=None, y_val=None, 
                alpha=0.01, maxiter=0, precision=0.001,
-               stop_measure='t', stop_metric='a', scaler='minmax'):
+               stop_parameter='t', stop_metric='a', scaler='minmax'):
 
         # Set cross-validated flag if validation set included 
         cross_validated = all(v is not None for v in [X_val, y_val])
 
         # Confirm cross-validated of validation set cost is chosen as stopping 
         # condition
-        if stop_measure == 'v' and not cross_validated:
+        if stop_parameter == 'v' and not cross_validated:
             raise Exception('Validation set must be provided for this stopping criteria')
 
         # Prepare Data
@@ -148,7 +148,7 @@ class GradientDescent:
         self._request['hyper'] = {'alpha': alpha, 'theta': theta,
                                   'maxiter': maxiter, 
                                   'precision': precision,
-                                  'stop_measure': stop_measure,
+                                  'stop_parameter': stop_parameter,
                                   'stop_metric': stop_metric,
                                   'cross_validated': cross_validated}
 
@@ -159,19 +159,19 @@ class GradientDescent:
         end = datetime.datetime.now()
 
         # Format stop condition for reporting and plotting
-        if self._request['hyper']['stop_measure'] == 't':
-            stop_measure = 'Training Set Costs'
-        if self._request['hyper']['stop_measure'] == 'g':
-            stop_measure = 'Gradient Norm'
-        if self._request['hyper']['stop_measure'] == 'v':
-            stop_measure = 'Validation Set Costs'            
+        if self._request['hyper']['stop_parameter'] == 't':
+            stop_parameter = 'Training Set Costs'
+        if self._request['hyper']['stop_parameter'] == 'g':
+            stop_parameter = 'Gradient Norm'
+        if self._request['hyper']['stop_parameter'] == 'v':
+            stop_parameter = 'Validation Set Costs'            
         if self._request['hyper']['stop_metric'] == 'a':
             stop_metric = 'Absolute Change'         
         if self._request['hyper']['stop_metric'] == 'r':
             stop_metric = 'Relative Change'         
-        stop = stop_metric + " in " + stop_measure + \
+        stop = stop_metric + " in " + stop_parameter + \
                ' less than ' + str(precision) 
-        stop_condition = stop_metric + " in " + stop_measure 
+        stop_condition = stop_metric + " in " + stop_parameter 
 
         # Extract detail information
         epochs = pd.DataFrame(gd.get_epochs(), columns=['epochs'])        
@@ -185,17 +185,17 @@ class GradientDescent:
         self._detail['alg'] = self._alg
         self._detail['alpha'] = alpha
         self._detail['stop'] = stop
-        self._detail['stop_measure'] = stop_measure
-        self._detail['stop_condition'] = stop_condition
+        self._detail['stop_parameter'] = 'Stop Parameter: ' + stop_parameter
+        self._detail['stop_condition'] = 'Stop Condition: ' + stop_condition
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
                                     'alpha': alpha,
                                     'precision': precision,
                                     'maxiter': maxiter,
-                                    'stop_measure': stop_measure,
+                                    'stop_parameter': 'Stop Parameter: ' + stop_parameter,
                                     'stop_metric': stop_metric,
-                                    'stop_condition': stop_condition,
+                                    'stop_condition': 'Stop Condition: ' + stop_condition,
                                     'stop': stop,
                                     'start':start,
                                     'end':end,
@@ -212,7 +212,7 @@ class GradientDescent:
             self._summary['initial_costs_val'] = None
             self._summary['final_costs_val'] = None
     
-    def plot(self, path=None, show=True):
+    def plot(self, directory=None, show=True):
 
         # Obtain matplotlib figure
         fig = plt.figure(figsize=(12,4))
@@ -319,16 +319,14 @@ class GradientDescent:
         fig.tight_layout()
         if show:
             plt.show()
-        if path is not None:
-            if os.path.exists(os.path.dirname(path)):
-                fig.savefig(path, facecolor='w')
-            else:
-                os.makedirs(os.path.dirname(path))
-                fig.savefig(path, facecolor='w')
+        if directory is not None:
+            filename = self._alg + ' ' + self._summary['stop'].item() + '.png'
+            filename = filename.replace(':', '')
+            save_fig(fig, directory, filename)
         plt.close(fig)        
         return(fig)
 
-    def animate(self, path=None, maxframes=500 ,interval=100,  fps=30):
+    def animate(self, directory=None, maxframes=500 ,interval=100,  fps=30):
 
         # Obtain data
         costs = list(self._detail['cost'])
@@ -391,13 +389,9 @@ class GradientDescent:
         display = animation.FuncAnimation(fig, animate, init_func=init,
                                           frames=len(costs_plot), interval=interval,
                                           blit=True, repeat_delay=100)
-        if path is not None:
-            face_edge_colors = {'facecolor': 'w', 'edgecolor': 'w'}
-            if os.path.exists(os.path.dirname(path)):
-                display.save(path, writer='imagemagick', fps=fps, savefig_kwargs = face_edge_colors)
-            else:
-                os.makedirs(os.path.dirname(path))                
-                display.save(path, writer='imagemagick', fps=fps, savefig_kwargs = face_edge_colors)
+        if directory is not None:
+            filename = self._alg + ' ' + self._summary['stop'].item() + '.gif'
+            save_gif(display, directory, filename, fps)
         plt.close(fig)   
         return(display)
   
@@ -421,20 +415,20 @@ class SGD(GradientDescent):
     '''Stochastic Gradient Descent'''
 
     def __init__(self):
-        self._alg = "Gradient Descent"        
+        self._alg = "Stochastic Gradient Descent"        
         self._summary = None
         self._detail = None 
 
-    def fit(self, X, y, theta, X_val=None, y_val=None, batch_size=.1, 
+    def fit(self, X, y, theta, X_val=None, y_val=None, check_point=.1, 
                alpha=0.01, maxiter=0, precision=0.001,
-               stop_measure='t', stop_metric='a', scaler='minmax'):
+               stop_parameter='t', stop_metric='a', scaler='minmax'):
 
         # Set cross-validated flag if validation set included 
         cross_validated = all(v is not None for v in [X_val, y_val])
 
         # Confirm cross-validated of validation set cost is chosen as stopping 
         # condition
-        if stop_measure == 'v' and not cross_validated:
+        if stop_parameter == 'v' and not cross_validated:
             raise Exception('Validation set must be provided for this stopping criteria')
 
         # Prepare Data
@@ -449,8 +443,8 @@ class SGD(GradientDescent):
         self._request['hyper'] = {'alpha': alpha, 'theta': theta,
                                   'maxiter': maxiter, 
                                   'precision': precision,
-                                  'batch_size': batch_size,
-                                  'stop_measure': stop_measure,
+                                  'check_point': check_point,
+                                  'stop_parameter': stop_parameter,
                                   'stop_metric': stop_metric,
                                   'cross_validated': cross_validated}
 
@@ -461,20 +455,20 @@ class SGD(GradientDescent):
         end = datetime.datetime.now()
 
         # Format hyperparameters
-        if self._request['hyper']['stop_measure'] == 't':
-            stop_measure = 'Training Set Costs'
-        if self._request['hyper']['stop_measure'] == 'g':
-            stop_measure = 'Gradient Norm'
-        if self._request['hyper']['stop_measure'] == 'v':
-            stop_measure = 'Validation Set Costs'            
+        if self._request['hyper']['stop_parameter'] == 't':
+            stop_parameter = 'Training Set Costs'
+        if self._request['hyper']['stop_parameter'] == 'g':
+            stop_parameter = 'Gradient Norm'
+        if self._request['hyper']['stop_parameter'] == 'v':
+            stop_parameter = 'Validation Set Costs'            
         if self._request['hyper']['stop_metric'] == 'a':
             stop_metric = 'Absolute Change'         
         if self._request['hyper']['stop_metric'] == 'r':
             stop_metric = 'Relative Change'         
-        stop = stop_metric + " in " + stop_measure + \
+        stop = stop_metric + " in " + stop_parameter + \
                ' less than ' + str(precision) 
-        stop_condition = stop_metric + " in " + stop_measure 
-        batch_size = 'Batch Size ' + str(batch_size)
+        stop_condition = stop_metric + " in " + stop_parameter 
+        check_point = 'Check Point ' + str(check_point)
 
         # Extract detail information
         epochs = pd.DataFrame(gd.get_epochs(), columns=['epochs'])        
@@ -488,17 +482,17 @@ class SGD(GradientDescent):
         self._detail['alg'] = self._alg
         self._detail['alpha'] = alpha
         self._detail['stop'] = stop
-        self._detail['stop_measure'] = stop_measure
+        self._detail['stop_parameter'] = stop_parameter
         self._detail['stop_condition'] = stop_condition
-        self._detail['batch_size'] = batch_size
+        self._detail['check_point'] = check_point
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
                                     'alpha': alpha,
                                     'precision': precision,
-                                    'batch_size': batch_size,
+                                    'check_point': check_point,
                                     'maxiter': maxiter,
-                                    'stop_measure': stop_measure,
+                                    'stop_parameter': stop_parameter,
                                     'stop_metric': stop_metric,
                                     'stop_condition': stop_condition,
                                     'stop': stop,

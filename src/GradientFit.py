@@ -105,7 +105,7 @@ class GradientFit:
     def _update_state(self,state, iteration, J,J_val, g):
         state['iteration'] = iteration
         state['prior'] = state['current']
-        stop = self._request['hyper']['stop_measure']
+        stop = self._request['hyper']['stop_parameter']
         if stop == 't':
             state['current'] = J
         elif stop == 'v':
@@ -179,7 +179,7 @@ class BGDFit(GradientFit):
 class SGDFit(GradientFit):
 
     def __init__(self):
-        self._alg = "Stochastic Batch Gradient Descent"
+        self._alg = "Stochastic Gradient Descent"
         self._request = dict()
         self._J_history = []
         self._J_history_val = []
@@ -208,6 +208,7 @@ class SGDFit(GradientFit):
         # Initialize search variables
         iteration = 0
         epoch = 0
+        J_total = 0
         theta = self._request['hyper']['theta']
         self._J_history = []
         self._J_history_val = []
@@ -226,7 +227,7 @@ class SGDFit(GradientFit):
         state = {'prior':10**10, 'current':0, 'iteration':0}
         
         # Compute number of iterations in each batch
-        iterations_per_batch = math.floor(self._X.shape[0] * self._request['hyper']['batch_size'])
+        iterations_per_batch = math.floor(self._X.shape[0] * self._request['hyper']['check_point'])
         
         while not self._finished(state):
             epoch += 1            
@@ -238,11 +239,14 @@ class SGDFit(GradientFit):
                 h = self._hypothesis(x_i, theta)
                 e = self._error(h, y_i)
                 J = self._cost(e)
+                J_total = J_total + J
                 J_val = None
                 g = self._gradient(x_i, e)
 
                 if iteration % iterations_per_batch == 0:
-                    self._J_history.append(J)
+                    J_avg = J_total / iterations_per_batch
+                    J_total = 0                    
+                    self._J_history.append(J_avg)
                     self._theta_history.append(theta.tolist())
                     self._g_history.append(g)
                     self._epochs.append(epoch)

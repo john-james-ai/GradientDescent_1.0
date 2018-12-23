@@ -33,6 +33,7 @@ import seaborn as sns
 from textwrap import wrap
 
 from GradientDescent import BGD, SGD
+from utils import save_fig
 
 rcParams['animation.embed_limit'] = 60
 rc('animation', html='jshtml')
@@ -54,10 +55,10 @@ class GradientLab:
         if self._detail is None:
             raise Exception('Nothing to report')
         else:
-            vars = ['alg', 'alpha', 'precision', 'maxiter', 'stop_measure', 
-                    'stop_metric', 'start', 'end', 'duration', 'epochs', 
-                    'initial_costs', 'final_costs', 'initial_costs_val',
-                    'final_costs_val']
+            vars = ['alg', 'alpha', 'precision', 'maxiter',
+                    'epochs', 'iterations','duration',
+                    'stop_parameter', 'stop_metric', 
+                    'final_costs', 'final_costs_val']
             df = self._summary
             df = df[vars]
             if sort == 't':
@@ -70,34 +71,25 @@ class GradientLab:
             return(df)
         
     def fit(self, X, y, X_val, y_val, theta, alpha, precision, 
-               stop_measure, stop_metric, maxiter=0, scaler='minmax'):
+               stop_parameter, stop_metric, maxiter=0, scaler='minmax'):
 
         bgd = BGD()
         self._summary = pd.DataFrame()
         self._detail = pd.DataFrame()
-        for measure in stop_measure:
+        for measure in stop_parameter:
             for metric in stop_metric:
                 for a in alpha:
                     for p in precision:
                         bgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
-                                alpha=a, maxiter=maxiter, precision=p, stop_measure=measure, 
+                                alpha=a, maxiter=maxiter, precision=p, stop_parameter=measure, 
                                 stop_metric=metric, scaler=scaler)
                         detail = bgd.get_detail()
                         summary = bgd.summary()
                         self._detail = pd.concat([self._detail, detail], axis=0)    
                         self._summary = pd.concat([self._summary, summary], axis=0)    
 
-    def _save_fig(self, fig, directory, filename):
-        if os.path.exists(directory):
-            path = os.path.join(os.path.abspath(directory), filename)
-            fig.savefig(path, facecolor='w')
-        else:
-            os.makedirs(directory)
-            path = os.path.join(os.path.abspath(directory),filename)
-            fig.savefig(path, facecolor='w')
-                        
 
-    def _plot_costs(self, search_name, search, directory=None, show=True):
+    def _plot_costs(self, search_name, search,  directory=None, show=True):
         # Group data and obtain keys
         search_groups = search.groupby('stop_condition')   
 
@@ -136,20 +128,22 @@ class GradientLab:
             i += 1
 
         # Finalize plot and save
-        suptitle = self._alg + '\n' + 'Cost Analysis' + '\n' + \
-                   'Stop Criteria: ' + ' '.join(search_name)
+        if search_name:
+            suptitle = self._alg + '\n' + 'Cost Analysis' + '\n' + ' '.join(search_name)
+        else:
+            suptitle = self._alg + '\n' + 'Cost Analysis' 
         fig.suptitle(suptitle)
         fig.tight_layout(rect=[0,0,1,.9])
         if show:
             plt.show()
         if directory is not None:
-            filename = self._alg + ' Cost Analysis ' + 'Stop Criteria ' + \
-                       ' '.join(search_name) + '.png'
-            self._save_fig(fig, directory, filename)
+            filename = suptitle.replace('\n', '')
+            filename = filename.replace(':', '') + '.png'
+            save_fig(fig, directory, filename)
         plt.close(fig)
         return(fig)
 
-    def _plot_times(self, search_name, search, directory=None, show=True):
+    def _plot_times(self, search_name, search,  directory=None, show=True):
         # Group data and obtain keys
         search_groups = search.groupby('stop_condition')   
 
@@ -181,19 +175,22 @@ class GradientLab:
             i += 1
 
         # Finalize plot and save
-        suptitle = self._alg + '\n' + 'Computation Time' + '\n' +  \
-                   ''.join(search_name)
+        if search_name:
+            suptitle = self._alg + '\n' + 'Computation Time' + '\n' + ' '.join(search_name)
+        else:
+            suptitle = self._alg + '\n' + 'Computation Time' 
         fig.suptitle(suptitle)
         fig.tight_layout(rect=[0,0,1,.9])
         if show:
             plt.show()
         if directory is not None:
-            filename = self._alg + ' Computation Time ' + 'Stop Criteria ' + ' '.join(search_name) + '.png'
-            self._save_fig(fig, directory, filename)
+            filename = suptitle.replace('\n', '')
+            filename = filename.replace(':', '') + '.png'
+            save_fig(fig, directory, filename)
         plt.close(fig)
         return(fig)
 
-    def _plot_curves(self, search_name, search, directory=None, show=True):
+    def _plot_curves(self, search_name, search,  directory=None, show=True):
 
         # Group data and obtain keys
         search_groups = search.groupby('stop')   
@@ -206,8 +203,10 @@ class GradientLab:
         # Obtain and initialize matplotlib figure
         fig = plt.figure(figsize=(12,4*rows))        
         sns.set(style="whitegrid", font_scale=1)
-        suptitle = self._alg + '\n' + 'Learning Curves' + '\n' + \
-                   'Stopping Criteria: ' + ' '.join(search_name) 
+        if search_name:
+            suptitle = self._alg + '\n' + 'Learning Curves' + '\n' + ' '.join(search_name)
+        else:
+            suptitle = self._alg + '\n' + 'Learning Curves' 
         fig.suptitle(suptitle, y=1.1)
 
         # Render plots
@@ -233,24 +232,25 @@ class GradientLab:
         if show:
             plt.show()
         if directory is not None:
-            filename = self._alg + ' Learning Curves ' + \
-                   'Stopping Criteria ' + ' '.join(search_name)  + '.png'
-            self._save_fig(fig, directory, filename)
+            filename = suptitle.replace('\n', '')
+            filename = filename.replace(':', '') + '.png'
+            save_fig(fig, directory, filename)
         plt.close(fig)
         return(fig)
 
     def plot_times(self, directory=None, show=True):
-        self._plot_times("", self._summary, directory, show)
+        search_name = None
+        self._plot_times(search_name, self._summary,  directory, show)
 
     def plot_curves(self, directory=None, show=True):
-        detail = self._detail.groupby(['stop_measure'])
+        detail = self._detail.groupby(['stop_parameter'])
         for search_name, search in detail:
-            self._plot_curves(search_name, search, directory, show)
+            self._plot_curves(search_name, search,  directory, show)
 
     def plot_costs(self, directory=None, show=True):
-        summary = self._summary.groupby(['stop_measure'])
+        summary = self._summary.groupby(['stop_parameter'])
         for search_name, search in summary:
-            self._plot_costs(search_name, search, directory, show)
+            self._plot_costs(search_name, search,  directory, show)
 
 
 
@@ -275,37 +275,37 @@ class SGDLab(GradientLab):
         self._detail = None
 
     def fit(self, X, y, X_val, y_val, theta, alpha, precision, 
-            stop_measure, stop_metric, batch_size, maxiter=0, 
+            stop_parameter, stop_metric, check_point, maxiter=0, 
             scaler='minmax'):
         sgd = SGD()
         self._summary = pd.DataFrame()
         self._detail = pd.DataFrame()
 
-        for bs in batch_size:
-            for measure in stop_measure:
+        for cp in check_point:
+            for measure in stop_parameter:
                 for metric in stop_metric:
                     for a in alpha:
                         for p in precision:
                             sgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
-                                    alpha=a, maxiter=maxiter, precision=p, stop_measure=measure, 
-                                    stop_metric=metric, batch_size=bs, scaler=scaler)
+                                    alpha=a, maxiter=maxiter, precision=p, stop_parameter=measure, 
+                                    stop_metric=metric, check_point=cp, scaler=scaler)
                             detail = sgd.get_detail()
                             summary = sgd.summary()
                             self._detail = pd.concat([self._detail, detail], axis=0)    
                             self._summary = pd.concat([self._summary, summary], axis=0)    
 
     def plot_times(self, directory=None, show=True):
-        summary = self._summary.groupby(['batch_size'])
+        summary = self._summary.groupby(['check_point'])
         for search_name, search in summary:
             self._plot_times(search_name, search, directory, show)
         
 
     def plot_curves(self, directory=None, show=True):
-        detail = self._detail.groupby(['stop_measure', 'batch_size'])
+        detail = self._detail.groupby(['stop_parameter', 'check_point'])
         for search_name, search in detail:
             self._plot_curves(search_name, search, directory, show)
 
     def plot_costs(self, directory=None, show=True):
-        summary = self._summary.groupby(['stop_measure', 'batch_size'])
+        summary = self._summary.groupby(['stop_parameter', 'check_point'])
         for search_name, search in summary:
             self._plot_costs(search_name, search, directory, show)
