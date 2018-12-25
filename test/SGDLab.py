@@ -33,7 +33,7 @@ directory = "./test/figures/SGD/Lab/"
 #%%
 # Run experiment
 lab = SGDLab()
-lab.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
            maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric, check_point=check_point)
 #%%%           
 lab.plot_costs(directory=directory)

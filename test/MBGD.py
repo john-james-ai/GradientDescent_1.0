@@ -1,5 +1,5 @@
 # =========================================================================== #
-#                       STOCHASTIC GRADIENT DESCENT TEST                      #
+#                    MINI-BATCH GRADIENT DESCENT TEST                         #
 # =========================================================================== #
 # %%
 import inspect
@@ -14,31 +14,30 @@ import pandas as pd
 
 src = "c:\\Users\\John\\Documents\\Data Science\\Libraries\\GradientDescent\\src"
 sys.path.append(src)
-from GradientDescent import BGD, SGD
+from GradientDescent import MBGD
 import data
 #%%
 # --------------------------------------------------------------------------- #
-#                               TEST DRIVER                                   #
+#                             SEARCH FUNCTION                                 #  
 # --------------------------------------------------------------------------- #
-def sgd():
+def mbgd():
         X, X_val, y, y_val = data.demo()
         theta = np.array([-1,-1])
         alpha = 0.01
         precision = 0.001
         maxiter = 10000
-        check_point = .1
-        stop_parameter = 't'
+        stop_parameter = 'g'
         stop_metric = 'a'
-        directory = "./test/figures/SGD/"
-        gd = SGD()
-        gd.fit(X=X, y=y, theta=theta,X_val=X_val, y_val=y_val, 
-                check_point=check_point, alpha=alpha,
+        directory = "./test/figures/BGD/"
+        batch_size = 5
+        gd = MBGD()
+        gd.fit(X=X, y=y, theta=theta,X_val=X_val, y_val=y_val, alpha=alpha,
                 maxiter=maxiter, precision=precision, stop_parameter=stop_parameter,
-                stop_metric=stop_metric)
+                stop_metric=stop_metric, batch_size=batch_size)
         gd.plot(directory=directory)
         gd.animate(directory=directory)
         rpt = gd.summary()
         return(rpt)
-#%%
-report = sgd()        
+#%%        
+report = mbgd()        
 print(report)
