@@ -115,59 +115,61 @@ class GradientLab:
                   'final_costs_val': 'Validation Set Costs'}
         return(labels[x])
 
-    def _plot_costs(self, search, x, z, fig_key,  directory=None, show=True):
+    def plot_costs(self, x, z, fig_key='stop_parameter', 
+                    row_key='stop_condition',  directory=None, show=True):
         # Group data and obtain keys
-        search_name = search[0]
-        search_groups = search[1].groupby('stop_condition')   
+        figures = self._summary.groupby(fig_key)
+        for fig_name, fig_data in figures:
+            plots = fig_data.groupby(row_key)   
 
-        # Set Grid Dimensions
-        cols = 2  
-        rows = math.ceil(search_groups.ngroups)
-        
-        # Obtain and initialize matplotlib figure
-        fig = plt.figure(figsize=(12,4*rows))        
-        sns.set(style="whitegrid", font_scale=1)
+            # Set Grid Dimensions
+            cols = 2  
+            rows = plots.ngroups
+            
+            # Obtain and initialize matplotlib figure
+            fig = plt.figure(figsize=(12,4*rows))        
+            sns.set(style="whitegrid", font_scale=1)
 
-        # Render plots
-        i = 0
-        for condition, search in search_groups:
-            ax0 = plt.subplot2grid((rows,cols), (i,0))            
-            ax0 = sns.barplot(x=x, y='final_costs', hue=z, data=search)
-            ax0.set_facecolor('w')
-            ax0.tick_params(colors='k')
-            ax0.xaxis.label.set_color('k')
-            ax0.yaxis.label.set_color('k')
-            ax0.set_xlabel(self._get_label(x))
-            ax0.set_ylabel('Training Set Costs')
-            title = condition
-            ax0.set_title(title, color='k')
+            # Render plots
+            i = 0
+            for row_name, row_data in plots:
+                ax0 = plt.subplot2grid((rows,cols), (i,0))            
+                ax0 = sns.barplot(x=x, y='final_costs', hue=z, data=row_data)
+                ax0.set_facecolor('w')
+                ax0.tick_params(colors='k')
+                ax0.xaxis.label.set_color('k')
+                ax0.yaxis.label.set_color('k')
+                ax0.set_xlabel(self._get_label(x))
+                ax0.set_ylabel('Costs')
+                title = 'Training Set Costs' + '\n' + row_name
+                ax0.set_title(title, color='k')
 
-            ax1 = plt.subplot2grid((rows,cols), (i,1))
-            ax1 = sns.barplot(x=x, y='final_costs_val', hue=z, data=search)
-            ax1.set_facecolor('w')
-            ax1.tick_params(colors='k')
-            ax1.xaxis.label.set_color('k')
-            ax1.yaxis.label.set_color('k')
-            ax1.set_xlabel(self._get_label(x))
-            ax1.set_ylabel('Validation Set Costs')
-            title = condition
-            ax1.set_title(title, color='k')
-            i += 1
-
-        # Finalize plot and save
-        if search_name:
-            suptitle = self._alg + '\n' + 'Cost Analysis' + '\n' + ''.join(search_name)
-        else:
-            suptitle = self._alg + '\n' + 'Cost Analysis' 
-        fig.suptitle(suptitle)
-        fig.tight_layout(rect=[0,0,1,.9])
-        if show:
-            plt.show()
-        if directory is not None:
-            filename = suptitle.replace('\n', '')
-            filename = filename.replace(':', '') + '.png'
-            save_fig(fig, directory, filename)
-        plt.close(fig)
+                ax1 = plt.subplot2grid((rows,cols), (i,1))
+                ax1 = sns.barplot(x=x, y='final_costs_val', hue=z, data=row_data)
+                ax1.set_facecolor('w')
+                ax1.tick_params(colors='k')
+                ax1.xaxis.label.set_color('k')
+                ax1.yaxis.label.set_color('k')
+                ax1.set_xlabel(self._get_label(x))
+                ax1.set_ylabel('Costs')
+                title = 'Validation Set Costs' + '\n' + row_name
+                ax1.set_title(title, color='k')
+                i += 1
+            
+            # Finalize plot and save
+            if fig_name:
+                suptitle = self._alg + '\n' + 'Cost Analysis' + '\n' + ''.join(fig_name)
+            else:
+                suptitle = self._alg + '\n' + 'Cost Analysis' 
+            fig.suptitle(suptitle)
+            fig.tight_layout(rect=[0,0,1,.9])
+            if show:
+                plt.show()
+            if directory is not None:
+                filename = suptitle.replace('\n', '')
+                filename = filename.replace(':', '') + '.png'
+                save_fig(fig, directory, filename)
+            plt.close(fig)
         return(fig)
 
     def _plot_times(self, search_name, search,  directory=None, show=True):
@@ -227,10 +229,11 @@ class GradientLab:
         plt.close(fig)
         return(fig)
 
-    def _plot_curves(self, search_name, search,  directory=None, show=True):
+    def _plot_curves(self, search, x, z, fig_key, directory=None, show=True):
 
         # Group data and obtain keys
-        search_groups = search.groupby('stop')   
+        search_name = search[0]
+        search_groups = search[1].groupby('stop')   
 
         # Set Grid Dimensions
         cols = 2  
@@ -275,20 +278,15 @@ class GradientLab:
         plt.close(fig)
         return(fig)
 
-    def plot_costs(self, x, z, fig_key='stop_parameter', directory=None, show=True):
-        summary = self._summary.groupby([fig_key])
-        for search in summary:
-            self._plot_costs(search=search, x=x, z=z, fig_key=fig_key,
-                             directory=directory, show=show)        
-
     def plot_times(self, directory=None, show=True):
         search_name = None
         self._plot_times(search_name, self._summary,  directory, show)
 
-    def plot_curves(self, x,z,fig_key,directory=None, show=True):
-        detail = self._detail.groupby(['fig_key'])
+    def plot_curves(self, x, z, fig_key='stop_parameter', directory=None, show=True):
+        detail = self._detail.groupby([fig_key])
         for search_name, search in detail:
-            self._plot_curves(search_name, search,  directory, show)
+            self._plot_curves(search=search, x=x, z=z, fig_key=fig_key,
+                             directory=directory, show=show)
 
 
 

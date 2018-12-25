@@ -35,7 +35,8 @@ lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
            maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
 #%%%           
-lab.plot_costs(x='alpha', z='precision', fig_key='stop_parameter',  directory=directory)
+lab.plot_costs(x='alpha', z='precision', fig_key='stop_parameter', 
+               row_key='stop_condition',  directory=directory, show=False)
 # lab.plot_curves(directory=directory)
 # lab.plot_times(directory=directory)
 # lab.report(n=5)
