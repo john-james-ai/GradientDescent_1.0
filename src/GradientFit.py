@@ -3,57 +3,51 @@
 # =========================================================================== #
 #                             Gradient Search                                 #
 # =========================================================================== #
-import inspect
-import os
-import sys
-
+from abc import ABC, abstractmethod
 import datetime
-import itertools
 import math
 import numpy as np
-from numpy import array, newaxis
 import pandas as pd
-from sklearn.metrics import r2_score
-from typing import Union, Any, List, Optional, cast, Dict, Tuple, Iterator
+
 
 # --------------------------------------------------------------------------- #
 #                        Gradient Search Base Class                           #
 # --------------------------------------------------------------------------- #
 
 
-class GradientFit:
-    '''Base class for Gradient Search'''
+class GradientFit(ABC):
+    '''Abstract base class for Gradient Search'''
 
-    def __init__(self)->None:
+    def __init__(self):
         self._alg = "Batch Gradient Descent"
-        self._request = dict()      #type: Dict[Union[str,slice], Union[List[Union[Union[int,float],int,float]]]]
-        self._J_history = []        #type: List[float]
-        self._J_history_val = []    #type: List[float]
-        self._theta_history = []    #type: List[float]
-        self._g_history = []        #type: List[List[float]]
-        self._iterations = []       #type: List[int]
-        self._epochs = []           #type: List[int]
-        self._X = None              #type: Union[Any,None]
+        self._request = dict()   
+        self._J_history = []     
+        self._J_history_val = [] 
+        self._theta_history = [] 
+        self._g_history = []     
+        self._iterations = []    
+        self._epochs = []        
+        self._X = None           
         self._y = None
         self._X_val = None
         self._y_val = None
 
-    def get_alg(self)->str:
+    def get_alg(self):
         return(self._alg)
 
-    def get_data(self)->Any:
+    def get_data(self):
         return(self._X, self._y)
 
-    def get_epochs(self)->List[int]:
+    def get_epochs(self):
         return(self._epochs)
 
-    def get_iterations(self)->List[int]:
+    def get_iterations(self):
         return(self._iterations)
 
-    def get_thetas(self)->Any:
+    def get_thetas(self):
         return(self._theta_history)
 
-    def get_costs(self, dataset:str='t', init_final:str=None)->Any:
+    def get_costs(self, dataset='t', init_final=None):
         if dataset == 't' :
             if init_final is None:
                 return(self._J_history)
@@ -69,42 +63,47 @@ class GradientFit:
             else:
                 return(self._J_history_val[-1])
 
-    def _hypothesis(self, X:Any, theta:Any)->Any:
+    def _hypothesis(self, X, theta):
         return(X.dot(theta))
 
-    def _error(self, h:Any, y:Any)->Any:
+    def _error(self, h, y):
         return(h-y)
 
-    def _cost(self, e:Any)->Any:
+    def _cost(self, e):
         return(1/2 * np.mean(e**2))
 
-    def _compute_r2(self, X:Any, y:Any, theta:Any)->Any:
-        h = self._hypothesis(X, theta)
-        return(r2_score(y, h))
-
-    def _gradient(self, X:Any, e:Any)->Any:
+    def _gradient(self, X, e):
         return(X.T.dot(e)/X.shape[0])
 
-    def _update(self, theta:List[Union[int,float]], gradient:List[Union[int,float]])->Any:        
+    def _update(self, theta, gradient):        
         return(theta-(self._request['hyper']['alpha'] * gradient))
 
-    def _maxed_out(self, iteration:int)->bool:
+    def _maxed_out(self, iteration):
         if self._request['hyper']['maxiter']:
             if iteration == self._request['hyper']['maxiter']:
                 return(True)  
 
-    def _finished(self, state:Dict[str,Union[int,float]])->bool:
+    def _zeros(self, x):
+        if (x<1**-10) & (x>0):
+            x = 1**-10
+        elif (x>-1**-10) & (x<0):
+            x = -1**-10
+        return(x)
+
+    def _finished(self, state):
+        state['current'] = self._zeros(state['current'])
+        state['prior'] = self._zeros(state['prior'])
+
+        if state['current'] > self._request['hyper']['max_cost']:
+            return(True)
         if self._maxed_out(state['iteration']):
             return(True)
         elif self._request['hyper']['stop_metric'] == 'a':
             return(abs(state['prior']-state['current']) < self._request['hyper']['precision'])
         else:
-            if state['prior'] == 0:
-                state['prior'] = 10**-10
             return(abs(state['prior']-state['current'])/abs(state['prior'])*100 < self._request['hyper']['precision'])    
 
-    def _update_state(self,state:Dict[str,Union[str,float]], 
-                      iteration:int, J:Any, J_val:Any, g:Any)->Dict[str,Union[str,float]]:
+    def _update_state(self,state, iteration, J, J_val, g):
         state['iteration'] = iteration
         state['prior'] = state['current']
         stop = self._request['hyper']['stop_parameter']
@@ -116,7 +115,20 @@ class GradientFit:
             state['current'] = np.sqrt(np.sum(abs(g)**2))
         return(state)
 
-    def fit(self, request:Dict[str,Any])->None:
+    @abstractmethod
+    def fit(self, request):
+        pass
+
+# --------------------------------------------------------------------------- #
+#                       Batch Gradient Descent Search                         #
+# --------------------------------------------------------------------------- #            
+class BGDFit(GradientFit):
+    '''Batch Gradient Descent'''
+
+    def __init__(self)->None:
+        self._alg = "Batch Gradient Descent"    
+
+    def fit(self, request):
 
         self._request = request
 
@@ -137,7 +149,7 @@ class GradientFit:
         self._y_val = self._request['data']['y_val']
 
         # Initialize State 
-        state = {'prior':10**10, 'current':0, 'iteration':0}
+        state = {'prior':1, 'current':10, 'iteration':0}
 
         while not self._finished(state):
             iteration += 1
@@ -166,14 +178,7 @@ class GradientFit:
                         
             theta = self._update(theta, g)
 
-# --------------------------------------------------------------------------- #
-#                       Batch Gradient Descent Search                         #
-# --------------------------------------------------------------------------- #            
-class BGDFit(GradientFit):
-    '''Batch Gradient Descent'''
 
-    def __init__(self)->None:
-        self._alg = "Batch Gradient Descent"    
 
 # --------------------------------------------------------------------------- #
 #                     Stochastic Gradient Descent Search                      #
@@ -195,7 +200,7 @@ class SGDFit(GradientFit):
         self._y_val = None
 
 
-    def _shuffle(self, X:Any, y:Any)->Any:
+    def _shuffle(self, X, y):
         y_var = y.name
         df = pd.concat([X,y], axis=1)
         df = df.sample(frac=1, replace=False, axis=0)
@@ -203,7 +208,7 @@ class SGDFit(GradientFit):
         y = df[y_var]
         return(X, y)
 
-    def fit(self, request:Dict[str,Any])->None:
+    def fit(self, request):
 
         self._request = request
 
@@ -291,7 +296,7 @@ class MBGDFit(GradientFit):
         self._y_val = None
 
 
-    def _shuffle(self, X:Any, y:Any)->Any:
+    def _shuffle(self, X, y):
         y_var = y.name
         df = pd.concat([X,y], axis=1)
         df = df.sample(frac=1, replace=False, axis=0)
@@ -299,7 +304,7 @@ class MBGDFit(GradientFit):
         y = df[y_var]
         return(X, y)
 
-    def _get_batches(self, X:Any, y:Any, batch_size:Union[float,int])->Tuple[List[Any],List[Any]]:        
+    def _get_batches(self, X, y, batch_size):        
         df = pd.concat([X,y], axis=1)
         if batch_size >1:
             pass
@@ -315,7 +320,7 @@ class MBGDFit(GradientFit):
         return(X_list,y_list)
 
 
-    def fit(self, request:Dict[str,Any])->None:
+    def fit(self, request):
 
         self._request = request
 

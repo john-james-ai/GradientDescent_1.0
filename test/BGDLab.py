@@ -35,8 +35,17 @@ lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
            maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
 #%%%           
-lab.plot_costs(x='alpha', z='precision', fig_key='stop_parameter', 
-               row_key='stop_condition',  directory=directory, show=False)
-# lab.plot_curves(directory=directory)
+fig, annotations = lab.plot(directory=directory, show=True)
+# lab.plot_costs(x='alpha', z='precision', fig_key='stop_condition', 
+#                row_key='stop',  directory=directory, show=False)
+# lab.plot_times(x='alpha', z='precision', fig_key='stop_parameter', row_key='stop_condition',  
+#                 directory=directory, show=False)
 # lab.plot_times(directory=directory)
-# lab.report(n=5)
+report = lab.report(directory=directory)
+
+
+#%%
+print(annotations.value.values)
+print(report.experiment.values)
+featured = pd.merge(annotations, report, how='inner', left_on='value', right_on='experiment')
+print(featured)

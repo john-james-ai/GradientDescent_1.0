@@ -83,7 +83,7 @@ warnings.simplefilter(action='ignore', category=UserWarning)
 ```
 
 
-```{r bgd, child = '3-gradient.Rmd'}
+```{r bgd, child = '5.1 bgd.Rmd'}
 ```
 
 

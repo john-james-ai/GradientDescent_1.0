@@ -3,20 +3,7 @@
 # =========================================================================== #
 #                             GRADIENT DESCENT                                #
 # =========================================================================== #
-'''
-Class creates gradient descent solutions for each of the following gradient
-descent variants and optimization algorithms.
-- Batch gradient descent
-- Stochastic gradient descent
-- Momentum
-- Nesterov Accelerated Gradient
-- Adagrad
-- Adadelta
-- RMSProp
-- Adam
-- Adamax
-- Nadam
-'''
+
 
 # --------------------------------------------------------------------------- #
 #                                LIBRARIES                                    #
@@ -44,7 +31,6 @@ from sklearn import preprocessing
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import StandardScaler
-from typing import Union, Any, List, Optional, cast, Tuple, Dict, Iterator
 
 from GradientFit import BGDFit, SGDFit, MBGDFit
 from utils import save_fig, save_gif
@@ -61,7 +47,7 @@ class GradientDescent:
         self._summary = None
         self._detail = None
 
-    def _todf(self, x:Any, stub:str)->Any:
+    def _todf(self, x, stub):
         n = len(x[0])
         df = pd.DataFrame()
         for i in range(n):
@@ -71,32 +57,31 @@ class GradientDescent:
             df = pd.concat([df, df_vec], axis=1)
         return(df) 
 
-    def get_hyper(self)->Dict[str,str]:
+    def get_hyper(self):
         return(self._request['hyper'])
 
-    def get_transformed_data(self)->Dict[str, Union[float,Any]]:
+    def get_transformed_data(self):
         return(self._request['data'])
 
-    def get_detail(self)->Any:
+    def get_detail(self):
         if self._summary is None:
             raise Exception('No search results to report.')
         else:
             return(self._detail)
 
-    def summary(self)->Any:
+    def summary(self):
         if self._summary is None:
             raise Exception('No search results to report.')
         else:
             return(self._summary)
 
-    def _encode_labels(self, X:Any, y:Any)->Tuple[Any,Any]:
+    def _encode_labels(self, X, y):
         le = LabelEncoder()
         X = X.apply(le.fit_transform)        
         y = y.apply(le.fit_transform)
         return(X, y)
 
-    def _scale(self, X:Any, y:Any, scaler:str='minmax', 
-               bias:bool=True)->Tuple[Any,Any]:
+    def _scale(self, X, y, scaler, bias=True):
         # Select scaler
         if scaler == 'minmax':
             scaler = MinMaxScaler()
@@ -118,17 +103,15 @@ class GradientDescent:
         y = df[y.columns].squeeze()
         return(X, y)
 
-    def _prep_data(self, X:Any, y:Any, scaler:str='minmax', 
-                   bias:bool=True)->Tuple[Any,Any]:        
+    def _prep_data(self, X, y, scaler='minmax', bias=True):        
         X, y = self._encode_labels(X,y)
         X, y = self._scale(X,y, scaler, bias)
         return(X,y)         
 
     
-    def fit(self, X:Any, y:Any, theta:Any, X_val:Optional[Union[Any]]=None, 
-            y_val:Optional[Union[Any]]=None, alpha:float=0.01, 
-            maxiter:int=0, precision:float=0.001, stop_parameter:str='t', 
-            stop_metric:str='a', scaler:str='minmax')->None:
+    def fit(self, X, y, theta, X_val=None, y_val=None, alpha=0.01, 
+            maxiter=0, precision=0.001, stop_parameter='t', 
+            stop_metric='a', scaler='minmax', max_cost=100):
 
         # Set cross-validated flag if validation set included 
         cross_validated = all(v is not None for v in [X_val, y_val])
@@ -152,6 +135,7 @@ class GradientDescent:
                                   'precision': precision,
                                   'stop_parameter': stop_parameter,
                                   'stop_metric': stop_metric,
+                                  'max_cost': max_cost,
                                   'cross_validated': cross_validated}
 
         # Run search and obtain result        
@@ -196,13 +180,13 @@ class GradientDescent:
                                     'alpha': self._request['hyper']['alpha'],
                                     'precision': self._request['hyper']['precision'],
                                     'maxiter': self._request['hyper']['maxiter'],
-                                    'stop_parameter': 'Stop Parameter: ' + stop_parameter,
+                                    'stop_parameter': stop_parameter,
                                     'stop_metric': stop_metric,
-                                    'stop_condition': 'Stop Condition: ' + stop_condition,
+                                    'stop_condition': stop_condition,
                                     'stop': stop,
                                     'start':start,
                                     'end':end,
-                                    'duration':end-start,
+                                    'duration':(end-start).total_seconds(),
                                     'epochs': epochs.iloc[-1].item(),
                                     'iterations': iterations.iloc[-1].item(),
                                     'initial_costs': J.iloc[0].item(),
@@ -215,7 +199,7 @@ class GradientDescent:
             self._summary['initial_costs_val'] = None
             self._summary['final_costs_val'] = None
     
-    def plot(self, directory:Optional[str], show:Optional[bool]=True)->Any:
+    def plot(self, directory, show=True):
 
         # Obtain matplotlib figure
         fig = plt.figure(figsize=(12,4))
@@ -327,78 +311,7 @@ class GradientDescent:
             filename = filename.replace(':', '')
             save_fig(fig, directory, filename)
         plt.close(fig)        
-        return(fig)
-
-    def animate(self, directory:Optional[str]=None, maxframes:Optional[int]=500 ,
-                interval:Optional[int]=100,  fps:Optional[int]=30)->Any:
-
-        # Obtain data
-        costs = list(self._detail['cost'])
-
-        # Create iteration vector
-        iteration = list(range(0,len(costs)))
-
-        # Extract maxframes datapoints plus last for animation
-        nth = math.floor(len(costs)/maxframes)
-        nth = max(nth,1)
-        iteration_plot = iteration[::nth]
-        iteration_plot.append(iteration[-1])
-        costs_plot = costs[::nth]
-        costs_plot.append(costs[-1])
-
-
-        # Establish figure and axes objects and lines and points
-        fig, ax = plt.subplots()
-        line, = ax.plot([], [], 'r', lw=1.5)
-        point, = ax.plot([], [], 'bo')
-        epoch_display = ax.text(.5, 0.9, '', color='k',
-                                transform=ax.transAxes, fontsize=12)
-        J_display = ax.text(.5, 0.85, '', color='k',transform=ax.transAxes, 
-                            fontsize=12)
-
-        # Plot cost line
-        ax.plot(iteration_plot, costs_plot, c='r')
-
-        # Set labels and title
-        title = self._alg + '\n' + \
-                 r' $\alpha$' + " = " + str(round(self._request['hyper']['alpha'],3)) + " " + \
-                 r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
-        ax.set_xlabel("Iteration")
-        ax.set_ylabel(r'$J(\theta)$')
-        ax.set_facecolor('w')
-        ax.tick_params(colors='k')
-        ax.xaxis.label.set_color('k')
-        ax.yaxis.label.set_color('k')
-        ax.set_title(title, color='k', pad=15)
-
-        def init():
-            line.set_data([], [])
-            point.set_data([], [])
-            epoch_display.set_text('')
-            J_display.set_text('')
-
-            return(line, point, epoch_display, J_display)
-
-        def animate(i):
-            # Animate points
-            point.set_data(iteration_plot[i], costs_plot[i])
-
-            # Animate value display
-            epoch_display.set_text("Iterations  = " + str(iteration_plot[i]))
-            J_display.set_text(r'     $J(\theta)=$' +
-                               str(round(costs_plot[i], 4)))
-
-            return(line, point, epoch_display, J_display)
-
-        display = animation.FuncAnimation(fig, animate, init_func=init,
-                                          frames=len(costs_plot), interval=interval,
-                                          blit=True, repeat_delay=100)
-        if directory is not None:
-            filename = self._alg + ' ' + self._summary['stop'].item() + '.gif'
-            save_gif(display, directory, filename, fps)
-        plt.close(fig)   
-        return(display)
-  
+        return(fig)  
 
 # --------------------------------------------------------------------------- #
 #                       BATCH GRADIENT DESCENT CLASS                          #
@@ -423,11 +336,9 @@ class SGD(GradientDescent):
         self._summary = None
         self._detail = None 
 
-    def fit(self, X:Any, y:Any, theta:Any,  X_val:Optional[Any]=None, 
-            y_val:Optional[Any]=None,  check_point:Optional[Union[int,float]]=.1, 
-            alpha:Optional[float]=0.01, maxiter:Optional[int]=0, 
-            precision:Optional[float]=0.001, stop_parameter:Optional[str]='t', 
-            stop_metric:Optional[str]='a', scaler:Optional[str]='minmax')->None:
+    def fit(self, X, y, theta,  X_val=None, y_val=None,  check_point=.1, 
+            alpha=0.01, maxiter=0, precision=0.001, stop_parameter='t', 
+            stop_metric='a', scaler='minmax'):
 
         # Set cross-validated flag if validation set included 
         cross_validated = all(v is not None for v in [X_val, y_val])
@@ -528,11 +439,9 @@ class MBGD(GradientDescent):
         self._alg = "Mini-Batch Gradient Descent"        
         self._summary = None
         self._detail = None 
-    def fit(self, X:Any, y:Any, theta:Any,  X_val:Optional[Any]=None, 
-            y_val:Optional[Any]=None,  batch_size:Optional[Union[int,float]]=.1, 
-            alpha:Optional[float]=0.01, maxiter:Optional[int]=0, 
-            precision:Optional[float]=0.001, stop_parameter:Optional[str]='t', 
-            stop_metric:Optional[str]='a', scaler:Optional[str]='minmax')->None:            
+    def fit(self, X, y, theta,  X_val=None, y_val=None,  batch_size=.1, 
+            alpha=0.01, maxiter=0, precision=0.001, stop_parameter='t', 
+            stop_metric='a', scaler='minmax'):            
 
         # Set cross-validated flag if validation set included 
         cross_validated = all(v is not None for v in [X_val, y_val])
@@ -621,3 +530,4 @@ class MBGD(GradientDescent):
         else:
             self._summary['initial_costs_val'] = None
             self._summary['final_costs_val'] = None  
+

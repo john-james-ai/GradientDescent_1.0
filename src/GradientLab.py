@@ -34,7 +34,7 @@ import seaborn as sns
 from textwrap import wrap
 
 from GradientDescent import BGD, SGD, MBGD
-from utils import save_fig
+from utils import save_fig, save_csv
 
 rcParams['animation.embed_limit'] = 60
 rc('animation', html='jshtml')
@@ -53,24 +53,6 @@ class GradientLab:
         self._detail = None
         self._params = {}
 
-    def report(self, n=None, sort='t'):
-        if self._detail is None:
-            raise Exception('Nothing to report')
-        else:
-            vars = ['alg', 'alpha', 'precision', 'maxiter',
-                    'epochs', 'iterations','duration',
-                    'stop_parameter', 'stop_metric', 
-                    'final_costs', 'final_costs_val']
-            df = self._summary
-            df = df[vars]
-            if sort == 't':
-                df = df.sort_values(by=['final_costs'])
-            else:
-                df = df.sort_values(by=['final_costs_val'])
-            if n:
-                df = df.iloc[:n]
-
-            return(df)
     def _save_params(self, X, y, X_val, y_val, theta, alpha, precision, 
                stop_parameter, stop_metric, maxiter=0, scaler='minmax'):
         self._params = {'theta':theta, 'alpha':alpha, 'precision':precision,
@@ -86,6 +68,7 @@ class GradientLab:
         
 
         bgd = BGD()
+        experiment = 1
         self._summary = pd.DataFrame()
         self._detail = pd.DataFrame()
         for measure in stop_parameter:
@@ -97,8 +80,10 @@ class GradientLab:
                                 stop_metric=metric, scaler=scaler)
                         detail = bgd.get_detail()
                         summary = bgd.summary()
+                        summary['experiment'] = experiment
                         self._detail = pd.concat([self._detail, detail], axis=0)    
                         self._summary = pd.concat([self._summary, summary], axis=0)    
+                        experiment += 1               
 
     def _get_label(self, x):
         labels = {'alpha': 'Learning Rate',
@@ -114,6 +99,96 @@ class GradientLab:
                   'final_costs': 'Training Set Costs',
                   'final_costs_val': 'Validation Set Costs'}
         return(labels[x])
+
+    def report(self,  n=None, sort='v', directory=None):
+        if self._detail is None:
+            raise Exception('Nothing to report')
+        else:
+            vars = ['experiment', 'alg', 'alpha', 'precision', 'maxiter',
+                    'epochs', 'iterations','duration',
+                    'stop_parameter', 'stop_metric', 
+                    'final_costs', 'final_costs_val']
+            df = self._summary
+            df = df[vars]
+            if sort == 't':
+                df = df.sort_values(by=['final_costs'])
+            else:
+                df = df.sort_values(by=['final_costs_val'])
+            if directory:
+                filename = 'Gridsearch Report.csv'
+                save_csv(df, directory, filename)                
+            if n:
+                df = df.iloc[:n]            
+            return(df)
+
+    def plot(self, directory=None, show=True):
+        df = self._summary
+        # Select observations to annotate
+        keys = ['best_cost', 'best_cost_duration', 'worst_cost', 'worst_cost_duration', 'worst_duration',
+                'median_cost', 'median_time']
+        annotations = []
+        annotations.append(df.nsmallest(1, ['final_costs_val'])['experiment'].item())
+        annotations.append(df.nsmallest(1, ['final_costs_val', 'duration'])['experiment'].item())
+        annotations.append(df.nlargest(1, ['final_costs_val'])['experiment'].item())
+        annotations.append(df.nlargest(1, ['final_costs_val', 'duration'])['experiment'].item())
+        annotations.append(df.nlargest(1, ['duration'])['experiment'].item())
+        median_cost = np.median(df['final_costs_val'])
+        median_time = np.median(df['duration'])        
+        annotations.append(df[df.final_costs_val>=median_cost].nsmallest(1,'final_costs_val')['experiment'].item())
+        annotations.append(df[df.duration>=median_time].nsmallest(1, 'duration')['experiment'].item()) 
+        df2 = pd.DataFrame(list(zip(keys, annotations)), columns=['rating', 'experiment'])
+
+        # Obtain and initialize figure and settings
+        sns.set(style="whitegrid", font_scale=1)
+        fig = plt.figure(figsize=(12,8))
+
+        # Setup data for plotting
+        df['stop_condition'] = df['stop_condition'].replace('Stop Condition:', '')
+        
+        # Plot validation costs by millisecond
+        ax0 = plt.subplot2grid((2,1), (0,0))  
+        ax0 = sns.scatterplot(x='duration', y='final_costs_val', hue='stop_condition', data=df)
+        ax0.set_facecolor('w')
+        ax0.tick_params(colors='k')
+        ax0.xaxis.label.set_color('k')
+        ax0.yaxis.label.set_color('k')
+        ax0.set_xlabel('Elapsed Time (ms)')
+        ax0.set_ylabel('Costs')
+        title = 'Validation Set Costs ' + '\n' + 'By Time and Stop Condition'
+        ax0.set_title(title, color='k')
+        for i, txt in enumerate(df['experiment']):
+            if df['experiment'].iloc[i].item() in annotations:
+                ax0.annotate(txt, (df['duration'].iloc[i], df['final_costs_val'].iloc[i]))       
+
+        # Plot validation costs by millisecond
+        df = df[(df.final_costs_val<1) & (df.duration<1)]
+        ax1 = plt.subplot2grid((2,1), (1,0))  
+        ax1 = sns.scatterplot(x='duration', y='final_costs_val', hue='stop_condition', data=df)
+        ax1.set_facecolor('w')
+        ax1.tick_params(colors='k')
+        ax1.xaxis.label.set_color('k')
+        ax1.yaxis.label.set_color('k')
+        ax1.set_xlabel('Elapsed Time (ms)')
+        ax1.set_ylabel('Costs')
+        title = 'Validation Set Costs ' + '\n' + 'By Time and Stop Condition'
+        ax1.set_title(title, color='k')
+        ax1.set_xlim(0,median_time)
+        ax1.set_ylim(0,median_cost)
+        for i, txt in enumerate(df['experiment']):
+            if df['experiment'].iloc[i].item() in annotations:
+                ax1.annotate(txt, (df['duration'].iloc[i], df['final_costs_val'].iloc[i]))       
+
+        # Finalize plot and save
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0.4)
+        if show:
+            plt.show()
+        if directory is not None:
+            filename = title.replace('\n', '')
+            filename = filename.replace(':', '') + '.png'
+            save_fig(fig, directory, filename)
+        plt.close(fig)       
+        return(fig, df2) 
 
     def plot_costs(self, x, z, fig_key='stop_parameter', 
                     row_key='stop_condition',  directory=None, show=True):
@@ -158,7 +233,10 @@ class GradientLab:
             
             # Finalize plot and save
             if fig_name:
-                suptitle = self._alg + '\n' + 'Cost Analysis' + '\n' + ''.join(fig_name)
+                if len(fig_name) > 1:
+                    suptitle = self._alg + '\n' + 'Cost Analysis' + '\n' + ''.join(fig_name)
+                else:
+                    suptitle = self._alg + '\n' + 'Cost Analysis' + '\n' + fig_name
             else:
                 suptitle = self._alg + '\n' + 'Cost Analysis' 
             fig.suptitle(suptitle)
@@ -172,121 +250,121 @@ class GradientLab:
             plt.close(fig)
         return(fig)
 
-    def _plot_times(self, search_name, search,  directory=None, show=True):
+    def plot_times(self, x, z, fig_key='stop_parameter', row_key='stop_condition',
+                     directory=None, show=True):
         # Group data and obtain keys
-        search_groups = search.groupby('stop_condition')   
+        figures = self._summary.groupby(fig_key)
+        for fig_name, fig_data in figures:
+            plots = fig_data.groupby(row_key)   
 
-        # Set Grid Dimensions
-        cols = 2  
-        rows = search_groups.ngroups
+            # Set Grid Dimensions
+            cols = 2  
+            rows = plots.ngroups
+            
+            # Obtain and initialize matplotlib figure
+            fig = plt.figure(figsize=(12,4*rows))        
+            sns.set(style="whitegrid", font_scale=1)
 
-        # Obtain and initialize matplotlib figure
-        fig = plt.figure(figsize=(12,4*rows))        
-        sns.set(style="whitegrid", font_scale=1)
-        
-        # Render plots
-        i = 0
-        for condition, search in search_groups:
-            if odd and i == search_groups.ngroups-1:
-                ax = plt.subplot2grid((rows,cols), (int(i/cols),0), colspan=cols)
+            # Render plots
+            i = 0
+            for row_name, row_data in plots:
+                ax0 = plt.subplot2grid((rows,cols), (i,0))            
+                ax0 = sns.barplot(x=x, y='duration', hue=z, data=row_data)
+                ax0.set_facecolor('w')
+                ax0.tick_params(colors='k')
+                ax0.xaxis.label.set_color('k')
+                ax0.yaxis.label.set_color('k')
+                ax0.set_xlabel(self._get_label(x))
+                ax0.set_ylabel('(ms)')
+                title = 'Elapsed Time (ms)' + '\n' + row_name
+                ax0.set_title(title, color='k')
+
+                ax1 = plt.subplot2grid((rows,cols), (i,1))
+                ax1 = sns.barplot(x=x, y='iterations', hue=z, data=row_data)
+                ax1.set_facecolor('w')
+                ax1.tick_params(colors='k')
+                ax1.xaxis.label.set_color('k')
+                ax1.yaxis.label.set_color('k')
+                ax1.set_xlabel(self._get_label(x))
+                ax1.set_ylabel('Iterations')
+                title = 'Iterations' + '\n' + row_name
+                ax1.set_title(title, color='k')
+                i += 1
+            
+            # Finalize plot and save
+            if fig_name:
+                if len(fig_name) > 1:
+                    suptitle = self._alg + '\n' + 'Performance Analysis' + '\n' + ''.join(fig_name)
+                else:
+                    suptitle = self._alg + '\n' + 'Performance Analysis' + '\n' + fig_name
             else:
-                ax = plt.subplot2grid((rows,cols), (int(i/cols),i%cols))
-            ax = sns.barplot(x='alpha', y='duration', hue='precision', data=search)
-            ax.set_facecolor('w')
-            ax.tick_params(colors='k')
-            ax.xaxis.label.set_color('k')
-            ax.yaxis.label.set_color('k')
-            ax.set_xlabel('Learning Rate')
-            ax.set_ylabel('Duration (ms)')
-            title = condition
-            ax.set_title(title, color='k')
-
-            ax1 = plt.subplot2grid((rows,cols), (i,1))
-            ax1 = sns.barplot(x='alpha', y='iterations', hue='precision', data=search)
-            ax1.set_facecolor('w')
-            ax1.tick_params(colors='k')
-            ax1.xaxis.label.set_color('k')
-            ax1.yaxis.label.set_color('k')
-            ax1.set_xlabel('Learning Rate')
-            ax1.set_ylabel('Iterations')
-            title = condition
-            ax1.set_title(title, color='k')            
-            i += 1
-
-        # Finalize plot and save
-        if search_name:
-            suptitle = self._alg + '\n' + 'Computation Time' + '\n' + ''.join(search_name)
-        else:
-            suptitle = self._alg + '\n' + 'Computation Time' 
-        fig.suptitle(suptitle)
-        fig.tight_layout(rect=[0,0,1,.8])
-        if show:
-            plt.show()
-        if directory is not None:
-            filename = suptitle.replace('\n', '')
-            filename = filename.replace(':', '') + '.png'
-            save_fig(fig, directory, filename)
-        plt.close(fig)
+                suptitle = self._alg + '\n' + 'Cost Analysis' 
+            fig.suptitle(suptitle)
+            fig.tight_layout(rect=[0,0,1,.9])
+            if show:
+                plt.show()
+            if directory is not None:
+                filename = suptitle.replace('\n', '')
+                filename = filename.replace(':', '') + '.png'
+                save_fig(fig, directory, filename)
+            plt.close(fig)
         return(fig)
 
-    def _plot_curves(self, search, x, z, fig_key, directory=None, show=True):
+    def plot_curves(self, fig_key='stop_parameter', row_key='stop_condition',
+                     directory=None, show=True):
 
         # Group data and obtain keys
-        search_name = search[0]
-        search_groups = search[1].groupby('stop')   
+        figures = self._detail.groupby(fig_key)
+        for fig_name, fig_data in figures:
+            plots = fig_data.groupby(row_key)
 
-        # Set Grid Dimensions
-        cols = 2  
-        rows = math.ceil(search_groups.ngroups/cols)
-        odd = True if search_groups.ngroups % cols != 0 else False
+            # Set Grid Dimensions
+            cols = 2  
+            rows = math.ceil(plots.ngroups/cols)
+            odd = True if plots.ngroups % cols != 0 else False
 
-        # Obtain and initialize matplotlib figure
-        fig = plt.figure(figsize=(12,4*rows))        
-        sns.set(style="whitegrid", font_scale=1)
-        if search_name:
-            suptitle = self._alg + '\n' + 'Learning Curves' + '\n' + ''.join(search_name)
-        else:
-            suptitle = self._alg + '\n' + 'Learning Curves' 
-        fig.suptitle(suptitle, y=1.1)
+            # Obtain and initialize matplotlib figure
+            fig = plt.figure(figsize=(12,4*rows))        
+            sns.set(style="whitegrid", font_scale=1)
 
-        # Render plots
-        i = 0
-        for condition, search in search_groups:
-            if odd and i == search_groups.ngroups-1:
-                ax = plt.subplot2grid((rows,cols), (int(i/cols),0), colspan=cols)
+            # Render plots
+            i = 0
+            for row_name, row_data in plots:
+                if odd and i == plots.ngroups-1:
+                    ax = plt.subplot2grid((rows,cols), (int(i/cols),0), colspan=cols)
+                else:
+                    ax = plt.subplot2grid((rows,cols), (int(i/cols),i%cols))
+                ax = sns.lineplot(x='iterations', y='cost', hue='alpha', data=row_data, legend='full')
+                ax.set_facecolor('w')
+                ax.tick_params(colors='k')
+                ax.xaxis.label.set_color('k')
+                ax.yaxis.label.set_color('k')
+                ax.set_xlabel('Iterations')
+                ax.set_ylabel('Cost')
+                title = 'Learning Curves'  + '\n' + row_name
+                ax.set_title(title, color='k')
+                i += 1
+
+            # Finalize plot and save
+            if fig_name:
+                if len(fig_name) > 1:
+                    suptitle = self._alg + '\n' + 'Learning Curves' + '\n' + ''.join(fig_name)
+                else:
+                    suptitle = self._alg + '\n' + 'Learning Curves' + '\n' + fig_name
             else:
-                ax = plt.subplot2grid((rows,cols), (int(i/cols),i%cols))
-            ax = sns.lineplot(x='iterations', y='cost', hue='alpha', data=search, legend='full')
-            ax.set_facecolor('w')
-            ax.tick_params(colors='k')
-            ax.xaxis.label.set_color('k')
-            ax.yaxis.label.set_color('k')
-            ax.set_xlabel('Iterations')
-            ax.set_ylabel('Cost')
-            title = condition
-            ax.set_title(title, color='k')
-            i += 1
-
-        # Finalize plot and save
-        fig.tight_layout(rect=[0,0,1,.8])
-        if show:
-            plt.show()
-        if directory is not None:
-            filename = suptitle.replace('\n', '')
-            filename = filename.replace(':', '') + '.png'
-            save_fig(fig, directory, filename)
-        plt.close(fig)
+                suptitle = self._alg + '\n' + 'Learning Curves' 
+            fig.suptitle(suptitle, y=1.1)
+            # Finalize plot and save
+            fig.tight_layout()
+            if show:
+                plt.show()
+            if directory is not None:
+                filename = suptitle.replace('\n', '')
+                filename = filename.replace(':', '') + '.png'
+                save_fig(fig, directory, filename)
+            plt.close(fig)
         return(fig)
 
-    def plot_times(self, directory=None, show=True):
-        search_name = None
-        self._plot_times(search_name, self._summary,  directory, show)
-
-    def plot_curves(self, x, z, fig_key='stop_parameter', directory=None, show=True):
-        detail = self._detail.groupby([fig_key])
-        for search_name, search in detail:
-            self._plot_curves(search=search, x=x, z=z, fig_key=fig_key,
-                             directory=directory, show=show)
 
 
 
@@ -332,26 +410,6 @@ class SGDLab(GradientLab):
                             self._detail = pd.concat([self._detail, detail], axis=0)    
                             self._summary = pd.concat([self._summary, summary], axis=0)    
 
-    def plot_times(self, directory=None, show=True):
-
-        if len(self._params['check_point'])>len(self._params['precision']):
-            summary = self._summary.groupby(['precision'])
-        else:
-            summary = self._summary.groupby(['check_point'])
-        for search_name, search in summary:
-            self._plot_times(search_name, search, directory, show)
-        
-
-    def plot_curves(self, directory=None, show=True):
-
-        detail = self._detail.groupby(['stop_parameter', 'check_point'])
-        for search_name, search in detail:
-            self._plot_curves(search_name, search, directory, show)
-
-    def plot_costs(self, directory=None, show=True):
-        summary = self._summary.groupby(['stop_parameter', 'check_point'])
-        for search_name, search in summary:
-            self._plot_costs(search_name, search, directory, show)
 
 # --------------------------------------------------------------------------- #
 #                              MBGD Lab Class                                 #   
@@ -382,19 +440,3 @@ class MBGDLab(GradientLab):
                             summary = mbgd.summary()
                             self._detail = pd.concat([self._detail, detail], axis=0)    
                             self._summary = pd.concat([self._summary, summary], axis=0)    
-
-    def plot_times(self, directory=None, show=True):
-        summary = self._summary.groupby(['batch_size'])
-        for search_name, search in summary:
-            self._plot_times(search_name, search, directory, show)
-        
-
-    def plot_curves(self, directory=None, show=True):
-        detail = self._detail.groupby(['stop_parameter', 'batch_size'])
-        for search_name, search in detail:
-            self._plot_curves(search_name, search, directory, show)
-
-    def plot_costs(self, directory=None, show=True):
-        summary = self._summary.groupby(['stop_parameter', 'batch_size'])
-        for search_name, search in summary:
-            self._plot_costs(search_name, search, directory, show)            

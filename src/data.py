@@ -83,7 +83,7 @@ def ames(train=0.7, test=None):
 #                                   AMES                                       #
 # ---------------------------------------------------------------------------- #    
 
-def demo(n=100, cv=True):
+def demo(n=500, cv=True):
     '''
     Reads data from file into a dataframe and splits the dataframe into 
     a training and an optional validation set.
@@ -121,4 +121,5 @@ def demo(n=100, cv=True):
         test = None
         X_train, X_val, y_train, y_val = train_test_split(
             X, y, train_size=n, test_size=test, shuffle=True, random_state=5)
-        return(X_train, y_train)    
+        return(X_train, X_val, y_train, y_val)    
+#%%        

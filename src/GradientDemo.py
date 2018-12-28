@@ -3,10 +3,6 @@
 # =========================================================================== #
 #                               GRADIENT DEMO                                 #
 # =========================================================================== #
-'''
-Demo class produces 3D animation of the gradient search and an animation
-showing the fit of the final solution regression line on the 2d data.
-'''
 
 # --------------------------------------------------------------------------- #
 #                                LIBRARIES                                    #
@@ -39,33 +35,28 @@ src = "c:\\Users\\John\\Documents\\Data Science\\Libraries\\GradientDescent\\src
 sys.path.append(src)
 import data
 from GradientDescent import BGD, SGD
+from utils import save_gif 
 
 class GradientDemo():
     def __init__(self):
         self._alg = 'Gradient Descent'
         self._search = []
-        self._params = []
+        self._summary = []
         self._X = None
         self._y = None        
 
-    def _data(self, n):
-        self._X, self._y = data.demo(n=n, cv=False)
-
-    def fit(self, theta, n=100, alpha=0.01, maxiter=10000, precision=0.001, stop_measure='j',
-            stop_metric='p', path=None):
+    def fit(self, X, y, theta, n=100, alpha=0.01, maxiter=10000, precision=0.001, stop_parameter='j',
+            stop_metric='p'):
         
-        # Obtain data
-        self._data(n=n)
-
         # Fit to data
         gd = BGD()
-        gd.fit(self._X, self._y, theta=theta, alpha=alpha, maxiter=maxiter, 
-               precision=precision, stop_measure=stop_measure, 
+        gd.fit(X, y, theta=theta, alpha=alpha, maxiter=maxiter, 
+               precision=precision, stop_parameter=stop_parameter,
                stop_metric=stop_metric)
 
         # Obtain search history detail
-        self._search = gd.detail()
-        self._params = gd.get_params()
+        self._search = gd.get_detail()
+        self._summary = gd.summary()
 
         # Extract transformed data for plotting
         data = gd.get_transformed_data()
@@ -75,7 +66,7 @@ class GradientDemo():
     def _cost_mesh(self,THETA):
         return(np.sum((self._X.dot(THETA) - self._y)**2)/(2*len(self._y)))        
 
-    def show_search(self, path=None, interval=50, fps=60, maxframes=500):
+    def show_search(self, directory=None, interval=200, fps=60, maxframes=500):
         '''Plots surface plot on two dimensional problems only 
         '''        
         # Designate plot area
@@ -107,8 +98,8 @@ class GradientDemo():
         Js = Js.reshape(theta0_mesh.shape)
 
         # Set Title
-        title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._params['alpha'],3)) + " " + \
-                            r'$\epsilon$' + " = " + str(round(self._params['precision'],5)) 
+        title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._summary['alpha'].item(),3)) + "\n" + \
+                'Stop Condition: ' + self._summary['stop'].item() 
         ax.set_title(title, color='k', pad=30)                            
         # Set face, tick,and label colors 
         ax.set_facecolor('w')
@@ -184,18 +175,15 @@ class GradientDemo():
 
         # create animation using the animate() function
         surface_ani = animation.FuncAnimation(fig, animate, init_func=init, frames=len(idx),
-                                            interval=interval, blit=True, repeat_delay=100)
-        if path:
-            face_edge_colors = {'facecolor': 'w', 'edgecolor': 'w'}
-            if os.path.exists(os.path.dirname(path)):    
-                surface_ani.save(path, writer='imagemagick', fps=fps, savefig_kwargs = face_edge_colors)
-            else:
-                os.makedirs(os.path.dirname(path))
-                surface_ani.save(path, writer='imagemagick', fps=fps, savefig_kwargs = face_edge_colors)
+                                            interval=interval, blit=True, repeat_delay=1000)
+        if directory is not None:
+            filename = title = self._alg + ' Learning Rate = ' + str(round(self._summary['alpha'].item(),3)) + \
+                ' Stop Condition ' + self._summary['stop'].item() + '.gif'  
+            save_gif(surface_ani, directory, filename, fps)
         plt.close(fig)
         return(surface_ani)
 
-    def show_fit(self, path=None, interval=50, fps=60, maxframes=500):
+    def show_fit(self, directory=None, interval=50, fps=60, maxframes=500):
         '''Shows animation of regression line fit for 2D X Vector 
         '''
 
@@ -221,11 +209,12 @@ class GradientDemo():
         ax.tick_params(colors='k')
         ax.xaxis.label.set_color('k')
         ax.yaxis.label.set_color('k')
+        ax.set_ylim(-1,2)
         # Initialize line
         line, = ax.plot([],[],'r-', lw=2)
         # Set Title, Annotations and label
-        title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._params['alpha'],3)) + " " + \
-                            r'$\epsilon$' + " = " + str(round(self._params['precision'],5)) 
+        title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._summary['alpha'].item(),3)) + "\n" + \
+                'Stop Condition: ' + self._summary['stop'].item()  
         ax.set_title(title, color='k')                                    
         display = ax.text(0.1, 0.9, '', transform=ax.transAxes, color='k')
         ax.set_xlabel('X')
@@ -253,13 +242,10 @@ class GradientDemo():
         # create animation using the animate() function
         line_gd = animation.FuncAnimation(fig, animate, init_func=init, frames=len(idx),
                                             interval=interval, blit=True, repeat_delay=100)
-        if path:
-            face_edge_colors = {'facecolor': 'w', 'edgecolor': 'w'}
-            if os.path.exists(os.path.dirname(path)):    
-                line_gd.save(path, writer='imagemagick', fps=fps, savefig_kwargs = face_edge_colors)
-            else:
-                os.makedirs(os.path.dirname(path))
-                line_gd.save(path, writer='imagemagick', fps=fps, savefig_kwargs = face_edge_colors)
+        if directory is not None:
+            filename = title = self._alg + ' Learning Rate = ' + str(round(self._summary['alpha'].item(),3)) + \
+                ' Stop Condition ' + self._summary['stop'].item() + '.gif'  
+            save_gif(line_gd, directory, filename, fps)
         plt.close(fig)  
         return(line_gd)
 
@@ -273,6 +259,6 @@ class BGDDemo(GradientDemo):
     def __init__(self):
         self._alg = "Batch Gradient Descent"
         self._search = []
-        self._params = []
+        self._summary = []
         self._X = None
         self._y = None         

@@ -1,0 +1,238 @@
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+TeX: {
+equationNumbers: {
+autoNumber: "all",
+formatNumber: function (n) {return ''+n}
+}
+}});</script>
+
+# Gradient Descent 
+In general, we can define gradient descent as a search for the parameters $\small \theta$'s that *minimize* the cost function, $\small J(\theta)$. This search is performed by starting with an initial guess at the $\small \theta$'s and repeatedly computing the following update to the $\small\theta$'s to move in the direction of steepest descent until convergence. 
+$$\small \theta_j^{k+1} := \theta_j^k - \alpha \nabla_\theta J$$
+
+The search is parameterized by two components: the gradient and the learning rate.  The gradient indicates the direction of steepest ascent. Since we are searching for a minimum of the objective function, we would move in the direction of the *negative* gradient. The learning rate affects the step size taken on each iteration in the following way. When the solution is approaching a minimum, the gradient approaches zero, as does the step size. There is no need for a large step.  On the other hand, the step size is large when the gradient is large, thereby excelerating the process of convergence. 
+
+There are three variants to gradient descent:    
+* Gradient Descent    
+* Stochastic Gradient Descent (SGD)   
+* Mini- Gradient Descent (MBGD)     
+
+These algorithms differ in the amount of data used to update the parameters vis-a-vis the objective function. Doing so, these algorithms make trade-offs between accuracy of the gradient and the time complexity of each update step. Before we examine the nuances of these variants, let's walk through an example to show how gradient descent generally works.  
+
+## Example
+For this example, we'll use a toy dataset comprised of 10 observations randomly sampled from our training set. Our target is sales price and our predictor is living area. Recall, we add a bias term which is equal to 1, so that we may include the intercept parameter $\small \theta_0$ as another parameter to learn. 
+```{python ames_example, code=readLines('../src/visualizations/ames_example_gd.py')}
+```
+
+`r kfigr::figr(label = "ames_table_bgd", prefix = TRUE, link = TRUE, type="Table")`: Sample Observations from Ames Iowa Housing Data Training Set
+```{r ames_table_bgd}
+rownames(py$ames) <- NULL
+knitr::kable(t(py$ames), format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
+```
+
+![](../reports/figures/ames_line.png)
+`r kfigr::figr(label = "ames_line_plot", prefix = TRUE, link = TRUE, type="Figure")`: Housing Prices by Living Area
+
+The scatterplot in `r kfigr::figr(label = "ames_line_plot", prefix = TRUE, link = TRUE, type="Figure")` suggests a positive linear relationship between living area and sales price.  Hence a linear hypothesis is a reasonable starting assumption. 
+
+### Step 1: Standardize our data
+Gradient descent, like many machine learning algorithms, performs best when the variables are centered and have a common variance. This way, the living area parameter doesn't dominate the intercept during the descent. Here we use minmax scaling so that all values are between 0 and 1.
+
+`r kfigr::figr(label = "ames_data_scaled", prefix = TRUE, link = TRUE, type="Table")`: Sample Observations from Ames Iowa Housing Data Training Set - Original and Scaled Data
+```{r ames_data_scaled}
+rownames(py$ames) <- NULL
+rownames(py$ames_scaled) <- NULL
+knitr::kable(list(py$ames, py$ames_scaled), format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
+```
+
+
+### Step 2: Initialize Hyperparameters
+Our hyperparameters are as follows:     
+
+`r kfigr::figr(label = "params", prefix = TRUE, link = TRUE, type="Table")`: Gradient Descent Hyperparameters
+```{r params}
+rownames(py$params) <- NULL
+params <- py$params[,1]
+values <- rbind(formatC(as.numeric(py$params[1,2]),format='f', digits=2),
+                formatC(as.numeric(py$params[2,2]),format='f', digits=4),
+                formatC(as.numeric(py$params[3,2]),format='f', digits=4))
+params <- cbind(params, values)
+colnames(params) <- c("Parameter", "Value")
+knitr::kable(params, format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
+```
+The $\small \theta$'s are assigned from a random normal distribution. 
+
+### Step 3: Compute Predictions and Errors
+Given the data exhibited `r kfigr::figr(label = "ames_line_plot", prefix = TRUE, link = TRUE, type="Figure")`, a linear hypothesis is a reasonable starting assumption.  Recall that the hypothesis function for a linear regression is given by:
+$$\small h_\theta(x)=\theta_0x_0+\theta_1x_1=\theta^TX,$$
+
+where our $\small \theta$'s are as indicated in `r kfigr::figr(label = "params", prefix = TRUE, link = TRUE, type="Table")`. Setting $\small X_0=1$ allows us to simply take the dot product of our data $X$ and our parameters $\theta$.
+
+`r kfigr::figr(label = "h_e", prefix = TRUE, link = TRUE, type="Table")`: Predictions and Errors for Sample Observations from Ames Housing Dataset
+```{r h_e}
+rownames(py$s1) <- NULL
+knitr::kable(py$s1, digits = 4, format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
+```
+
+In `r kfigr::figr(label = "h_e", prefix = TRUE, link = TRUE, type="Table")`, we have our features, $\small X$, our initial $\small \theta$'s, the sales prices, $\small y$, our hypotheses, $\small h(x)$, and our error, $\small h(x)-y$ for our training examples. 
+
+### Step 4: Compute Costs
+Next, we compute the cost which is given by:
+$$J(\theta)=\frac{1}{2m}\displaystyle\sum_{i=1}^m(h_\theta(x^{(i)})-y^{(i)})^2$$
+This amounts to computing $\frac{1}{2}$ of the mean of the squared errors as indicated in `r kfigr::figr(label = "cost", prefix = TRUE, link = TRUE, type="Table")`.
+
+`r kfigr::figr(label = "cost", prefix = TRUE, link = TRUE, type="Table")`: Predicts, Sum Squared Error and Costs
+```{r cost}
+rownames(py$s2) <- NULL
+knitr::kable(py$s2, digits = 4, format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
+```
+
+Our cost for the first iteration of gradient descent is `r round(py$cost,4)`.
+
+### Step 5: Compute the Gradient
+Next, we compute the gradient, the direction of steepest ascent, which is given by:
+$$\small\frac{\partial}{\partial \theta_j}J(\theta)= \sum_{i=1}^m(h_\theta(x^{(i)})-y^{(i)})x_j^{(i)} \quad \text{(for every j)}.$$
+
+On the basis of our initial $\small\theta$'s (`r kfigr::figr(label = "params", prefix = TRUE, link = TRUE, type="Table")`), we summarize the computation of the gradient, $\small\frac{\partial}{\partial \theta_j}J(\theta)$ in `r kfigr::figr(label = "partial_derivatives", prefix = TRUE, link = TRUE, type="Table")`. The gradient is the mean of the partial derivatives $\small (h(x)-y)X_0$ and $\small(h(x)-y)X_1$.  
+
+`r kfigr::figr(label = "gradient", prefix = TRUE, link = TRUE, type="Table")`: Next step errors and partial derivatives with respect to $\small\theta$'s.
+```{r gradient}
+rownames(py$s3) <- NULL
+knitr::kable(py$s3, digits=4, format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
+```
+
+We can now express our *new* gradient as the vector:
+$$
+\frac{\partial}{\partial \theta_j}J(\theta) =
+\begin{bmatrix}
+0.42907 \\
+0.19452
+\end{bmatrix}
+$$
+
+### Step 6: Compute the Update
+Given our learning rate $\alpha$ and the initial parameters $\theta$ from `r kfigr::figr(label = "params", prefix = TRUE, link = TRUE, type="Table")`, we can now compute the simultaneous updates to our $\theta$'s as follows:
+$$
+\theta_0^{K+1} := \theta_0^K - \alpha \frac{\partial}{\partial \theta_0}J(\theta)= 0.4170 - 0.001\cdot 0.42907 = 0.4127\\
+\theta_1^{K+1} := \theta_1^K - \alpha \frac{\partial}{\partial \theta_1}J(\theta)= 0.7203 - 0.001\cdot 0.19452 = 0.7184
+$$
+
+### Step 7: Take Step and Measure Costs
+Next, we take the step in the direction of the negative gradient and compute the costs.
+
+`r kfigr::figr(label = "cost_2", prefix = TRUE, link = TRUE, type="Table")`: Predictions and Cost (J) for 2nd Iteration of Gradient Descent 
+```{r cost_2}
+rownames(py$squared_error_2) <- NULL
+knitr::kable(py$squared_error_2, digits = 4, format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
+```
+
+We notice that the cost $J(\theta)$ dropped from `r round(py$cost,4)`, `r kfigr::figr(label = "cost", prefix = TRUE, link = TRUE, type="Table")`, to `r round(py$cost_2,4)`, indicating that the prediction accuracy is improving.  
+
+### Step 8: Repeat steps 3 through 7 until Convergence
+We repeat steps 4 through 6 until our stopping condition is met. Concretely, we stop when the absolute value of the change in the cost function drops below our precision parameter. Once the criteria has been met, the $\theta$'s are returned. 
+
+## Advantages and Challenges of Gradient Descent
+The following advantages and challenges pertain to gradient descent in general. In the subsequent sections, we will examine and contrast the benefits and weaknesses of its variants. 
+
+### Advantages
+The primary advantages of gradient descent vis-a-vis analytical solutions are its time complexity, numeric stability, and simplicity. 
+
+#### Computational Complexity
+Consider the task of fitting the parameters for a small linear regression problem with say, 50,000 data points and 2,000 parameters. One way to solve this problem is to attack it directly. Using ordinary least squares. We minimize the sum of the squared residuals by taking the directional derivative, setting it equal to zero, then solving the for the parameters, $\theta$. This gives the following closed form **normal equation**: 
+$$\hat{\theta} = (X^TX)^{-1}X^Ty.$$
+Solving this equation requires $O(n^3+mn^2)$ time - $O(n^3)$ to invert the $n \times n$ matrix $X^TX$ and $0(mn^2)$ for the matrix multiplications. For small datasets, say $n < 1000$, there is no reason not to use the normal equations. For larger datasets, solving the normal equation becomes computationally intractable. 
+
+Gradient descent, on the other hand, has a time complexity of $O(mn)$ per iteration, which grows linearly with the number of variables $n$, and the number of data points $m$.
+
+#### Numeric Stability
+Second, the computation for the normal equation is numerically instable. It requires $mn^2/2+n^3/6$ floating point computations. Floating point round-off or truncation errors could be magnified causing an exponentially growing deviation from the optimal solution. Gradient descent produces a unbiased estimate of the gradient that is numerically.
+
+#### Convergence
+The steepest descent approach guarantees that  gradient descent converges to a global minimum for convex object functions and to a local minimum if the objective function is non-convex.
+
+#### Simplicity
+Finally, gradient descent is surprisingly simple to implement. And to paraphrase Albert Einstein, "Everything should be made as simple as possible, but no simpler."
+
+### Challenges 
+That said,  gradient descent presents certain challenges:
+
+#### Selecting a Proper Learning Rate
+Since the learning rate effects the magnitude of the update on each iteration, it determines both the quality and computation time of our optimization. 
+
+![](../reports/figures/learningrates.jpeg)
+
+`r kfigr::figr(label = "learning_rates", prefix = TRUE, link = TRUE, type="Figure")`: Effect of Learning Rate on Convergence  (Image Credit: [CS231n](http://cs231n.github.io/neural-networks-3/))
+
+As depicted in `r kfigr::figr(label = "learning_rates", prefix = TRUE, link = TRUE, type="Figure")`, a low learning rate decays the loss at a linear rate and may result in slow convergence. The high learning rate will decay the loss faster, but may converge suboptimally. This is because the gradient descends chaotically, oscillating back and forth around the local minimum. A very high learning rate could introduce too much "energy" into the optimization, causing instability and exponentially increasing divergence from the optimal solution. A good learning rate is one in the "Goldilocks" zone.  It decays the learning rate quickly and settles at the local minimum. 
+
+The literature is rife with strategies for optimizing the learning rates. Generally, learning rate strategies can be characterized as:   
+* fixed learning rates,      
+* time decay based learning rates 
+* step decay based learning rates
+* exponential decay based learning rates
+* learning rates that adapt to the contours of the objective function.    
+
+Of course, fixed learning rates are the most basic method, yet this technique can be suprisingly effective on a range of optimization problems. The best practice is to test a range of values, then adjust to a higher or lower 
+learning rate based upon the quality and time of the optimization. The aim is to start high in order to find the fastest rate that produces decreasing loss on the objective function.  
+
+Time decay based learning rates adjust according to the number of iterations. Common implementations divide the learning rate by the iteration number $t$ or $\sqrt{t}$. Keras implements a time-based decay:
+$$\alpha=\alpha_0/(1+kt)$$
+where:     
+* $\alpha$ is the new learning rate,   
+* $\alpha_0$ is the initial learning rate,      
+* $t$ is the iteration number,    
+* $k$ is a hyperparameter.
+
+Step decay algoritms reduce the learning rate by a factor very $n$ epochs, where $n\approx10$. A common strategy is based upon validation set loss. 
+
+Exponential decay based learning rates are very common. One has the following mathematical formulation:     
+$$\alpha = \alpha_0 \times e^{(-kt)}$$,
+where:    
+* $\alpha$ is the new learning rate,   
+* $\alpha_0$ is the initial learning rate,      
+* $t$ is the iteration number,    
+* $k$ is a hyperparameter.
+
+Lastly, we have those learning rates that adapt to the shape of the objective function. A very popular Stochastic Gradient Descent (SGD) implementation starts with a learning rate $\alpha=0.01$. Then the learning rate is reduced by a factor each time the validation error stops decreasing. This proceeds until the learning rate reaches some lower limit. Another formulation is:
+$$\alpha = \alpha_0 \times d^{(1+t)/e_d}$$,
+where:    
+* $\alpha$ is the new learning rate,   
+* $\alpha_0$ is the initial learning rate,    
+* $d$ is the amount by which the learning rate drops,   
+* $t$ is the iteration number,    
+* $e_d$ is the number of epochs between each drop.    
+    
+Selecting the right learning rate schedule for an implementation often requires experimentation and intuition.
+
+#### Convergence for Non-Convex Loss Functions
+So far, we've observed gradient descent when applied to a linear regression problem with a convex loss function and a single global minimum. Consider instead, a deep learning neural network with an extremely complicated non-linear hypothesis function. Its associated cost function may be far from convex and may look something like this.
+
+![](../reports/figures/challenges-1.png)
+`r kfigr::figr(label = "nonconvex", prefix = TRUE, link = TRUE, type="Figure")`: Non-Convex Optimization Function [Image by O'Reilly Media]
+
+For non-convex optimization problems, gradient descent's 'steepest descent' approach can encounter a local minimum from which it cannot escape. For instance, initializing our $\theta$'s at point A (`r kfigr::figr(label = "nonconvex", prefix = TRUE, link = TRUE, type="Figure")`), will result in a descent to a local minimum. A related problem is that of the **saddle point**. Like the local minimum, a saddle point on the graph of a function where the gradient disappears, but which is not a local optimum.
+
+#### Selecting Stop Condition
+We've used the term convergence. How do we know when the algorithm has approached convergence? When do we stop and say, "that's as good as we're going to get"? The wrong stopping condition could result in an early stop, which may actually be suitable for certain problems, but may also result in a suboptimal solution. Alternatively, we could consume excess computational time with no real improvement in the objective function.  
+There are several methods used in practice. The method that is most appropriate for any given problem, is a matter of experimentation. 
+
+The simpliest method is to stop at a predetermined maximum number of iterations. If an approximate solution is the objective, this approach can be very reasonable. 
+
+One family of stopping rules are based upon the level of improvement obtained by each iteration of the search in terms of:       
+* Absolute or percent change in absolute value of the objective function,   
+* Absolute or percent change in norm of the gradient, 
+* Absolute or percent change in absolute value of the objective function computed on a separate cross validation set. 
+
+The algorithm stops when the level of improvement drops below a predetermined threshold. 
+
+Another category conditions on the proximity of the objective function or gradient to zero. However, determining the appropriate proximity to zero for an objective function may be difficult as one typically does not expect zero cost. Additionally, a gradient in the vicinity of zero may indicate a local minimum, or a saddle point. 
+
+With that, let's explore gradient descent's variants.

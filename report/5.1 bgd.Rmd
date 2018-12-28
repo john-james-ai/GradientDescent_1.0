@@ -1,0 +1,305 @@
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+TeX: {
+equationNumbers: {
+autoNumber: "all",
+formatNumber: function (n) {return ''+n}
+}
+}});</script>
+
+## Batch Gradient Descent 
+Batch gradient descent, starts with an initial $\theta$ and performs the following recursive update rule:
+$$\theta_j^{k+1} := \theta_j^k - \alpha \nabla_\theta J,$$
+for $k$ iterations until approximate convergence condition or a preset maximum number of iterations is reached.
+The pseudocode for the algorithm looks like this. 
+```{r eval=F, echo=T, tidy=F}
+Standardize our data
+Initialize hyperparameters  
+While stopping condition is not met 
+  h = predict(data, thetas)
+  c = costs(h, y, data)
+  g = gradient(costs, data)
+  thetas = update(thetas, learning_rate, gradient)
+return (thetas)
+```
+`r kfigr::figr(label = "gd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`: Gradient Descent Algorithm
+
+### Advantages of Batch Gradient Descent
+Batch gradient descent updates the parameters $\theta$ after computing the gradient on the entire training set. This is the key difference between batch gradient descent and its variants. Using the entire data set  provides a better, more stable approximation of the gradient.
+
+### Challenges of Batch Gradient Descent
+Since batch gradient descent must compute average gradients over the entire dataset on each iteration, it is often slower to converge than its variants on large data sets. The whole of the data set must also be maintained in memory, which can be problematic for large data sets.
+
+Moreover, the stability of the gradient may result in a suboptimal state of convergence. This will become clearer in our experiments below.
+
+Lastly, 'classic' batch gradient descent works on a constant learning rate for all iterations of the search. Ideally, we would like a learning rate to adapt to the contours of our objective function. Many textbook optimization algorithms use analytic approaches, such as Newton's method, to determine the exact step size. However, the computation can be too expensive to be used in the context of large neural networks. Most practitioners simply fix it to a constant or slowly decay it over iterations. Determining optimal learning rates is an area of open research.
+
+### Implementation
+Now, we will build the batch gradient descent class that will be used to solve our challenge problem. Before we start getting our code on, let's establish a few design considerations:
+
+#### Design Considerations   
+Our GradientDescent class will need the following methods:    
+* hypothesis - computes the hypothesis given $X$ and the parameters, $\theta$.     
+* cost - computes the cost given $y$ and our hypotheses.     
+* gradient - calculates the gradient based upon error and the values $X_j$ for each $j$.      
+* update - computes the updates to the $\theta$'s in the direction of greatest descent.    
+* fit - conducts the search until stopping conditions are met     
+
+With respect to stopping criteria, we would want to stop the algorithm when one or more of the following conditions are met:
+* The number of iterations has reached a preset maximum,     
+* The relative or absolute change in the training set costs have fallen below a preset precision,     
+* The relative or absolute change in the validation set costs have fallen below a preset precision,       
+* The percent or absolute change in the gradient has fallen below a preset precision, and           
+* The validation set costs has reached a preset maximum (in the case the algorithm starts to diverge).     
+
+Lastly, since we will be building SGD and Minibatch Gradient Descent classes, we may want to create an abstract base class that contains the core functions used in the computation.
+
+Ok, here we go.
+
+#### Class Initialization
+Let's initialize our abstract base class and concrete class for batch gradient descent. We may as well import some packages that we will need.
+```{python class_init, echo=T, eval=F}
+from abc import ABC, abstractmethod
+import datetime
+import math
+import numpy as np
+import pandas as pd
+
+
+class GradientDescent(ABC):
+    def __init__(self):
+      pass
+      
+class BGD(GradientDesent):
+    def __init__(self):
+      pass    
+```
+`r kfigr::figr(label = "class_init", prefix = TRUE, link = TRUE, type="Figure")` Class Initialization
+
+Now, lets define the base classes that will be inherited by the specific batch, stochastic, and mini-batch implementations.
+
+#### Hypothesis Method
+Recall that our linear hypothesis is:
+$$h_\theta(x)=\theta_0x_0+\theta_1x_1=X^T \theta.$$
+Thus our hypothesis method would simply be the dot product of our inputs $X$ and $\theta$. We can easily compute the dot product as follows.
+```{python hypothesis_bgd, echo=T, eval=F}
+def _hypothesis(X, theta):
+        return(X.dot(theta))
+```
+`r kfigr::figr(label = "hypothesis_bgd", prefix = TRUE, link = TRUE, type="Figure")` Hypothesis Method
+
+#### Error Method
+Since we'll need the error for both the cost and gradient computation, let's create a method that implements:
+$$e=h_\theta(x)-y$$
+Taking the hypothesis from the previous method and y, we have:
+```{python error_bgd, echo=T, eval=F}
+def _error(h, y):
+        return(h-y)
+```
+`r kfigr::figr(label = "error_bgd", prefix = TRUE, link = TRUE, type="Figure")` Error Method
+
+#### Cost Method
+Recall our cost function is:
+$$J(\theta)=\frac{1}{2m}\displaystyle\sum_{i=1}^m(h_\theta(x^{(i)})-y^{(i)})^2$$
+Our method simply takes half of the mean squared error as follows:
+```{python cost_bgd, echo=T, eval=F}
+def _cost(self, e):
+        return(1/2 * np.mean(e**2))
+```
+`r kfigr::figr(label = "cost_bgd", prefix = TRUE, link = TRUE, type="Figure")` Cost Method
+
+#### Gradient Method
+Next, we compute the gradient from:
+$$
+\nabla_\theta J =\frac{\partial}{\partial \theta_j}J(\theta)  = \frac{1}{m}\displaystyle\sum_{i=1}^m (h_\theta(x^{(i)})-y^{(i)})\cdot x^{(i)}_j \quad\quad \text{for every j}
+$$
+Note, $x_0^{(i)}$ for each $i$ is 1 - convenience to simplify our computation. 
+
+This is a vector valued function. This means that it returns a vector of size $n$, where $n$ is the number of parameters in $X$. This the direction of steepest ascent in the objective function.
+```{python gradient_bgd, echo=T, eval=F}
+def _gradient(self, X, e):
+        return(X.T.dot(e)/X.shape[0])
+```
+`r kfigr::figr(label = "gradient_bgd", prefix = TRUE, link = TRUE, type="Figure")` Gradient Method
+
+#### Update Method
+Our update function, you recall, looks like this.
+$$\theta_j^{k+1} := \theta_j^k - \alpha \nabla_\theta J$$
+Our update method is therefore:
+```{python update_bgd, echo=T, eval=F}
+def _update(self, alpha, theta, gradient):
+        return(theta-(alpha * gradient))
+```
+`r kfigr::figr(label = "update_bgd", prefix = TRUE, link = TRUE, type="Figure")` Update Method
+
+#### Finished Method
+This method determines when the algorithm should stop. Again, we stop if the maximum number of iterations has been reached, or the absolute or relative change in our stopping measure has fallen below our precision parameter. We'll store the current state of the search in a dictionary.  It will contain the current iteration as well as the current and prior values of our evaluation metric.
+
+```{python, finished, echo=T, eval=F}
+def _finished(self, maxiter, stop_metric, precision, state):
+    if maxiter:
+        if state['iteration'] == maxiter:
+            return(True)
+    elif stop_metric == 'a': # Absolute change
+        return(abs(state['prior']-state['current']) < precision)
+    else: # Relative change
+        return(abs(state['prior']-state['current'])/abs(state['prior'])*100 < precision)    
+
+```
+`r kfigr::figr(label = "finished_bgd", prefix = TRUE, link = TRUE, type="Figure")` Finished Method
+
+we will also have a method that updates the state dictionary on each iteration. 
+```{python, update_state, echo=T, eval=F}
+def _update_state(self,state, iteration, J, J_val, g):
+    state['iteration'] = iteration
+    state['prior'] = state['current']
+    if stop_parameter == 't':   # t for training Set Costs
+        state['current'] = J
+    elif stop_parameter == 'v': # v for validation set costs
+        state['current'] = J_val
+    else:                       # gradient
+        state['current'] = np.sqrt(np.sum(abs(g)**2)) # Computes the norm of the gradient
+    return(state)  
+
+```
+`r kfigr::figr(label = "update_state", prefix = TRUE, link = TRUE, type="Figure")` Update State
+
+Now, we can define the fit method for our BGD class.
+
+#### Fit Method
+Finally, the workhorse of our algorithm. 
+```{python fit_bgd, echo=T, eval=F}
+class BGD(GradientDescent):
+  def __init__(self):
+      pass
+
+  def fit(self, X, y, theta, X_val=None, y_val=None, 
+             alpha=0.01, maxiter=0, precision=0.001,
+             stop_measure='j', stop_metric='a'):
+             
+      state = {'iteration':0, 'prior':inf, 'current':inf}
+      J_val = None
+  
+      # Set cross-validated flag if validation set included 
+      cross_validated = all(v is not None for v in [X_val, y_val])
+  
+      while not self._finished(state):
+          iteration += 1
+  
+          # Compute the costs and validation set error (if required)
+          h = self._hypothesis(X, theta)
+          e = self._error(h, y)
+          J = self._cost(e)
+          g = self._gradient(X, e)
+  
+          if cross_validated:
+            h_val = self._hypothesis(X_val, theta)
+            e_val = self._error(h_val, y_val)
+            J_val = self._cost(e_val)                
+            
+          theta = self._update(alpha, theta, g)
+            
+          state = self._update_state(state, iteration, J, J_val, g)          
+  
+      d = dict()
+      d['theta'] = theta
+      d['J'] = J
+      d['J_val'] = J_val
+  
+      return(d)
+```
+`r kfigr::figr(label = "fit_bgd", prefix = TRUE, link = TRUE, type="Figure")` Fit Method
+Once we've initialized some variables, we iteratively:    
+1. compute training set cost and gradient,   
+2. compute validation set cost if we are using a cross-validation set,    
+3. update the thetas    
+4. update our state dictionary    
+
+Once convergence criteria are met, we return our thetas and costs.
+
+That's it, for the most part. The complete class definitions are available at https://github.com/DecisionScients/GradientDescent.
+
+Next, we will learn how to set the hyperparameters that will determine algorithm performance.
+
+```{python GradientDescent, code=readLines('../src/GradientDescent.py'), message=FALSE, warning=FALSE}
+```
+```{python GradientDemo, code=readLines('../src/GradientDemo.py'), message=FALSE, warning=FALSE}
+```
+```{python GradientFit, code=readLines('../src/GradientFit.py'), message=FALSE, warning=FALSE}
+```
+```{python GradientLab, code=readLines('../src/GradientLab.py'), message=FALSE, warning=FALSE}
+```
+```{python BGDReport, code=readLines('../report/src/BGDReport.py'), message=FALSE, warning=FALSE}
+```
+### Hyperparameter Tuning via Gridsearch
+The goal at this stage is to determine the set of hyperparameters that minimize cost on our training and validation sets. More concretely, we will:     
+* investigate the effect of the learning rate on our optimization problem, convergence rate, and computation time, and      
+* evaluate the impact of a range of stopping conditions on algorithmic behavior, computation time and performance,    
+
+A gridsearch approach will allow us to quickly sweep through a range of parameter values in an exhaustive search. Once we've completed the gridsearch, we will examine algorithm behavior for the best and the most interesting solutions. 
+
+#### Experiment
+Our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples comprise the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
+
+A small function was created to randomly sample the training data and split it into the appropriate training and validation sets.
+```{python demo_data, echo=T, eval=F}
+X, X_val, y, y_val = data.demo(n=500)
+```
+
+Our parameters are:
+* theta: our initial thetas,      
+* alpha: our learning rate,    
+* maxiter: The maximum number of iterations,    
+* stop parameter: The parameter we will use to evaluate *near* convergence. Values are:   
+
+  - t: training set costs,    
+  - v: validation set costs,  
+  - g: gradient norm     
+  
+* stop metric: The metric we will use when evaluating the stop parameter. Values are:     
+  - a: absolute change in the stop parameter, and      
+  - r: relative change in the stop parameter.     
+  
+* maximum costs
+  
+* precision: the $\epsilon$ for our stopping criteria, e.g. we stop when $J_k - J_{k-1} < \epsilon$
+  
+Hence, we initialize our gridsearch parameters as follows:
+```{python gs_params, echo=T, eval=F}
+theta = np.array([-1,-1]) 
+alpha = [0.01, 0.02, 0.04, 0.08, 0.1, 0.2, 0.4, 0.8, 1.0, 1.5, 1.9]
+precision = [0.1, 0.01, 0.001, 0.0001]
+maxiter = 10000
+max_costs = 10
+stop_parameter = ['t', 'v', 'g']
+stop_metric = ['a', 'r']
+```
+`r kfigr::figr(label = "gs_params", prefix = TRUE, link = TRUE, type="Figure")` Gridsearch Parameters
+
+Now we are ready to run our gridsearch.
+```{python gridsearch, echo=T, eval=F}
+lab = BGDLab()
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
+           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric, max_costs=max_costs)
+```
+
+#### Results
+```{r read_bgd_report, echo=F, eval=T}
+filepath <- "./report/figures/BGD/Gridsearch Report.csv"
+report_bgd = read.csv(file = filepath)
+rownames(report_bgd) <- NULL
+```
+`r kfigr::figr(label = "bgd_gs_plot", prefix = TRUE, link = TRUE, type="Figure")` shows the validation set costs and elapsed time for a total of `r nrow(report_bgd)` experiments. The top plot shows results for the entire parameter space. The bottom plot zooms in on those results with a cost less than 1.
+
+![](../report/figures/BGD/Validation Set Costs By Time and Stop Condition.png)
+`r kfigr::figr(label = "bgd_gs_plot", prefix = TRUE, link = TRUE, type="Figure")`: Gridsearch Plot
+
+Several observations have been selected for further analysis, and they are:
+```{r featured_bgd, echo=F, eval=T}
+filepath <- "./report/figures/BGD/BGD Featured Experiments.csv"
+featured = read.csv(file = filepath)
+rownames(featured) <- NULL
+knitr::kable(featured, digits = 4, format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
+```
+`r kfigr::figr(label = "featured_bgd", prefix = TRUE, link = TRUE, type="Figure")`: Featured Experiments

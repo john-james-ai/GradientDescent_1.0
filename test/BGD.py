@@ -2,15 +2,9 @@
 #                       BATCH GRADIENT DESCENT TEST                           #
 # =========================================================================== #
 # %%
-import inspect
-import os
-import sys
-
-from matplotlib import animation, rc
-from matplotlib import rcParams
 import numpy as np 
 import pandas as pd 
-from typing import Union, Any, List, Optional, cast, Dict
+import sys
 srcdir = "c:\\Users\\John\\Documents\\Data Science\\Libraries\\GradientDescent\\src"
 sys.path.append(srcdir)
 
