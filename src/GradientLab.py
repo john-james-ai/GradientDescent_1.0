@@ -54,18 +54,30 @@ class GradientLab:
         self._params = {}
 
     def _save_params(self, X, y, X_val, y_val, theta, alpha, precision, 
-               stop_parameter, stop_metric, maxiter=0, scaler='minmax'):
+               stop_parameter, stop_metric, miniter, maxiter, scaler):
         self._params = {'theta':theta, 'alpha':alpha, 'precision':precision,
                         'stop_parameter': stop_parameter,
-                        'stop_metric': stop_metric, 'maxiter':maxiter,
+                        'stop_metric': stop_metric, 
+                        'miniter': miniter,
+                        'maxiter':maxiter,
                         'scaler':scaler}
+    def summary(self):
+        if self._summary is None:
+            raise Exception("No summary to report")
+        else:
+            return(self._summary)
+
+    def get_detail(self):
+        if self._detail is None:
+            raise Exception("No detail to report")
+        else:
+            return(self._detail)        
         
     def gridsearch(self, X, y, X_val, y_val, theta, alpha, precision, 
-               stop_parameter, stop_metric, maxiter=0, scaler='minmax'):
+               stop_parameter, stop_metric, miniter=0, maxiter=0, scaler='minmax'):
 
         self._save_params(X, y, X_val, y_val, theta, alpha, precision, 
-               stop_parameter, stop_metric, maxiter=0, scaler='minmax')
-        
+               stop_parameter, stop_metric, miniter, maxiter, scaler)
 
         bgd = BGD()
         experiment = 1
@@ -76,7 +88,8 @@ class GradientLab:
                 for a in alpha:
                     for p in precision:
                         bgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
-                                alpha=a, maxiter=maxiter, precision=p, stop_parameter=measure, 
+                                alpha=a, miniter=miniter, maxiter=maxiter, 
+                                precision=p, stop_parameter=measure, 
                                 stop_metric=metric, scaler=scaler)
                         detail = bgd.get_detail()
                         summary = bgd.summary()
@@ -100,11 +113,12 @@ class GradientLab:
                   'final_costs_val': 'Validation Set Costs'}
         return(labels[x])
 
-    def report(self,  n=None, sort='v', directory=None):
+    def report(self,  n=None, sort='v', directory=None, filename=None):
         if self._detail is None:
             raise Exception('Nothing to report')
         else:
-            vars = ['experiment', 'alg', 'alpha', 'precision', 'maxiter',
+            vars = ['experiment', 'alg', 'alpha', 'precision', 
+                    'miniter', 'maxiter',
                     'epochs', 'iterations','duration',
                     'stop_parameter', 'stop_metric', 
                     'final_costs', 'final_costs_val']
@@ -115,72 +129,49 @@ class GradientLab:
             else:
                 df = df.sort_values(by=['final_costs_val'])
             if directory:
-                filename = 'Gridsearch Report.csv'
                 save_csv(df, directory, filename)                
             if n:
                 df = df.iloc[:n]            
             return(df)
 
-    def plot(self, directory=None, show=True):
+    def plot(self, directory=None, filename=None, show=True):
         df = self._summary
-        # Select observations to annotate
-        keys = ['best_cost', 'best_cost_duration', 'worst_cost', 'worst_cost_duration', 'worst_duration',
-                'median_cost', 'median_time']
-        annotations = []
-        annotations.append(df.nsmallest(1, ['final_costs_val'])['experiment'].item())
-        annotations.append(df.nsmallest(1, ['final_costs_val', 'duration'])['experiment'].item())
-        annotations.append(df.nlargest(1, ['final_costs_val'])['experiment'].item())
-        annotations.append(df.nlargest(1, ['final_costs_val', 'duration'])['experiment'].item())
-        annotations.append(df.nlargest(1, ['duration'])['experiment'].item())
-        median_cost = np.median(df['final_costs_val'])
-        median_time = np.median(df['duration'])        
-        annotations.append(df[df.final_costs_val>=median_cost].nsmallest(1,'final_costs_val')['experiment'].item())
-        annotations.append(df[df.duration>=median_time].nsmallest(1, 'duration')['experiment'].item()) 
-        df2 = pd.DataFrame(list(zip(keys, annotations)), columns=['rating', 'experiment'])
 
         # Obtain and initialize figure and settings
         sns.set(style="whitegrid", font_scale=1)
-        fig = plt.figure(figsize=(12,8))
+        fig = plt.figure(figsize=(12,8))    
 
-        # Setup data for plotting
-        df['stop_condition'] = df['stop_condition'].replace('Stop Condition:', '')
-        
-        # Plot validation costs by millisecond
-        ax0 = plt.subplot2grid((2,1), (0,0))  
-        ax0 = sns.scatterplot(x='duration', y='final_costs_val', hue='stop_condition', data=df)
+        # Plot costs by learning rate and stop condition
+        ax0 = plt.subplot2grid((1,1), (0,0))  
+        ax0 = sns.scatterplot(x='duration', y='final_costs_val', hue='alpha', data=df,
+                              legend='full', palette='RdBu')
         ax0.set_facecolor('w')
         ax0.tick_params(colors='k')
         ax0.xaxis.label.set_color('k')
         ax0.yaxis.label.set_color('k')
         ax0.set_xlabel('Elapsed Time (ms)')
         ax0.set_ylabel('Costs')
-        title = 'Validation Set Costs ' + '\n' + 'By Time and Stop Condition'
-        ax0.set_title(title, color='k')
-        for i, txt in enumerate(df['experiment']):
-            if df['experiment'].iloc[i].item() in annotations:
-                ax0.annotate(txt, (df['duration'].iloc[i], df['final_costs_val'].iloc[i]))       
+        title = 'Validation Set Costs and Time' + '\n' + 'By Learning Rate'
+        ax0.set_title(title, color='k') 
 
-        # Plot validation costs by millisecond
-        df = df[(df.final_costs_val<1) & (df.duration<1)]
-        ax1 = plt.subplot2grid((2,1), (1,0))  
-        ax1 = sns.scatterplot(x='duration', y='final_costs_val', hue='stop_condition', data=df)
-        ax1.set_facecolor('w')
-        ax1.tick_params(colors='k')
-        ax1.xaxis.label.set_color('k')
-        ax1.yaxis.label.set_color('k')
-        ax1.set_xlabel('Elapsed Time (ms)')
-        ax1.set_ylabel('Costs')
-        title = 'Validation Set Costs ' + '\n' + 'By Time and Stop Condition'
-        ax1.set_title(title, color='k')
-        ax1.set_xlim(0,median_time)
-        ax1.set_ylim(0,median_cost)
-        for i, txt in enumerate(df['experiment']):
-            if df['experiment'].iloc[i].item() in annotations:
-                ax1.annotate(txt, (df['duration'].iloc[i], df['final_costs_val'].iloc[i]))       
+        # Create annotations
+        key = ['best', 'worst', 'longest', 'fastest']
+        best = df.nsmallest(1, 'final_costs_val')['experiment'].item()
+        worst = df.nlargest(1, 'final_costs_val')['experiment'].item()
+        longest = df.nlargest(1, 'duration')['experiment'].item()
+        fastest = df.nsmallest(1, 'duration')['experiment'].item()
+        featured = [best, worst, longest, fastest]
+        df_featured = pd.DataFrame({'rating':key, 'experiment':featured}, index=[0,1,2,3])
+        df_featured = pd.merge(df_featured, df, on='experiment', how='inner')          
+        df_featured = df_featured.drop(columns=['miniter', 'maxiter', 'stop_condition', 'stop', 'start',
+                                                'end', 'initial_costs', 'initial_costs_val'])
+        for i, txt in enumerate(featured):
+            ax0.annotate(txt, (df[df.experiment==txt].duration.item(),
+                               df[df.experiment==txt].final_costs_val.item()))
+
 
         # Finalize plot and save
         fig.tight_layout()
-        fig.subplots_adjust(hspace=0.4)
         if show:
             plt.show()
         if directory is not None:
@@ -188,10 +179,99 @@ class GradientLab:
             filename = filename.replace(':', '') + '.png'
             save_fig(fig, directory, filename)
         plt.close(fig)       
-        return(fig, df2) 
+        return(fig, df_featured) 
+
+
+    def plot_alpha(self, directory=None, filename=None, show=True):
+        df = self._summary
+
+        # Obtain and initialize figure and settings
+        sns.set(style="whitegrid", font_scale=1)
+        fig = plt.figure(figsize=(12,8))
+
+        # Plot costs by learning rate and stop condition
+        ax0 = plt.subplot2grid((2,1), (0,0))  
+        ax0 = sns.barplot(x='alpha', y='final_costs_val', hue='stop_condition', data=df)
+        ax0.set_facecolor('w')
+        ax0.tick_params(colors='k')
+        ax0.xaxis.label.set_color('k')
+        ax0.yaxis.label.set_color('k')
+        ax0.set_xlabel('Alpha')
+        ax0.set_ylabel('Costs')
+        title = 'Validation Set Costs ' + '\n' + 'By Learning Rate and Stop Condition'
+        ax0.set_title(title, color='k')
+
+        
+        # Plot time by learning rate and stop condition         
+        ax1 = plt.subplot2grid((2,1), (1,0))  
+        ax1 = sns.barplot(x='alpha', y='duration', hue='stop_condition', data=df)
+        ax1.set_facecolor('w')
+        ax1.tick_params(colors='k')
+        ax1.xaxis.label.set_color('k')
+        ax1.yaxis.label.set_color('k')
+        ax1.set_xlabel('Alpha')
+        ax1.set_ylabel('Time (ms)')
+        title = 'Computation Time ' + '\n' + 'By Learning Rate and Stop Condition'
+        ax1.set_title(title, color='k')
+
+        # Finalize plot and save
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0.4)
+        if show:
+            plt.show()
+        if directory is not None:
+            if filename is None:
+                filename = 'Batch Gradient Descent - Validation Set Costs and Time by Learning Rate and Stop Condition.png'
+            save_fig(fig, directory, filename)
+        plt.close(fig)       
+        return(fig) 
+
+    def plot_precision(self, directory=None, filename=None, show=True):
+        df = self._summary
+
+        # Obtain and initialize figure and settings
+        sns.set(style="whitegrid", font_scale=1)
+        fig = plt.figure(figsize=(12,8))
+
+        # Plot costs by learning rate and stop condition
+        ax0 = plt.subplot2grid((2,1), (0,0))  
+        ax0 = sns.barplot(x='precision', y='final_costs_val', hue='stop_condition', data=df)
+        ax0.set_facecolor('w')
+        ax0.tick_params(colors='k')
+        ax0.xaxis.label.set_color('k')
+        ax0.yaxis.label.set_color('k')
+        ax0.set_xlabel('Precision')
+        ax0.set_ylabel('Costs')
+        title = 'Validation Set Costs ' + '\n' + 'By Precision and Stop Condition'
+        ax0.set_title(title, color='k')
+
+        
+        # Plot time by learning rate and stop condition         
+        ax1 = plt.subplot2grid((2,1), (1,0))  
+        ax1 = sns.barplot(x='precision', y='duration', hue='stop_condition', data=df)
+        ax1.set_facecolor('w')
+        ax1.tick_params(colors='k')
+        ax1.xaxis.label.set_color('k')
+        ax1.yaxis.label.set_color('k')
+        ax1.set_xlabel('Precision')
+        ax1.set_ylabel('Time (ms)')
+        title = 'Computation Time ' + '\n' + 'By Precision and Stop Condition'
+        ax1.set_title(title, color='k')
+
+        # Finalize plot and save
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0.4)
+        if show:
+            plt.show()
+        if directory is not None:
+            if filename is None:
+                filename = 'Batch Gradient Descent - Validation Set Costs and Time by Precision and Stop Condition.png'
+            save_fig(fig, directory, filename)
+        plt.close(fig)       
+        return(fig) 
 
     def plot_costs(self, x, z, fig_key='stop_parameter', 
-                    row_key='stop_condition',  directory=None, show=True):
+                    row_key='stop_condition',  directory=None, filename=None, show=True):
         # Group data and obtain keys
         figures = self._summary.groupby(fig_key)
         for fig_name, fig_data in figures:
@@ -232,26 +312,21 @@ class GradientLab:
                 i += 1
             
             # Finalize plot and save
-            if fig_name:
-                if len(fig_name) > 1:
-                    suptitle = self._alg + '\n' + 'Cost Analysis' + '\n' + ''.join(fig_name)
-                else:
-                    suptitle = self._alg + '\n' + 'Cost Analysis' + '\n' + fig_name
-            else:
-                suptitle = self._alg + '\n' + 'Cost Analysis' 
+            suptitle = self._alg + '\n' + 'Cost Analysis' 
             fig.suptitle(suptitle)
             fig.tight_layout(rect=[0,0,1,.9])
             if show:
                 plt.show()
             if directory is not None:
-                filename = suptitle.replace('\n', '')
-                filename = filename.replace(':', '') + '.png'
+                if filename is None:
+                    filename = suptitle.replace('\n', '')
+                    filename = filename.replace(':', '') + '.png'
                 save_fig(fig, directory, filename)
             plt.close(fig)
         return(fig)
 
     def plot_times(self, x, z, fig_key='stop_parameter', row_key='stop_condition',
-                     directory=None, show=True):
+                     directory=None, filename=None, show=True):
         # Group data and obtain keys
         figures = self._summary.groupby(fig_key)
         for fig_name, fig_data in figures:
@@ -292,26 +367,21 @@ class GradientLab:
                 i += 1
             
             # Finalize plot and save
-            if fig_name:
-                if len(fig_name) > 1:
-                    suptitle = self._alg + '\n' + 'Performance Analysis' + '\n' + ''.join(fig_name)
-                else:
-                    suptitle = self._alg + '\n' + 'Performance Analysis' + '\n' + fig_name
-            else:
-                suptitle = self._alg + '\n' + 'Cost Analysis' 
-            fig.suptitle(suptitle)
+            suptitle = self._alg + '\n' + 'Time Analysis' 
+            fig.suptitle(suptitle, y=1.1) 
             fig.tight_layout(rect=[0,0,1,.9])
             if show:
                 plt.show()
             if directory is not None:
-                filename = suptitle.replace('\n', '')
-                filename = filename.replace(':', '') + '.png'
+                if filename is None:
+                    filename = suptitle.replace('\n', '')
+                    filename = filename.replace(':', '') + '.png'
                 save_fig(fig, directory, filename)
             plt.close(fig)
         return(fig)
 
     def plot_curves(self, fig_key='stop_parameter', row_key='stop_condition',
-                     directory=None, show=True):
+                     directory=None, filename=None, show=True):
 
         # Group data and obtain keys
         figures = self._detail.groupby(fig_key)
@@ -341,26 +411,23 @@ class GradientLab:
                 ax.yaxis.label.set_color('k')
                 ax.set_xlabel('Iterations')
                 ax.set_ylabel('Cost')
-                title = 'Learning Curves'  + '\n' + row_name
+                title = self._alg + '\n' + 'Learning Curves'  
                 ax.set_title(title, color='k')
+                ax.text(s=row_data.stop.iloc[0], x=0.35, y=-0.3, transform=ax.transAxes)
                 i += 1
 
-            # Finalize plot and save
-            if fig_name:
-                if len(fig_name) > 1:
-                    suptitle = self._alg + '\n' + 'Learning Curves' + '\n' + ''.join(fig_name)
-                else:
-                    suptitle = self._alg + '\n' + 'Learning Curves' + '\n' + fig_name
-            else:
-                suptitle = self._alg + '\n' + 'Learning Curves' 
-            fig.suptitle(suptitle, y=1.1)
+            # Finalize plot and save            
+            suptitle = self._alg + '\n' + 'Learning Curves' 
+            if i > 1:
+                fig.suptitle(suptitle, y=1.1)
             # Finalize plot and save
             fig.tight_layout()
             if show:
                 plt.show()
             if directory is not None:
-                filename = suptitle.replace('\n', '')
-                filename = filename.replace(':', '') + '.png'
+                if filename is None:
+                    filename = suptitle.replace('\n', '')
+                    filename = filename.replace(':', '') + '.png'
                 save_fig(fig, directory, filename)
             plt.close(fig)
         return(fig)
@@ -391,7 +458,7 @@ class SGDLab(GradientLab):
         self._detail = None
 
     def gridsearch(self, X, y, X_val, y_val, theta, alpha, precision, 
-            stop_parameter, stop_metric, check_point, maxiter=0, 
+            stop_parameter, stop_metric, check_point, miniter=0, maxiter=0, 
             scaler='minmax'):
         sgd = SGD()
         self._summary = pd.DataFrame()
@@ -403,7 +470,8 @@ class SGDLab(GradientLab):
                     for a in alpha:
                         for p in precision:
                             sgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
-                                    alpha=a, maxiter=maxiter, precision=p, stop_parameter=measure, 
+                                    alpha=a, miniter=miniter, maxiter=maxiter, 
+                                    precision=p, stop_parameter=measure, 
                                     stop_metric=metric, check_point=cp, scaler=scaler)
                             detail = sgd.get_detail()
                             summary = sgd.summary()
@@ -422,7 +490,7 @@ class MBGDLab(GradientLab):
         self._detail = None
 
     def gridsearch(self, X, y, X_val, y_val, theta, alpha, precision, 
-            stop_parameter, stop_metric, batch_size, maxiter=0, 
+            stop_parameter, stop_metric, batch_size, miniter=0, maxiter=0, 
             scaler='minmax'):
         mbgd = MBGD()
         self._summary = pd.DataFrame()
@@ -434,7 +502,7 @@ class MBGDLab(GradientLab):
                     for a in alpha:
                         for p in precision:
                             mbgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
-                                    alpha=a, maxiter=maxiter, precision=p, stop_parameter=measure, 
+                                    alpha=a, miniter=miniter, maxiter=maxiter, precision=p, stop_parameter=measure, 
                                     stop_metric=metric, batch_size=bs, scaler=scaler)
                             detail = mbgd.get_detail()
                             summary = mbgd.summary()

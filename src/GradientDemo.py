@@ -45,12 +45,14 @@ class GradientDemo():
         self._X = None
         self._y = None        
 
-    def fit(self, X, y, theta, n=100, alpha=0.01, maxiter=10000, precision=0.001, stop_parameter='j',
-            stop_metric='p'):
-        
+    def fit(self, X, y, theta, X_val=None, y_val=None, n=500, alpha=0.01, 
+            miniter=0, maxiter=10000, precision=0.001, stop_parameter='t',
+            stop_metric='r'):
+
         # Fit to data
         gd = BGD()
-        gd.fit(X, y, theta=theta, alpha=alpha, maxiter=maxiter, 
+        gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, 
+               miniter=miniter, maxiter=maxiter, 
                precision=precision, stop_parameter=stop_parameter,
                stop_metric=stop_metric)
 
@@ -66,7 +68,7 @@ class GradientDemo():
     def _cost_mesh(self,THETA):
         return(np.sum((self._X.dot(THETA) - self._y)**2)/(2*len(self._y)))        
 
-    def show_search(self, directory=None, interval=200, fps=60, maxframes=500):
+    def show_search(self, directory=None, filename=None, interval=200, fps=60, maxframes=500):
         '''Plots surface plot on two dimensional problems only 
         '''        
         # Designate plot area
@@ -177,13 +179,15 @@ class GradientDemo():
         surface_ani = animation.FuncAnimation(fig, animate, init_func=init, frames=len(idx),
                                             interval=interval, blit=True, repeat_delay=1000)
         if directory is not None:
-            filename = title = self._alg + ' Learning Rate = ' + str(round(self._summary['alpha'].item(),3)) + \
-                ' Stop Condition ' + self._summary['stop'].item() + '.gif'  
+            if filename is None:
+                filename = self._alg + ' Search Plot Learning Rate ' + str(round(self._summary['alpha'].item(),3)) + \
+                    ' Stop Condition ' + self._summary['stop'].item() + '.gif'  
+            print(filename)
             save_gif(surface_ani, directory, filename, fps)
         plt.close(fig)
         return(surface_ani)
 
-    def show_fit(self, directory=None, interval=50, fps=60, maxframes=500):
+    def show_fit(self, directory=None, filename=None, interval=50, fps=60, maxframes=500):
         '''Shows animation of regression line fit for 2D X Vector 
         '''
 
@@ -243,8 +247,9 @@ class GradientDemo():
         line_gd = animation.FuncAnimation(fig, animate, init_func=init, frames=len(idx),
                                             interval=interval, blit=True, repeat_delay=100)
         if directory is not None:
-            filename = title = self._alg + ' Learning Rate = ' + str(round(self._summary['alpha'].item(),3)) + \
-                ' Stop Condition ' + self._summary['stop'].item() + '.gif'  
+            if filename is None:
+                filename = title = self._alg + ' Fit Plot Learning Rate ' + str(round(self._summary['alpha'].item(),3)) + \
+                    ' Stop Condition ' + self._summary['stop'].item() + '.gif'  
             save_gif(line_gd, directory, filename, fps)
         plt.close(fig)  
         return(line_gd)

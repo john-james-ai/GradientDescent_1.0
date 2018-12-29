@@ -64,7 +64,7 @@ class GradientDescent:
         return(self._request['data'])
 
     def get_detail(self):
-        if self._summary is None:
+        if self._detail is None:
             raise Exception('No search results to report.')
         else:
             return(self._detail)
@@ -110,7 +110,7 @@ class GradientDescent:
 
     
     def fit(self, X, y, theta, X_val=None, y_val=None, alpha=0.01, 
-            maxiter=0, precision=0.001, stop_parameter='t', 
+            miniter=0, maxiter=0, precision=0.001, stop_parameter='t', 
             stop_metric='a', scaler='minmax', max_cost=100):
 
         # Set cross-validated flag if validation set included 
@@ -131,6 +131,7 @@ class GradientDescent:
         self._request['alg'] = self._alg        
         self._request['data'] = {'X': X, 'y':y, 'X_val':X_val, 'y_val':y_val} 
         self._request['hyper'] = {'alpha': alpha, 'theta': theta,
+                                  'miniter': miniter,
                                   'maxiter': maxiter, 
                                   'precision': precision,
                                   'stop_parameter': stop_parameter,
@@ -179,6 +180,7 @@ class GradientDescent:
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
                                     'alpha': self._request['hyper']['alpha'],
                                     'precision': self._request['hyper']['precision'],
+                                    'miniter': self._request['hyper']['miniter'],
                                     'maxiter': self._request['hyper']['maxiter'],
                                     'stop_parameter': stop_parameter,
                                     'stop_metric': stop_metric,

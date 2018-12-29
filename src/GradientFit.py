@@ -94,14 +94,21 @@ class GradientFit(ABC):
         state['current'] = self._zeros(state['current'])
         state['prior'] = self._zeros(state['prior'])
 
-        if state['current'] > self._request['hyper']['max_cost']:
-            return(True)
-        if self._maxed_out(state['iteration']):
-            return(True)
-        elif self._request['hyper']['stop_metric'] == 'a':
-            return(abs(state['prior']-state['current']) < self._request['hyper']['precision'])
-        else:
-            return(abs(state['prior']-state['current'])/abs(state['prior'])*100 < self._request['hyper']['precision'])    
+        if self._request['hyper']['miniter']:
+            if self._request['hyper']['miniter'] <= state['iteration']:
+                if self._maxed_out(state['iteration']):
+                    return(True)
+                elif self._request['hyper']['stop_metric'] == 'a':
+                    return(abs(state['prior']-state['current']) < self._request['hyper']['precision'])
+                else:
+                    return(abs(state['prior']-state['current'])/abs(state['prior']) < self._request['hyper']['precision'])     
+        else:                    
+            if self._maxed_out(state['iteration']):
+                return(True)
+            elif self._request['hyper']['stop_metric'] == 'a':
+                return(abs(state['prior']-state['current']) < self._request['hyper']['precision'])
+            else:
+                return(abs(state['prior']-state['current'])/abs(state['prior']) < self._request['hyper']['precision'])    
 
     def _update_state(self,state, iteration, J, J_val, g):
         state['iteration'] = iteration

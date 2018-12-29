@@ -45,7 +45,7 @@ Our GradientDescent class will need the following methods:
 * update - computes the updates to the $\theta$'s in the direction of greatest descent.    
 * fit - conducts the search until stopping conditions are met     
 
-With respect to stopping criteria, we would want to stop the algorithm when one or more of the following conditions are met:
+With respect to stopping criteria, we would want to stop the algorithm when one or more of the following conditions are met:    
 * The number of iterations has reached a preset maximum,     
 * The relative or absolute change in the training set costs have fallen below a preset precision,     
 * The relative or absolute change in the validation set costs have fallen below a preset precision,       
@@ -175,9 +175,9 @@ class BGD(GradientDescent):
 
   def fit(self, X, y, theta, X_val=None, y_val=None, 
              alpha=0.01, maxiter=0, precision=0.001,
-             stop_measure='j', stop_metric='a'):
+             stop_measure='j', stop_metric='a', max_costs=100):
              
-      state = {'iteration':0, 'prior':inf, 'current':inf}
+      state = {'iteration':0, 'prior':1, 'current':5}
       J_val = None
   
       # Set cross-validated flag if validation set included 
@@ -232,26 +232,15 @@ Next, we will learn how to set the hyperparameters that will determine algorithm
 ```{python BGDReport, code=readLines('../report/src/BGDReport.py'), message=FALSE, warning=FALSE}
 ```
 ### Hyperparameter Tuning via Gridsearch
-The goal at this stage is to determine the set of hyperparameters that minimize cost on our training and validation sets. More concretely, we will:     
-* investigate the effect of the learning rate on our optimization problem, convergence rate, and computation time, and      
-* evaluate the impact of a range of stopping conditions on algorithmic behavior, computation time and performance,    
+The goal at this stage is to determine the set of hyperparameters that minimize cost on our training and validation sets. A gridsearch approach will allow us to quickly sweep through a range of parameter values in an exhaustive search. Once we've completed the gridsearch, we will closely examine the best and most interesting solutions.
 
-A gridsearch approach will allow us to quickly sweep through a range of parameter values in an exhaustive search. Once we've completed the gridsearch, we will examine algorithm behavior for the best and the most interesting solutions. 
-
-#### Experiment
-Our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples comprise the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
-
-A small function was created to randomly sample the training data and split it into the appropriate training and validation sets.
-```{python demo_data, echo=T, eval=F}
-X, X_val, y, y_val = data.demo(n=500)
-```
-
-Our parameters are:
+Our hyperparameters are:    
 * theta: our initial thetas,      
 * alpha: our learning rate,    
 * maxiter: The maximum number of iterations,    
-* stop parameter: The parameter we will use to evaluate *near* convergence. Values are:   
+* max_costs: The maximum cost   
 
+* stop parameter: The parameter we will use to evaluate *near* convergence. Values are:   
   - t: training set costs,    
   - v: validation set costs,  
   - g: gradient norm     
@@ -260,46 +249,176 @@ Our parameters are:
   - a: absolute change in the stop parameter, and      
   - r: relative change in the stop parameter.     
   
-* maximum costs
-  
 * precision: the $\epsilon$ for our stopping criteria, e.g. we stop when $J_k - J_{k-1} < \epsilon$
-  
-Hence, we initialize our gridsearch parameters as follows:
-```{python gs_params, echo=T, eval=F}
+
+Our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples comprise the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
+
+A small function was created to randomly sample the training data and split it into the appropriate training and validation sets.
+```{python demo_data, echo=T, eval=F}
+X, X_val, y, y_val = data.demo(n=500)
+```
+
+Now that we have our data, lets run our gridsearch.
+
+#### GridSearch 
+We will search a wide range of learning rates, precision parameters, and stopping conditions. Thus our parameters are:
+```{python gs_params_1, echo=T, eval=F}
 theta = np.array([-1,-1]) 
-alpha = [0.01, 0.02, 0.04, 0.08, 0.1, 0.2, 0.4, 0.8, 1.0, 1.5, 1.9]
+alpha = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1]
 precision = [0.1, 0.01, 0.001, 0.0001]
 maxiter = 10000
-max_costs = 10
 stop_parameter = ['t', 'v', 'g']
 stop_metric = ['a', 'r']
 ```
-`r kfigr::figr(label = "gs_params", prefix = TRUE, link = TRUE, type="Figure")` Gridsearch Parameters
+`r kfigr::figr(label = "gs_params_1", prefix = TRUE, link = TRUE, type="Figure")` Gridsearch Parameters
 
-Now we are ready to run our gridsearch.
-```{python gridsearch, echo=T, eval=F}
+Ok, let's run our gridsearch.
+```{python bgd_gs_fake, echo=T, eval=F}
 lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric, max_costs=max_costs)
+           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
 ```
 
-#### Results
-```{r read_bgd_report, echo=F, eval=T}
-filepath <- "./report/figures/BGD/Gridsearch Report.csv"
-report_bgd = read.csv(file = filepath)
-rownames(report_bgd) <- NULL
+```{python bgd_gs, echo=F, eval=T}
+report, featured = bgd_gs()
+featured
 ```
-`r kfigr::figr(label = "bgd_gs_plot", prefix = TRUE, link = TRUE, type="Figure")` shows the validation set costs and elapsed time for a total of `r nrow(report_bgd)` experiments. The top plot shows results for the entire parameter space. The bottom plot zooms in on those results with a cost less than 1.
 
-![](../report/figures/BGD/Validation Set Costs By Time and Stop Condition.png)
-`r kfigr::figr(label = "bgd_gs_plot", prefix = TRUE, link = TRUE, type="Figure")`: Gridsearch Plot
+`r kfigr::figr(label = "bgd_gs", prefix = TRUE, link = TRUE, type="Figure")` shows the validation set costs and elapsed time for `r nrow(py$report)` experiments. The best and worst in terms of costs are annotated, as are the fastest and longest in terms of computation time.
 
-Several observations have been selected for further analysis, and they are:
-```{r featured_bgd, echo=F, eval=T}
-filepath <- "./report/figures/BGD/BGD Featured Experiments.csv"
-featured = read.csv(file = filepath)
-rownames(featured) <- NULL
-knitr::kable(featured, digits = 4, format.args = list(big.mark = ",")) %>%
- kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
+![](../report/figures/BGD/Validation Set Costs and TimeBy Learning Rate.png)
+`r kfigr::figr(label = "bgd_gs", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Gridsearch
+
+### Analysis
+We've selected the best and worst in terms of validation set costs and computation time. Let's run their parameters through the model and see what we can learn about the behavior of batch gradient descent under various parameter sets. 
+
+The experiments of interest are:
+```{r featured}
+#rownames(py$featured) <- NULL
+# knitr::kable(py$featured, digits = 5, format.args = list(big.mark = ",")) %>%
+#  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
 ```
-`r kfigr::figr(label = "featured_bgd", prefix = TRUE, link = TRUE, type="Figure")`: Featured Experiments
+`r kfigr::figr(label = "featured", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Featured Solutions
+
+#### Slowest to Converge
+Let's start with solution that took the longest to converge. This solution converged when the relative change in the gradient norm fell below a $\epsilon=0.0001$. The learning rate $\alpha=0.02$. Thus the parameters are:
+```{python bgd_longest_params, echo=T, eval=F}
+theta = np.array([-1,-1]) 
+alpha = 0.02
+precision = 0.0001
+maxiter = 10000
+stop_parameter = 'g'
+stop_metric = 'r'
+```
+`r kfigr::figr(label = "bgd_longest_params", prefix = TRUE, link = TRUE, type="Figure")` Longest Search Parameters
+
+Ok, let's fire it up.
+```{python bgd_longest_fake, echo=T, eval=F}
+bgd = BGD()
+bgd.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
+           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
+```
+
+```{python bgd_longest, echo=F, eval=T}
+bgd_longest(featured.iloc[2])
+```
+ 
+![](../report/figures/BGD/slowest search.gif)
+`r kfigr::figr(label = "bgd_slowest", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Slowest to Converge
+
+
+![](../report/figures/BGD/slowest fit.gif)
+`r kfigr::figr(label = "bgd_slowest_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Slowest to Converge Fit
+
+
+
+
+#### Fastest to Converge
+The fastest to converge stopped when the absolute change in validation set costs dropped below $\epsilon=0.1$. The learning rate $\alpha=0.02$.
+```{python bgd_fastest_params, echo=T, eval=F}
+theta = np.array([-1,-1]) 
+alpha = 0.2
+precision = 0.1
+maxiter = 10000
+stop_parameter = 't'
+stop_metric = 'r'
+```
+`r kfigr::figr(label = "bgd_fastest_params", prefix = TRUE, link = TRUE, type="Figure")` Fastest Search Parameters
+
+Ok, let's fire it up.
+```{python bgd_fastest_fake, echo=T, eval=F}
+bgd = BGD()
+bgd.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
+           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
+```
+
+```{python bgd_fastest, echo=F, eval=T}
+bgd_fastest(featured.iloc[3])
+```
+
+![](../report/figures/BGD/fastest search.gif)
+`r kfigr::figr(label = "bgd_fastest", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Fastest to Converge
+
+![](../report/figures/BGD/fastest fit.gif)
+`r kfigr::figr(label = "bgd_slowest_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Fastest to Converge Fit
+
+#### Worst Cost
+The worst cost solution had a learning rate of $\alpha=0.02$ and stopped when the absolute change in training set costs, dropped below the precision $\epsilon=0.1$.
+```{python bgd_worst_params, echo=T, eval=F}
+theta = np.array([-1,-1]) 
+alpha = 0.02
+precision = 0.1
+maxiter = 10000
+stop_parameter = 't'
+stop_metric = 'a'
+```
+`r kfigr::figr(label = "bgd_worst_params", prefix = TRUE, link = TRUE, type="Figure")` Worst Solution
+
+Ok, let's fire it up.
+```{python bgd_worst_fake, echo=T, eval=F}
+bgd = BGD()
+bgd.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
+           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
+```
+
+```{python bgd_worst, echo=F, eval=T}
+bgd_worst(featured.iloc[1])
+```
+
+![](../report/figures/BGD/worst search.gif)
+`r kfigr::figr(label = "bgd_worst", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Worst Cost
+
+![](../report/figures/BGD/worst fit.gif)
+`r kfigr::figr(label = "bgd_worst_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Worst Cost Fit
+
+
+#### Best Cost
+The best cost solution had a learning rate of $\alpha=0.08$ and stopped when the absolute change in training set costs, dropped below the precision $\epsilon=0.1$.
+```{python bgd_best_params, echo=T, eval=F}
+theta = np.array([-1,-1]) 
+alpha = 0.08
+precision = 0.0001
+maxiter = 10000
+stop_parameter = 't'
+stop_metric = 'a'
+```
+`r kfigr::figr(label = "bgd_best_params", prefix = TRUE, link = TRUE, type="Figure")` Best Solution
+
+Ok, let's fire it up.
+```{python bgd_best_fake, echo=T, eval=F}
+bgd = BGD()
+bgd.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
+           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
+```
+
+```{python bgd_best, echo=F, eval=T}
+bgd_best(featured.iloc[0])
+```
+
+![](../report/figures/BGD/best search.gif)
+`r kfigr::figr(label = "bgd_best", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Best Cost
+
+![](../report/figures/BGD/best fit.gif)
+`r kfigr::figr(label = "bgd_best_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Best Cost Fit
+
+
