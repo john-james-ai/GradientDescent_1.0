@@ -154,22 +154,6 @@ class GradientLab:
         title = 'Validation Set Costs and Time' + '\n' + 'By Learning Rate'
         ax0.set_title(title, color='k') 
 
-        # Create annotations
-        key = ['best', 'worst', 'longest', 'fastest']
-        best = df.nsmallest(1, 'final_costs_val')['experiment'].item()
-        worst = df.nlargest(1, 'final_costs_val')['experiment'].item()
-        longest = df.nlargest(1, 'duration')['experiment'].item()
-        fastest = df.nsmallest(1, 'duration')['experiment'].item()
-        featured = [best, worst, longest, fastest]
-        df_featured = pd.DataFrame({'rating':key, 'experiment':featured}, index=[0,1,2,3])
-        df_featured = pd.merge(df_featured, df, on='experiment', how='inner')          
-        df_featured = df_featured.drop(columns=['miniter', 'maxiter', 'stop_condition', 'stop', 'start',
-                                                'end', 'initial_costs', 'initial_costs_val'])
-        for i, txt in enumerate(featured):
-            ax0.annotate(txt, (df[df.experiment==txt].duration.item(),
-                               df[df.experiment==txt].final_costs_val.item()))
-
-
         # Finalize plot and save
         fig.tight_layout()
         if show:
@@ -179,7 +163,7 @@ class GradientLab:
             filename = filename.replace(':', '') + '.png'
             save_fig(fig, directory, filename)
         plt.close(fig)       
-        return(fig, df_featured) 
+        return(fig) 
 
 
     def plot_alpha(self, directory=None, filename=None, show=True):

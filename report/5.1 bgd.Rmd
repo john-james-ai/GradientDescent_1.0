@@ -280,145 +280,66 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, pre
 ```
 
 ```{python bgd_gs, echo=F, eval=T}
-report, featured = bgd_gs()
-featured
+report = bgd_gs()
 ```
 
-`r kfigr::figr(label = "bgd_gs", prefix = TRUE, link = TRUE, type="Figure")` shows the validation set costs and elapsed time for `r nrow(py$report)` experiments. The best and worst in terms of costs are annotated, as are the fastest and longest in terms of computation time.
+### Analysis
+`r kfigr::figr(label = "bgd_gs", prefix = TRUE, link = TRUE, type="Figure")` shows the validation set costs and elapsed time for `r nrow(py$report)` experiments by learning rate.
 
 ![](../report/figures/BGD/Validation Set Costs and TimeBy Learning Rate.png)
 `r kfigr::figr(label = "bgd_gs", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Gridsearch
+The solutions tend to cluster by learning rate.  The higher learning rates produce the best performance, from a cost and computation perspective. As we move out from the lower left corner of the plot we encounter declining performance as learning rates decrease. 
 
-### Analysis
-We've selected the best and worst in terms of validation set costs and computation time. Let's run their parameters through the model and see what we can learn about the behavior of batch gradient descent under various parameter sets. 
-
-The experiments of interest are:
-```{r featured}
-#rownames(py$featured) <- NULL
-# knitr::kable(py$featured, digits = 5, format.args = list(big.mark = ",")) %>%
-#  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
-```
-`r kfigr::figr(label = "featured", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Featured Solutions
-
-#### Slowest to Converge
-Let's start with solution that took the longest to converge. This solution converged when the relative change in the gradient norm fell below a $\epsilon=0.0001$. The learning rate $\alpha=0.02$. Thus the parameters are:
-```{python bgd_longest_params, echo=T, eval=F}
-theta = np.array([-1,-1]) 
-alpha = 0.02
-precision = 0.0001
-maxiter = 10000
-stop_parameter = 'g'
-stop_metric = 'r'
-```
-`r kfigr::figr(label = "bgd_longest_params", prefix = TRUE, link = TRUE, type="Figure")` Longest Search Parameters
-
-Ok, let's fire it up.
-```{python bgd_longest_fake, echo=T, eval=F}
-bgd = BGD()
-bgd.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
+The following table lists the best cost solutions by learning rate.
+```{python bgd_best_by_learning_rate, echo=F, eval=T}
+alpha = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1]
+best_by_alpha = bgd_featured(report, alpha)
+best_by_alpha = best_by_alpha.sort_values(by='final_costs_val')
 ```
 
-```{python bgd_longest, echo=F, eval=T}
-bgd_longest(featured.iloc[2])
+`r kfigr::figr(label = "bgd_best_by_learning_rate_tbl", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent - Best Solutions by Learning Rate
+```{r bgd_best_by_learning_rate_tbl, echo=F, eval=T}
+knitr::kable(py$best_by_alpha, digits = 5, format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
 ```
- 
-![](../report/figures/BGD/slowest search.gif)
-`r kfigr::figr(label = "bgd_slowest", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Slowest to Converge
+As indicated in `r kfigr::figr(label = "bgd_best_by_learning_rate_tbl", prefix = TRUE, link = TRUE, type="Table")`, the best performing learning rate was $\small\alpha=0.8$, with a final validation set cost $J\approx 0.04$. The highest cost came from learning rate $\small\alpha=0.02$, with a cost $J\small\approx0.4$.
 
+Let's take a closer look at the behavior and performance for a few learning rates, say 0.02, 0.1 and 0.8.
 
-![](../report/figures/BGD/slowest fit.gif)
-`r kfigr::figr(label = "bgd_slowest_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Slowest to Converge Fit
-
-
-
-
-#### Fastest to Converge
-The fastest to converge stopped when the absolute change in validation set costs dropped below $\epsilon=0.1$. The learning rate $\alpha=0.02$.
-```{python bgd_fastest_params, echo=T, eval=F}
-theta = np.array([-1,-1]) 
-alpha = 0.2
-precision = 0.1
-maxiter = 10000
-stop_parameter = 't'
-stop_metric = 'r'
-```
-`r kfigr::figr(label = "bgd_fastest_params", prefix = TRUE, link = TRUE, type="Figure")` Fastest Search Parameters
-
-Ok, let's fire it up.
-```{python bgd_fastest_fake, echo=T, eval=F}
-bgd = BGD()
-bgd.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
+#### Search by Learning Rate
+```{python bgd_featured, echo=F, eval=T}
+alpha = [0.02, 0.1, 0.8]
+featured = bgd_featured(report, alpha)
+bgd_ani(featured, fontsize=24, cache=True)
 ```
 
-```{python bgd_fastest, echo=F, eval=T}
-bgd_fastest(featured.iloc[3])
+The animations in `r kfigr::figr(label = "bgd_search_by_alpha", prefix = TRUE, link = TRUE, type="Figure")` depict the path to convergence for learning rates 0.02, 0.1, and 0.8.  
+<img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.02.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.1.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.8.gif" width="250" height="250" />
+`r kfigr::figr(label = "bgd_search_by_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Search by Learning Rate
+
+As expected, fastest convergence is associated with higher learning rates.  As shown in  `r kfigr::figr(label = "bgd_best_by_learning_rate_tbl", prefix = TRUE, link = TRUE, type="Table")`, learning rate 0.8 produced the best validation cost of the learning rates evaluated. 
+
+So, how do these solutions fit the data?
+
+#### Fit by Learning Rate
+Not very well. `r kfigr::figr(label = "bgd_fit_by_alpha", prefix = TRUE, link = TRUE, type="Figure")` illustrates the regression line fit for the search. Neither of the solutions fit the data very well.  What's happening?
+
+<img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.02.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.1.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.8.gif" width="250" height="250" />
+`r kfigr::figr(label = "bgd_fit_by_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Fit by Learning Rate
+
+Notice, the left and center solutions have gradient based stopping criteria. In these cases, we are observing a *vanishing gradient*. As the solution approaches convergence, the gradient becomes vanishingly small, effectively preventing the $\theta$'s from changing their values. Hence the change in the gradient, from iteration to iteration, vanishes below the $\epsilon$ and the algorithm stops. This extends to other measures such as training set or validation set stopping conditions.  As the $\theta$'s converge, the change in training and validation set costs diminishes as well. 
+
+We will need to introduce another parameter to our stopping condition. We will force the algorithm to execute a minimum number of iterations, after which, we will evaluate our gradient, and/or cost based stopping criteria.
+
+#### Search by Learning Rate, Minimum Iterations = 100
+```{python bgd_feature_miniter, echo=F, eval=T}
+alpha = [0.02, 0.1, 0.8]
+featured = bgd_featured(report, alpha)
+bgd_ani(featured, miniter=100, fontsize=24, cache=True)
 ```
 
-![](../report/figures/BGD/fastest search.gif)
-`r kfigr::figr(label = "bgd_fastest", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Fastest to Converge
+<img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.02 Minimum Iterations - 100.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.1 Minimum Iterations - 100.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.8 Minimum Iterations - 100.gif" width="250" height="250" />
+`r kfigr::figr(label = "bgd_search_by_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Search by Learning Rate - Minimum Iterations = 100
 
-![](../report/figures/BGD/fastest fit.gif)
-`r kfigr::figr(label = "bgd_slowest_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Fastest to Converge Fit
-
-#### Worst Cost
-The worst cost solution had a learning rate of $\alpha=0.02$ and stopped when the absolute change in training set costs, dropped below the precision $\epsilon=0.1$.
-```{python bgd_worst_params, echo=T, eval=F}
-theta = np.array([-1,-1]) 
-alpha = 0.02
-precision = 0.1
-maxiter = 10000
-stop_parameter = 't'
-stop_metric = 'a'
-```
-`r kfigr::figr(label = "bgd_worst_params", prefix = TRUE, link = TRUE, type="Figure")` Worst Solution
-
-Ok, let's fire it up.
-```{python bgd_worst_fake, echo=T, eval=F}
-bgd = BGD()
-bgd.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
-```
-
-```{python bgd_worst, echo=F, eval=T}
-bgd_worst(featured.iloc[1])
-```
-
-![](../report/figures/BGD/worst search.gif)
-`r kfigr::figr(label = "bgd_worst", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Worst Cost
-
-![](../report/figures/BGD/worst fit.gif)
-`r kfigr::figr(label = "bgd_worst_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Worst Cost Fit
-
-
-#### Best Cost
-The best cost solution had a learning rate of $\alpha=0.08$ and stopped when the absolute change in training set costs, dropped below the precision $\epsilon=0.1$.
-```{python bgd_best_params, echo=T, eval=F}
-theta = np.array([-1,-1]) 
-alpha = 0.08
-precision = 0.0001
-maxiter = 10000
-stop_parameter = 't'
-stop_metric = 'a'
-```
-`r kfigr::figr(label = "bgd_best_params", prefix = TRUE, link = TRUE, type="Figure")` Best Solution
-
-Ok, let's fire it up.
-```{python bgd_best_fake, echo=T, eval=F}
-bgd = BGD()
-bgd.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
-```
-
-```{python bgd_best, echo=F, eval=T}
-bgd_best(featured.iloc[0])
-```
-
-![](../report/figures/BGD/best search.gif)
-`r kfigr::figr(label = "bgd_best", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Best Cost
-
-![](../report/figures/BGD/best fit.gif)
-`r kfigr::figr(label = "bgd_best_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Best Cost Fit
-
-
+<img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.02 Minimum Iterations - 100.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.1 Minimum Iterations - 100.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.8 Minimum Iterations - 100.gif" width="250" height="250" />
+`r kfigr::figr(label = "bgd_fit_by_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Fit by Learning Rate - Minimum Iterations = 100

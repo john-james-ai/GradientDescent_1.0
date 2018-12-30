@@ -68,7 +68,8 @@ class GradientDemo():
     def _cost_mesh(self,THETA):
         return(np.sum((self._X.dot(THETA) - self._y)**2)/(2*len(self._y)))        
 
-    def show_search(self, directory=None, filename=None, interval=200, fps=60, maxframes=500):
+    def show_search(self, directory=None, filename=None, fontsize=None,
+                    interval=200, fps=60, maxframes=500):
         '''Plots surface plot on two dimensional problems only 
         '''        
         # Designate plot area
@@ -102,7 +103,10 @@ class GradientDemo():
         # Set Title
         title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._summary['alpha'].item(),3)) + "\n" + \
                 'Stop Condition: ' + self._summary['stop'].item() 
-        ax.set_title(title, color='k', pad=30)                            
+        if fontsize:
+            ax.set_title(title, color='k', pad=30, fontsize=fontsize)                            
+        else:
+            ax.set_title(title, color='k', pad=30)                            
         # Set face, tick,and label colors 
         ax.set_facecolor('w')
         ax.tick_params(colors='k')
@@ -129,7 +133,10 @@ class GradientDemo():
         line2d, = ax.plot([], [], [], 'b-', label = 'Gradient descent', lw = 1.5)
         point3d, = ax.plot([], [], [], 'bo')
         point2d, = ax.plot([], [], [], 'bo')
-        display = ax.text2D(0.3,0.95, '', transform=ax.transAxes, color='k')
+        if fontsize:
+            display = ax.text2D(0.1,0.92, '', transform=ax.transAxes, color='k', fontsize=fontsize)
+        else:
+            display = ax.text2D(0.1,0.92, '', transform=ax.transAxes, color='k')
 
         def init():
 
@@ -177,17 +184,17 @@ class GradientDemo():
 
         # create animation using the animate() function
         surface_ani = animation.FuncAnimation(fig, animate, init_func=init, frames=len(idx),
-                                            interval=interval, blit=True, repeat_delay=1000)
+                                            interval=interval, blit=True, repeat_delay=3000)
         if directory is not None:
             if filename is None:
                 filename = self._alg + ' Search Plot Learning Rate ' + str(round(self._summary['alpha'].item(),3)) + \
-                    ' Stop Condition ' + self._summary['stop'].item() + '.gif'  
-            print(filename)
+                    ' Stop Condition ' + self._summary['stop'].item() + '.gif'              
             save_gif(surface_ani, directory, filename, fps)
         plt.close(fig)
         return(surface_ani)
 
-    def show_fit(self, directory=None, filename=None, interval=50, fps=60, maxframes=500):
+    def show_fit(self, directory=None, filename=None, fontsize=None,
+                 interval=50, fps=60, maxframes=500):
         '''Shows animation of regression line fit for 2D X Vector 
         '''
 
@@ -219,8 +226,12 @@ class GradientDemo():
         # Set Title, Annotations and label
         title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._summary['alpha'].item(),3)) + "\n" + \
                 'Stop Condition: ' + self._summary['stop'].item()  
-        ax.set_title(title, color='k')                                    
-        display = ax.text(0.1, 0.9, '', transform=ax.transAxes, color='k')
+        if fontsize:
+            ax.set_title(title, color='k', fontsize=fontsize)                                    
+            display = ax.text(0.1, 0.9, '', transform=ax.transAxes, color='k', fontsize=fontsize)
+        else:
+            ax.set_title(title, color='k')                                    
+            display = ax.text(0.1, 0.9, '', transform=ax.transAxes, color='k')
         ax.set_xlabel('X')
         ax.set_ylabel('y')
 
@@ -245,7 +256,7 @@ class GradientDemo():
 
         # create animation using the animate() function
         line_gd = animation.FuncAnimation(fig, animate, init_func=init, frames=len(idx),
-                                            interval=interval, blit=True, repeat_delay=100)
+                                            interval=interval, blit=True, repeat_delay=3000)
         if directory is not None:
             if filename is None:
                 filename = title = self._alg + ' Fit Plot Learning Rate ' + str(round(self._summary['alpha'].item(),3)) + \
