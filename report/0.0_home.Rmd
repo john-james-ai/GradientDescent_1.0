@@ -82,6 +82,9 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 ```
 
+```{python flags}
+cache=True
+```
 
 ```{r bgd, child = '5.1 bgd.Rmd'}
 ```

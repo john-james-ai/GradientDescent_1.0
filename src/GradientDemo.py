@@ -105,8 +105,10 @@ class GradientDemo():
                 'Stop Condition: ' + self._summary['stop'].item() 
         if fontsize:
             ax.set_title(title, color='k', pad=30, fontsize=fontsize)                            
+            display = ax.text2D(0.1,0.92, '', transform=ax.transAxes, color='k', fontsize=fontsize)
         else:
-            ax.set_title(title, color='k', pad=30)                            
+            ax.set_title(title, color='k', pad=30)               
+            display = ax.text2D(0.2,0.92, '', transform=ax.transAxes, color='k')             
         # Set face, tick,and label colors 
         ax.set_facecolor('w')
         ax.tick_params(colors='k')
@@ -133,10 +135,6 @@ class GradientDemo():
         line2d, = ax.plot([], [], [], 'b-', label = 'Gradient descent', lw = 1.5)
         point3d, = ax.plot([], [], [], 'bo')
         point2d, = ax.plot([], [], [], 'bo')
-        if fontsize:
-            display = ax.text2D(0.1,0.92, '', transform=ax.transAxes, color='k', fontsize=fontsize)
-        else:
-            display = ax.text2D(0.1,0.92, '', transform=ax.transAxes, color='k')
 
         def init():
 
@@ -231,9 +229,10 @@ class GradientDemo():
             display = ax.text(0.1, 0.9, '', transform=ax.transAxes, color='k', fontsize=fontsize)
         else:
             ax.set_title(title, color='k')                                    
-            display = ax.text(0.1, 0.9, '', transform=ax.transAxes, color='k')
+            display = ax.text(0.2, 0.9, '', transform=ax.transAxes, color='k')
         ax.set_xlabel('X')
         ax.set_ylabel('y')
+        fig.tight_layout()
 
         # Build the empty line plot at the initiation of the animation
         def init():
