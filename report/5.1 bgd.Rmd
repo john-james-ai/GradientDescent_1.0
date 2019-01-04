@@ -59,7 +59,7 @@ return (thetas)
 `r kfigr::figr(label = "gd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`: Gradient Descent Algorithm
 
 ### Implementation
-Now, we will build the batch gradient descent class that will be used to solve our challenge problem. Before we start getting our code on, let's establish a few design considerations:
+Now, we will build the batch gradient descent class that will be used to solve our challenge problem. Before we start getting our code on, let's establish a few design considerations.
 
 #### Design Considerations   
 Our GradientDescent class will need the following methods:    
@@ -110,7 +110,7 @@ Recall that our linear hypothesis is:
 $$h_\theta(x)=\theta_0x_0+\theta_1x_1=X^T \theta.$$
 Thus our hypothesis method would simply be the dot product of our inputs $X^T$ and $\theta$. We can easily compute the dot product as follows.
 ```{python hypothesis_bgd, echo=T, eval=F}
-def _hypothesis(X, theta):
+def _hypothesis(self, X, theta):
         return(X.dot(theta))
 ```
 `r kfigr::figr(label = "hypothesis_bgd", prefix = TRUE, link = TRUE, type="Figure")` Hypothesis Method
@@ -120,7 +120,7 @@ Since we'll need the error for both the cost and gradient computation, let's cre
 $$e=h_\theta(x)-y$$
 Taking the hypothesis from the previous method and y, we have:
 ```{python error_bgd, echo=T, eval=F}
-def _error(h, y):
+def _error(self, h, y):
         return(h-y)
 ```
 `r kfigr::figr(label = "error_bgd", prefix = TRUE, link = TRUE, type="Figure")` Error Method

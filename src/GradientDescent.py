@@ -145,7 +145,7 @@ class GradientDescent:
         gd.fit(self._request)
         end = datetime.datetime.now()
 
-        # Format stop condition for reporting and plotting
+        # Format hyperparameters
         if self._request['hyper']['stop_parameter'] == 't':
             stop_parameter = 'Training Set Costs '
         if self._request['hyper']['stop_parameter'] == 'g':
@@ -175,6 +175,7 @@ class GradientDescent:
         self._detail['stop_parameter'] = 'Stop Parameter: ' + stop_parameter
         self._detail['stop_condition'] = 'Stop Condition: ' + stop_condition
         self._detail['stop_metric'] = stop_metric
+        self._detail['precision'] = self._request['hyper']['precision']
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
@@ -339,8 +340,8 @@ class SGD(GradientDescent):
         self._detail = None 
 
     def fit(self, X, y, theta,  X_val=None, y_val=None,  check_point=.1, 
-            alpha=0.01, maxiter=0, precision=0.001, stop_parameter='t', 
-            stop_metric='a', scaler='minmax'):
+            alpha=0.01, miniter=0, maxiter=0, precision=0.001, stop_parameter='t', 
+            stop_metric='a', scaler='minmax', max_cost=100):
 
         # Set cross-validated flag if validation set included 
         cross_validated = all(v is not None for v in [X_val, y_val])
@@ -360,11 +361,13 @@ class SGD(GradientDescent):
         self._request['alg'] = self._alg        
         self._request['data'] = {'X': X, 'y':y, 'X_val':X_val, 'y_val':y_val} 
         self._request['hyper'] = {'alpha': alpha, 'theta': theta,
+                                  'miniter': miniter,
                                   'maxiter': maxiter, 
                                   'precision': precision,
                                   'check_point': check_point,
                                   'stop_parameter': stop_parameter,
                                   'stop_metric': stop_metric,
+                                  'max_cost': max_cost,
                                   'cross_validated': cross_validated}
 
         # Run search and obtain result        
@@ -387,7 +390,6 @@ class SGD(GradientDescent):
         stop = stop_metric + " in " + stop_parameter + \
                ' less than ' + str(precision) 
         stop_condition = stop_metric + " in " + stop_parameter 
-        check_point = 'Check Point ' + str(check_point)
 
         # Extract detail information
         epochs = pd.DataFrame(gd.get_epochs(), columns=['epochs'])        
@@ -403,13 +405,17 @@ class SGD(GradientDescent):
         self._detail['stop'] = stop
         self._detail['stop_parameter'] = stop_parameter
         self._detail['stop_condition'] = stop_condition
+        self._detail['stop_metric'] = stop_metric
         self._detail['check_point'] = check_point
+        self._detail['precision'] = precision
+
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
                                     'alpha': alpha,
                                     'precision': precision,
                                     'check_point': check_point,
+                                    'miniter': miniter,
                                     'maxiter': maxiter,
                                     'stop_parameter': stop_parameter,
                                     'stop_metric': stop_metric,
@@ -417,7 +423,7 @@ class SGD(GradientDescent):
                                     'stop': stop,
                                     'start':start,
                                     'end':end,
-                                    'duration':end-start,
+                                    'duration':(end-start).total_seconds(),
                                     'epochs': epochs.iloc[-1].item(),
                                     'iterations': iterations.iloc[-1].item(),
                                     'initial_costs': J.iloc[0].item(),

@@ -108,7 +108,7 @@ class GradientDemo():
             display = ax.text2D(0.1,0.92, '', transform=ax.transAxes, color='k', fontsize=fontsize)
         else:
             ax.set_title(title, color='k', pad=30)               
-            display = ax.text2D(0.2,0.92, '', transform=ax.transAxes, color='k')             
+            display = ax.text2D(0.3,0.92, '', transform=ax.transAxes, color='k')             
         # Set face, tick,and label colors 
         ax.set_facecolor('w')
         ax.tick_params(colors='k')
@@ -277,3 +277,39 @@ class BGDDemo(GradientDemo):
         self._summary = []
         self._X = None
         self._y = None         
+
+# --------------------------------------------------------------------------- #
+#                      STOCHASTIC GRADIENT DESCENT DEMO                       #
+# --------------------------------------------------------------------------- #
+
+class SGDDemo(GradientDemo):
+    '''Stochastic Gradient Descent'''
+
+    def __init__(self):
+        self._alg = "Stochastic Gradient Descent"
+        self._search = []
+        self._summary = []
+        self._X = None
+        self._y = None     
+
+    def fit(self, X, y, theta, X_val=None, y_val=None, n=500, alpha=0.01, 
+            miniter=0, maxiter=10000, check_point=0.1, precision=0.001, stop_parameter='t',
+            stop_metric='r'):
+
+        # Fit to data
+        gd = SGD()
+        gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, 
+               miniter=miniter, maxiter=maxiter, check_point=check_point,
+               precision=precision, stop_parameter=stop_parameter,
+               stop_metric=stop_metric)
+
+        # Obtain search history detail
+        self._search = gd.get_detail()
+        self._summary = gd.summary()
+
+        # Extract transformed data for plotting
+        data = gd.get_transformed_data()
+        self._X = data['X']
+        self._y = data['y']        
+        
+        

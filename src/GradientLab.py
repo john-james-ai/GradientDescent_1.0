@@ -125,10 +125,12 @@ class GradientLab:
             df = self._summary
             df = df[vars]
             if sort == 't':
-                df = df.sort_values(by=['final_costs'])
+                df = df.sort_values(by=['final_costs', 'duration'])
             else:
-                df = df.sort_values(by=['final_costs_val'])
+                df = df.sort_values(by=['final_costs_val', 'duration'])
             if directory:
+                if filename is None:
+                    filename = self._alg + ' Grid Search.csv'
                 save_csv(df, directory, filename)                
             if n:
                 df = df.iloc[:n]            
@@ -139,10 +141,10 @@ class GradientLab:
 
         # Obtain and initialize figure and settings
         sns.set(style="whitegrid", font_scale=1)
-        fig = plt.figure(figsize=(12,8))    
+        fig = plt.figure(figsize=(12,4))    
 
-        # Plot costs by learning rate and stop condition
-        ax0 = plt.subplot2grid((1,1), (0,0))  
+        # Plot costs by learning rate 
+        ax0 = plt.subplot2grid((1,2), (0,0))  
         ax0 = sns.scatterplot(x='duration', y='final_costs_val', hue='alpha', data=df,
                               legend='full', palette='RdBu')
         ax0.set_facecolor('w')
@@ -151,8 +153,25 @@ class GradientLab:
         ax0.yaxis.label.set_color('k')
         ax0.set_xlabel('Elapsed Time (ms)')
         ax0.set_ylabel('Costs')
+        ax0.legend(title='Learning Rate')
         title = 'Validation Set Costs and Time' + '\n' + 'By Learning Rate'
         ax0.set_title(title, color='k') 
+
+        # Zoom in on best performers 
+        ax1 = plt.subplot2grid((1,2), (0,1))  
+        ax1 = sns.scatterplot(x='duration', y='final_costs_val', hue='alpha', data=df,
+                              legend='full', palette='RdBu')
+        ax1.set_facecolor('w')
+        ax1.tick_params(colors='k')
+        ax1.xaxis.label.set_color('k')
+        ax1.yaxis.label.set_color('k')
+        ax1.set_xlabel('Elapsed Time (ms)')
+        ax1.set_ylabel('Costs')
+        ax1.set_xlim(0,0.02)
+        ax1.set_ylim(0,0.2)
+        ax1.legend(title='Learning Rate')
+        title = 'Validation Set Costs and Time' + '\n' + 'By Learning Rate'
+        ax1.set_title(title, color='k') 
 
         # Finalize plot and save
         fig.tight_layout()
@@ -160,6 +179,7 @@ class GradientLab:
             plt.show()
         if directory is not None:
             filename = title.replace('\n', '')
+            filename = filename.replace('  ', ' ')
             filename = filename.replace(':', '') + '.png'
             save_fig(fig, directory, filename)
         plt.close(fig)       
@@ -170,43 +190,85 @@ class GradientLab:
         df = self._summary
 
         # Obtain and initialize figure and settings
-        sns.set(style="whitegrid", font_scale=1)
-        fig = plt.figure(figsize=(12,8))
+        sns.set(style="whitegrid", font_scale=1)        
 
         # Plot costs by learning rate and stop condition
-        ax0 = plt.subplot2grid((2,1), (0,0))  
-        ax0 = sns.barplot(x='alpha', y='final_costs_val', hue='stop_condition', data=df)
+        fig = plt.figure(figsize=(12,4))
+        ax0 = plt.subplot2grid((1,2), (0,0))  
+        ax0 = sns.boxplot(x='alpha', y='final_costs_val', data=df)
         ax0.set_facecolor('w')
         ax0.tick_params(colors='k')
         ax0.xaxis.label.set_color('k')
         ax0.yaxis.label.set_color('k')
         ax0.set_xlabel('Alpha')
         ax0.set_ylabel('Costs')
-        title = 'Validation Set Costs ' + '\n' + 'By Learning Rate and Stop Condition'
-        ax0.set_title(title, color='k')
 
-        
-        # Plot time by learning rate and stop condition         
-        ax1 = plt.subplot2grid((2,1), (1,0))  
-        ax1 = sns.barplot(x='alpha', y='duration', hue='stop_condition', data=df)
+        # Zoom in top 1/2
+        df2 = df.groupby('alpha')['final_costs_val'].min()        
+        n_smallest=int(max(1,math.floor(df2.shape[0]/2)))
+        alphas = df2.nsmallest(n=n_smallest)
+        df2 = df[df.alpha.isin(list(alphas.index))]        
+        ax1 = plt.subplot2grid((1,2), (0,1))  
+        ax1 = sns.boxplot(x='alpha', y='final_costs_val', data=df2)
         ax1.set_facecolor('w')
         ax1.tick_params(colors='k')
         ax1.xaxis.label.set_color('k')
         ax1.yaxis.label.set_color('k')
         ax1.set_xlabel('Alpha')
-        ax1.set_ylabel('Time (ms)')
-        title = 'Computation Time ' + '\n' + 'By Learning Rate and Stop Condition'
-        ax1.set_title(title, color='k')
+        ax1.set_ylabel('Costs')
 
-        # Finalize plot and save
-        fig.tight_layout()
-        fig.subplots_adjust(hspace=0.4)
+        suptitle = self._alg + '\n' + ' Validation Set Costs ' + '\n' + 'By Learning Rate'
+        fig.suptitle(suptitle)
+        fig.tight_layout(rect=[0,0,1,0.85])        
         if show:
             plt.show()
         if directory is not None:
             if filename is None:
-                filename = 'Batch Gradient Descent - Validation Set Costs and Time by Learning Rate and Stop Condition.png'
-            save_fig(fig, directory, filename)
+                filename = suptitle.replace('\n', '')
+                filename = filename.replace('  ', ' ')
+                filename = filename.replace(':', '') + '.png'
+                save_fig(fig, directory, filename)     
+                filename=None                    
+        plt.close(fig)       
+        
+        # Plot time by learning rate and stop condition         
+        fig = plt.figure(figsize=(12,4))
+        ax0 = plt.subplot2grid((1,2), (0,0))  
+        ax0 = sns.boxplot(x='alpha', y='duration', data=df)
+        ax0.set_facecolor('w')
+        ax0.tick_params(colors='k')
+        ax0.xaxis.label.set_color('k')
+        ax0.yaxis.label.set_color('k')
+        ax0.set_xlabel('Alpha')
+        ax0.set_ylabel('Time (ms)')
+
+        # Zoom in on top 1/2         
+        df2 = df.groupby('alpha')['duration'].min()        
+        n_smallest=int(max(1,math.floor(df2.shape[0]/2)))
+        alphas = df2.nsmallest(n=n_smallest, keep='last')
+        df2 = df[df.alpha.isin(list(alphas.index))]           
+        ax1 = plt.subplot2grid((1,2), (0,1))  
+        ax1 = sns.boxplot(x='alpha', y='duration', data=df2)
+        ax1.set_facecolor('w')
+        ax1.tick_params(colors='k')
+        ax1.xaxis.label.set_color('k')
+        ax1.yaxis.label.set_color('k')
+        ax1.set_xlabel('Alpha')
+        ax1.set_ylabel('Time (ms)')        
+
+        # Finalize plot and save
+        suptitle = self._alg + '\n' + ' Computation Time ' + '\n' + 'By Learning Rate'
+        fig.suptitle(suptitle)
+        fig.tight_layout(rect=[0,0,1,0.85])           
+        if show:
+            plt.show()
+        if directory is not None:
+            if filename is None:
+                filename = suptitle.replace('\n', '')
+                filename = filename.replace('  ', ' ')
+                filename = filename.replace(':', '') + '.png'
+                save_fig(fig, directory, filename)     
+                filename=None                    
         plt.close(fig)       
         return(fig) 
 
@@ -215,98 +277,125 @@ class GradientLab:
 
         # Obtain and initialize figure and settings
         sns.set(style="whitegrid", font_scale=1)
-        fig = plt.figure(figsize=(12,8))
+        fig = plt.figure(figsize=(12,6))
 
         # Plot costs by learning rate and stop condition
-        ax0 = plt.subplot2grid((2,1), (0,0))  
-        ax0 = sns.barplot(x='precision', y='final_costs_val', hue='stop_condition', data=df)
+        ax0 = plt.subplot2grid((1,2), (0,0))  
+        ax0 = sns.boxplot(x='precision', y='final_costs_val', hue='stop_condition', data=df)
         ax0.set_facecolor('w')
         ax0.tick_params(colors='k')
         ax0.xaxis.label.set_color('k')
         ax0.yaxis.label.set_color('k')
         ax0.set_xlabel('Precision')
         ax0.set_ylabel('Costs')
-        title = 'Validation Set Costs ' + '\n' + 'By Precision and Stop Condition'
-        ax0.set_title(title, color='k')
 
-        
-        # Plot time by learning rate and stop condition         
-        ax1 = plt.subplot2grid((2,1), (1,0))  
-        ax1 = sns.barplot(x='precision', y='duration', hue='stop_condition', data=df)
+        # Zoom in
+        ax1 = plt.subplot2grid((1,2), (0,1))  
+        ax1 = sns.boxplot(x='precision', y='final_costs_val', hue='stop_condition', data=df)
+        ax1.set_facecolor('w')
+        ax1.tick_params(colors='k')
+        ax1.xaxis.label.set_color('k')
+        ax1.yaxis.label.set_color('k')
+        ax1.set_xlabel('Precision')
+        ax1.set_ylabel('Costs')
+        ax1.set_ylim(0,0.2)
+
+        suptitle = self._alg + '\n' + ' Validation Set Costs '+ \
+                    '\n' + ' By Precision and Stop Condition'
+        fig.suptitle(suptitle)
+        fig.tight_layout(rect=[0,0,1,.85])
+        if show:
+            plt.show()
+        if directory is not None:
+            if filename is None:
+                filename = suptitle.replace('\n', '')
+                filename = filename.replace('  ', ' ')
+                filename = filename.replace(':', '') + '.png'
+                save_fig(fig, directory, filename)     
+                filename=None    
+        plt.close(fig)   
+
+        fig = plt.figure(figsize=(12,6))
+        # Plot computation time by learning rate and stop condition         
+        ax0 = plt.subplot2grid((1,2), (0,0))  
+        ax0 = sns.boxplot(x='precision', y='duration', hue='stop_condition', data=df)
+        ax0.set_facecolor('w')
+        ax0.tick_params(colors='k')
+        ax0.xaxis.label.set_color('k')
+        ax0.yaxis.label.set_color('k')
+        ax0.set_xlabel('Precision')
+        ax0.set_ylabel('Time (ms)')
+
+        # Zoom in
+        ax1 = plt.subplot2grid((1,2), (0,1))  
+        ax1 = sns.boxplot(x='precision', y='duration', hue='stop_condition', data=df)
         ax1.set_facecolor('w')
         ax1.tick_params(colors='k')
         ax1.xaxis.label.set_color('k')
         ax1.yaxis.label.set_color('k')
         ax1.set_xlabel('Precision')
         ax1.set_ylabel('Time (ms)')
-        title = 'Computation Time ' + '\n' + 'By Precision and Stop Condition'
-        ax1.set_title(title, color='k')
+        ax1.set_ylim(0,0.015)
 
         # Finalize plot and save
-        fig.tight_layout()
-        fig.subplots_adjust(hspace=0.4)
+        suptitle = self._alg + '\n' + ' Computation Time '+ \
+                    '\n' + ' By Precision and Stop Condition'
+        fig.suptitle(suptitle)
+        fig.tight_layout(rect=[0,0,1,.85])
         if show:
             plt.show()
         if directory is not None:
             if filename is None:
-                filename = 'Batch Gradient Descent - Validation Set Costs and Time by Precision and Stop Condition.png'
-            save_fig(fig, directory, filename)
-        plt.close(fig)       
-        return(fig) 
+                filename = suptitle.replace('\n', '')
+                filename = filename.replace('  ', ' ')
+                filename = filename.replace(':', '') + '.png'
+                save_fig(fig, directory, filename)      
+                filename=None   
+        plt.close(fig)            
 
-    def plot_costs(self, x, z, fig_key='stop_parameter', 
-                    row_key='stop_condition',  directory=None, filename=None, show=True):
+    def plot_costs(self, x='alpha', y='final_costs_val', z='precision', directory=None, 
+                   show=True):
         # Group data and obtain keys
-        figures = self._summary.groupby(fig_key)
+        figures = self._summary.groupby('stop_parameter')
         for fig_name, fig_data in figures:
-            plots = fig_data.groupby(row_key)   
+            plots = fig_data.groupby('stop_metric')   
 
             # Set Grid Dimensions
-            cols = 2  
-            rows = plots.ngroups
+            cols = plots.ngroups
             
             # Obtain and initialize matplotlib figure
-            fig = plt.figure(figsize=(12,4*rows))        
+            fig = plt.figure(figsize=(12,4))        
             sns.set(style="whitegrid", font_scale=1)
 
             # Render plots
             i = 0
             for row_name, row_data in plots:
-                ax0 = plt.subplot2grid((rows,cols), (i,0))            
-                ax0 = sns.barplot(x=x, y='final_costs', hue=z, data=row_data)
-                ax0.set_facecolor('w')
-                ax0.tick_params(colors='k')
-                ax0.xaxis.label.set_color('k')
-                ax0.yaxis.label.set_color('k')
-                ax0.set_xlabel(self._get_label(x))
-                ax0.set_ylabel('Costs')
-                title = 'Training Set Costs' + '\n' + row_name
-                ax0.set_title(title, color='k')
-
-                ax1 = plt.subplot2grid((rows,cols), (i,1))
-                ax1 = sns.barplot(x=x, y='final_costs_val', hue=z, data=row_data)
-                ax1.set_facecolor('w')
-                ax1.tick_params(colors='k')
-                ax1.xaxis.label.set_color('k')
-                ax1.yaxis.label.set_color('k')
-                ax1.set_xlabel(self._get_label(x))
-                ax1.set_ylabel('Costs')
-                title = 'Validation Set Costs' + '\n' + row_name
-                ax1.set_title(title, color='k')
+                ax = plt.subplot2grid((1,cols), (0,i))            
+                ax = sns.barplot(x=x, y='final_costs_val', hue=z, data=row_data)
+                ax.set_facecolor('w')
+                ax.tick_params(colors='k')
+                ax.xaxis.label.set_color('k')
+                ax.yaxis.label.set_color('k')
+                ax.set_xlabel(self._get_label(x))
+                ax.set_ylabel('Costs')
+                title = 'Validation Set Costs' + '\n' + row_name + ' in ' + fig_name
+                ax.set_title(title, color='k')
                 i += 1
             
             # Finalize plot and save
-            suptitle = self._alg + '\n' + 'Cost Analysis' 
+            suptitle = self._alg + '\n' + ' Validation Set Cost Analysis' + '\n' + ' Stop Parameter: ' + \
+                        fig_name 
             fig.suptitle(suptitle)
             fig.tight_layout(rect=[0,0,1,.9])
             if show:
                 plt.show()
             if directory is not None:
-                if filename is None:
-                    filename = suptitle.replace('\n', '')
-                    filename = filename.replace(':', '') + '.png'
-                save_fig(fig, directory, filename)
-            plt.close(fig)
+                filename = suptitle.replace('\n', '')
+                filename = filename.replace('  ', ' ')
+                filename = filename.replace(':', '') + '.png'
+                save_fig(fig, directory, filename)                
+
+        plt.close(fig)
         return(fig)
 
     def plot_times(self, x, z, fig_key='stop_parameter', row_key='stop_condition',
@@ -353,24 +442,33 @@ class GradientLab:
             # Finalize plot and save
             suptitle = self._alg + '\n' + 'Time Analysis' 
             fig.suptitle(suptitle, y=1.1) 
-            fig.tight_layout(rect=[0,0,1,.9])
+            fig.tight_layout()
             if show:
                 plt.show()
             if directory is not None:
                 if filename is None:
                     filename = suptitle.replace('\n', '')
+                    filename = filename.replace('  ', ' ')
                     filename = filename.replace(':', '') + '.png'
                 save_fig(fig, directory, filename)
             plt.close(fig)
         return(fig)
 
-    def plot_curves(self, fig_key='stop_parameter', row_key='stop_condition',
-                     directory=None, filename=None, show=True):
+    def plot_curves(self, stop_parameter=None, stop_metric=None,
+                    precision=None, directory=None, filename=None, show=True):
 
-        # Group data and obtain keys
-        figures = self._detail.groupby(fig_key)
+        # Filter data
+        df = self._detail
+        if stop_parameter:
+            df = df[df.stop_parameter == stop_parameter]
+        if stop_metric:
+            df = df[df.stop_metric == stop_metric]
+        if precision:
+            df = df[df.precision == precision]
+        # Group data and obtain keys            
+        figures = df.groupby('stop_parameter')
         for fig_name, fig_data in figures:
-            plots = fig_data.groupby(row_key)
+            plots = fig_data.groupby('stop_metric')
 
             # Set Grid Dimensions
             cols = 2  
@@ -378,8 +476,9 @@ class GradientLab:
             odd = True if plots.ngroups % cols != 0 else False
 
             # Obtain and initialize matplotlib figure
-            fig = plt.figure(figsize=(12,4*rows))        
+            fig = plt.figure(figsize=(12,6*rows))        
             sns.set(style="whitegrid", font_scale=1)
+            palette = sns.color_palette("muted")
 
             # Render plots
             i = 0
@@ -388,31 +487,37 @@ class GradientLab:
                     ax = plt.subplot2grid((rows,cols), (int(i/cols),0), colspan=cols)
                 else:
                     ax = plt.subplot2grid((rows,cols), (int(i/cols),i%cols))
-                ax = sns.lineplot(x='iterations', y='cost', hue='alpha', data=row_data, legend='full')
+                ax = sns.lineplot(x='iterations', y='cost', hue='alpha', 
+                                  palette=palette,
+                                  data=row_data, legend='full')
                 ax.set_facecolor('w')
                 ax.tick_params(colors='k')
                 ax.xaxis.label.set_color('k')
                 ax.yaxis.label.set_color('k')
                 ax.set_xlabel('Iterations')
                 ax.set_ylabel('Cost')
-                title = self._alg + '\n' + 'Learning Curves'  
+                title = row_data.stop.iloc[0]
                 ax.set_title(title, color='k')
-                ax.text(s=row_data.stop.iloc[0], x=0.35, y=-0.3, transform=ax.transAxes)
                 i += 1
 
             # Finalize plot and save            
-            suptitle = self._alg + '\n' + 'Learning Curves' 
-            if i > 1:
-                fig.suptitle(suptitle, y=1.1)
+            suptitle = self._alg + '\n' + ' Learning Curves ' 
+            if i == 1:
+                title = suptitle + '\n' + title
+                ax.set_title(title, color='k')
+            else:
+                fig.suptitle(suptitle)
             # Finalize plot and save
-            fig.tight_layout()
+            fig.tight_layout(rect=[0,0,1,.85])
             if show:
                 plt.show()
             if directory is not None:
                 if filename is None:
                     filename = suptitle.replace('\n', '')
+                    filename = filename.replace('  ', ' ')
                     filename = filename.replace(':', '') + '.png'
                 save_fig(fig, directory, filename)
+                filename=None
             plt.close(fig)
         return(fig)
 
@@ -441,13 +546,117 @@ class SGDLab(GradientLab):
         self._summary = None
         self._detail = None
 
+    def plot_check_point(self, directory=None, filename=None, show=True):
+        # Group data and obtain keys
+        df = self._summary
+
+        # Obtain and initialize figure and settings
+        sns.set(style="whitegrid", font_scale=1)
+        fig = plt.figure(figsize=(12,8))
+
+        # Plot costs by learning rate and stop condition
+        ax0 = plt.subplot2grid((1,2), (0,0))  
+        ax0 = sns.boxplot(x='check_point', y='final_costs_val', hue='stop_condition', data=df)
+        ax0.set_facecolor('w')
+        ax0.tick_params(colors='k')
+        ax0.xaxis.label.set_color('k')
+        ax0.yaxis.label.set_color('k')
+        ax0.set_xlabel('Check Point')
+        ax0.set_ylabel('Costs')
+
+        # Zoom in
+        ax1 = plt.subplot2grid((1,2), (0,1))  
+        ax1 = sns.boxplot(x='check_point', y='final_costs_val', hue='stop_condition', data=df)
+        ax1.set_facecolor('w')
+        ax1.tick_params(colors='k')
+        ax1.xaxis.label.set_color('k')
+        ax1.yaxis.label.set_color('k')
+        ax1.set_xlabel('Check Point')
+        ax1.set_ylabel('Costs')
+        ax1.set_ylim(0,0.2)
+
+        suptitle = self._alg + '\n' + ' Validation Set Costs '+ \
+                    '\n' + ' By Check Point and Stop Condition'
+        fig.suptitle(suptitle)
+        fig.tight_layout(rect=[0,0,1,.85])
+        if show:
+            plt.show()
+        if directory is not None:
+            if filename is None:
+                filename = suptitle.replace('\n', '')
+                filename = filename.replace('  ', ' ')
+                filename = filename.replace(':', '') + '.png'
+                save_fig(fig, directory, filename)     
+                filename=None    
+        plt.close(fig)   
+
+        fig = plt.figure(figsize=(12,8))
+        # Plot computation time by learning rate and stop condition         
+        ax0 = plt.subplot2grid((1,2), (0,0))  
+        ax0 = sns.boxplot(x='check_point', y='duration', hue='stop_condition', data=df)
+        ax0.set_facecolor('w')
+        ax0.tick_params(colors='k')
+        ax0.xaxis.label.set_color('k')
+        ax0.yaxis.label.set_color('k')
+        ax0.set_xlabel('Check Point')
+        ax0.set_ylabel('Time (ms)')
+
+        # Zoom in
+        ax1 = plt.subplot2grid((1,2), (0,1))  
+        ax1 = sns.boxplot(x='check_point', y='duration', hue='stop_condition', data=df)
+        ax1.set_facecolor('w')
+        ax1.tick_params(colors='k')
+        ax1.xaxis.label.set_color('k')
+        ax1.yaxis.label.set_color('k')
+        ax1.set_xlabel('Check Point')
+        ax1.set_ylabel('Time (ms)')
+        ax1.set_ylim(0,0.015)
+
+        # Finalize plot and save
+        suptitle = self._alg + '\n' + ' Computation Time '+ \
+                    '\n' + ' By Check Point and Stop Condition'
+        fig.suptitle(suptitle)
+        fig.tight_layout(rect=[0,0,1,.85])
+        if show:
+            plt.show()
+        if directory is not None:
+            if filename is None:
+                filename = suptitle.replace('\n', '')
+                filename = filename.replace('  ', ' ')
+                filename = filename.replace(':', '') + '.png'
+                save_fig(fig, directory, filename)      
+                filename=None   
+        plt.close(fig)         
+
+    def report(self,  n=None, sort='v', directory=None, filename=None):
+        if self._detail is None:
+            raise Exception('Nothing to report')
+        else:
+            vars = ['experiment', 'alg', 'alpha', 'precision', 
+                    'miniter', 'maxiter', 'check_point',
+                    'epochs', 'iterations','duration',
+                    'stop_parameter', 'stop_metric', 
+                    'final_costs', 'final_costs_val']
+            df = self._summary
+            df = df[vars]
+            if sort == 't':
+                df = df.sort_values(by=['final_costs'])
+            else:
+                df = df.sort_values(by=['final_costs_val'])
+            if directory:
+                save_csv(df, directory, filename)                
+            if n:
+                df = df.iloc[:n]            
+            return(df)
+
     def gridsearch(self, X, y, X_val, y_val, theta, alpha, precision, 
             stop_parameter, stop_metric, check_point, miniter=0, maxiter=0, 
             scaler='minmax'):
         sgd = SGD()
+        experiment = 1
         self._summary = pd.DataFrame()
         self._detail = pd.DataFrame()
-
+        
         for cp in check_point:
             for measure in stop_parameter:
                 for metric in stop_metric:
@@ -459,9 +668,79 @@ class SGDLab(GradientLab):
                                     stop_metric=metric, check_point=cp, scaler=scaler)
                             detail = sgd.get_detail()
                             summary = sgd.summary()
+                            summary['experiment'] = experiment
                             self._detail = pd.concat([self._detail, detail], axis=0)    
                             self._summary = pd.concat([self._summary, summary], axis=0)    
+                            experiment += 1 
 
+    def plot_curves(self, stop_parameter=None, stop_metric=None, precision=None, 
+                    check_point=None, directory=None, filename=None, show=True):
+
+        # Filter data
+        df = self._detail
+        if stop_parameter:
+            df = df[df.stop_parameter == stop_parameter]
+        if stop_metric:
+            df = df[df.stop_metric == stop_metric]
+        if precision:
+            df = df[df.precision == precision]
+        if check_point:
+            df = df[df.check_point == check_point]
+        # Group data and obtain keys            
+        figures = df.groupby('stop_parameter')
+        for fig_name, fig_data in figures:
+            plots = fig_data.groupby('stop_metric')
+            for plot_name, plot_data in plots:
+                prec = plot_data.groupby('precision')  
+                for prec_name, prec_data in prec:
+                    cp = prec_data.groupby('check_point')
+
+                    # Set Grid Dimensions
+                    cols = 2  
+                    rows = math.ceil(cp.ngroups/cols)
+                    odd = True if cp.ngroups % cols != 0 else False
+
+                    # Obtain and initialize matplotlib figure
+                    fig = plt.figure(figsize=(12,6*rows))        
+                    sns.set(style="whitegrid", font_scale=1)
+
+                    # Render plots
+                    i = 0
+                    for cp_name, cp_data in cp:
+                        if odd and i == cp.ngroups-1:
+                            ax = plt.subplot2grid((rows,cols), (int(i/cols),0), colspan=cols)
+                        else:
+                            ax = plt.subplot2grid((rows,cols), (int(i/cols),i%cols))
+                        ax = sns.lineplot(x='iterations', y='cost', hue='alpha', data=cp_data, legend='full')
+                        ax.set_facecolor('w')
+                        ax.tick_params(colors='k')
+                        ax.xaxis.label.set_color('k')
+                        ax.yaxis.label.set_color('k')
+                        ax.set_xlabel('Iterations')
+                        ax.set_ylabel('Cost')
+                        title = ' Check Point: ' + str(cp_data.check_point.iloc[0])
+                        ax.set_title(title, color='k')
+                        i += 1
+
+                    # Finalize plot and save            
+                    suptitle = self._alg + '\n' + ' Learning Curves ' + '\n' + cp_data.stop.iloc[0]
+                    if i == 1:
+                        title = suptitle + '\n' + title
+                        ax.set_title(title, color='k')
+                    else:
+                        fig.suptitle(suptitle)
+                    # Finalize plot and save
+                    fig.tight_layout(rect=[0,0,1,.9])
+                    if show:
+                        plt.show()
+                    if directory is not None:
+                        if filename is None:
+                            filename = suptitle.replace('\n', '')
+                            filename = filename.replace('  ', ' ')
+                            filename = filename.replace(':', '') + '.png'
+                        save_fig(fig, directory, filename)
+                        filename=None
+                    plt.close(fig)
 
 # --------------------------------------------------------------------------- #
 #                              MBGD Lab Class                                 #   
@@ -469,7 +748,7 @@ class SGDLab(GradientLab):
 class MBGDLab(GradientLab):  
 
     def __init__(self):      
-        self._alg = 'Stochastic Gradient Descent'
+        self._alg = 'Minibatch Gradient Descent'
         self._summary = None
         self._detail = None
 

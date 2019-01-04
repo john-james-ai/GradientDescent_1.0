@@ -238,13 +238,13 @@ class SGDFit(GradientFit):
         self._y_val = self._request['data']['y_val']
 
         # Initialize State 
-        state = {'prior':10**10, 'current':0, 'iteration':0}
+        state = {'prior':1, 'current':5, 'iteration':0}
         
         # Compute number of iterations in each batch
-        if self._request['hyper']['check_point'] > 1:
-            iterations_per_batch = self._request['hyper']['check_point']
+        if float(self._request['hyper']['check_point']) > 1.0:
+            iterations_per_batch = float(self._request['hyper']['check_point'])
         else:
-            iterations_per_batch = math.floor(self._X.shape[0] * self._request['hyper']['check_point'])
+            iterations_per_batch = max(1,math.floor(self._X.shape[0] * float(self._request['hyper']['check_point'])))
         
         while not self._finished(state):
             epoch += 1            
@@ -303,10 +303,10 @@ class MBGDFit(GradientFit):
         self._y_val = None
 
 
-    def _shuffle(self, X, y):
+    def _shuffle(self, X, y, random_state):
         y_var = y.name
         df = pd.concat([X,y], axis=1)
-        df = df.sample(frac=1, replace=False, axis=0)
+        df = df.sample(frac=1, replace=False, axis=0, random_state=random_state)
         X = df.drop(labels = y_var, axis=1)
         y = df[y_var]
         return(X, y)
@@ -354,7 +354,7 @@ class MBGDFit(GradientFit):
         while not self._finished(state):
             epoch += 1            
             J_total = 0
-            X, y = self._shuffle(self._X, self._y)
+            X, y = self._shuffle(self._X, self._y, random_state=epoch)
             X_mb, y_mb = self._get_batches(X,y, self._request['hyper']['batch_size'])
 
             for x_i, y_i in zip(X_mb, y_mb):
