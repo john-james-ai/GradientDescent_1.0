@@ -18,17 +18,14 @@ def bgd():
         X, X_val, y, y_val = data.demo()
         theta = np.array([-1,-1])
         alpha = 0.01
-        precision = 0.01
+        precision = 0.0001
         maxiter = 10000
-        stop_parameter = 'g'
-        stop_metric = 'a'
+        n_iter_no_change = 5
         directory = "./test/figures/BGD/"
         gd = BGD()
         gd.fit(X=X, y=y, theta=theta,X_val=X_val, y_val=y_val, alpha=alpha,
-                maxiter=maxiter, precision=precision, stop_parameter=stop_parameter,
-                stop_metric=stop_metric)
-        gd.plot(directory=directory)
-        gd.animate(directory=directory)
+                maxiter=maxiter, precision=precision, n_iter_no_change=n_iter_no_change)
+        gd.plot(directory=directory)        
         rpt = gd.summary()
         return(rpt)
 #%%        

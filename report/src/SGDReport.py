@@ -16,6 +16,7 @@ import data
 X, X_val, y, y_val = data.demo(n=500)
 
 # Process flags
+cache = False
 show = False
 #%%
 # --------------------------------------------------------------------------- #
@@ -58,6 +59,7 @@ def sgd_gs(alpha=None, precision=None, miniter=None, maxiter=None,
                         stop_metric='Relative Change',
                         directory=directory, show=show)
         report = lab.report(directory=directory, filename=filename)
+        return(report)
 
 # --------------------------------------------------------------------------- #
 #                         GET FEATURED OBSERVATIONS                           #
@@ -65,7 +67,7 @@ def sgd_gs(alpha=None, precision=None, miniter=None, maxiter=None,
 def sgd_featured(report, alpha):
     featured = pd.DataFrame()
     for a in alpha:
-        f = report[report.alpha==a].nsmallest(1, 'final_costs_val')
+        f = report[report.alpha==a].nsmallest(1, 'final_costs_val', 'duration')
         featured = pd.concat([featured, f], axis=0)
     return(featured)
     
@@ -106,26 +108,20 @@ def sgd_demo(alpha, precision, maxiter, miniter, stop_parameter, stop_metric,
 # --------------------------------------------------------------------------- #
 #                              ANIMATIONS                                     #
 # --------------------------------------------------------------------------- #
-def sgd_ani(featured, filename=None, miniter=0, fontsize=None, cache=False):
-    if cache is False:
-        for idx, row in featured.iterrows():
-            sgd_demo(alpha=row.alpha, precision=row.precision,
-            maxiter=row.maxiter, miniter=row.miniter,
-            stop_parameter=row.stop_parameter, 
-            check_point=row.check_point,
-            stop_metric=row.stop_metric,
-            filename=filename, search=True, fit=True,
-            fontsize=fontsize)
+def sgd_ani(featured, filename=None, fontsize=None, cache=False):
+    if cache is False:    
+        sgd_demo(alpha=featured.alpha, precision=featured.precision,
+        maxiter=featured.maxiter, miniter=featured.miniter,
+        stop_parameter=featured.stop_parameter, 
+        check_point=featured.check_point,
+        stop_metric=featured.stop_metric,
+        filename=filename, search=True, fit=True,
+        fontsize=fontsize)
 
 #%%
-# sgd_demo(alpha=0.1, precision=0.0001, miniter=100, maxiter=10000, 
-#          stop_parameter='v', stop_metric='r', filename = 'Demo', 
-#          check_point=.01, fit=False)
-# sgd_gs()
-# print(report.head())
-# alpha = [0.02, 0.1, 0.8]
-# featured = sgd_featured(report, alpha)
-# print(featured)
-# #%%
-# sgd_ani(featured)
+
+report = sgd_gs()
+#%%
+print(report.head())
+sgd_ani(report.iloc[0])
 

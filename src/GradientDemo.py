@@ -81,7 +81,7 @@ class GradientDemo():
         nth = math.floor(self._search.shape[0]/maxframes)
         nth = max(nth,1) 
         idx = idx[::nth]
-        
+
         # Create the x=theta0, y=theta1 grid for plotting]
         theta0 = self._search['theta_0']
         theta1 = self._search['theta_1']

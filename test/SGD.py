@@ -26,17 +26,13 @@ def sgd():
         alpha = 0.01
         precision = 0.001
         maxiter = 10000
-        check_point = .1
-        stop_parameter = 't'
-        stop_metric = 'a'
+        n_iter_no_change = 5  
         directory = "./test/figures/SGD/"
         gd = SGD()
         gd.fit(X=X, y=y, theta=theta,X_val=X_val, y_val=y_val, 
-                check_point=check_point, alpha=alpha,
-                maxiter=maxiter, precision=precision, stop_parameter=stop_parameter,
-                stop_metric=stop_metric)
+                alpha=alpha, maxiter=maxiter, precision=precision, 
+                n_iter_no_change=n_iter_no_change, average=True)
         gd.plot(directory=directory)
-        gd.animate(directory=directory)
         rpt = gd.summary()
         return(rpt)
 #%%

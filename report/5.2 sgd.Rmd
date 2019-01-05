@@ -219,7 +219,7 @@ The fit method:
     2.1.3. update theta     
 3. return(theta)      
 
-$^*$not to be confused with the minibatch size 
+$^*$not to be confused with the minibatch size, this is the proportion or number of observations over which the training set costs will be averaged.
 
 That's it, for the most part. The complete class definitions are available at https://github.com/DecisionScients/GradientDescent.
 
@@ -259,7 +259,7 @@ A small function was created to randomly sample the training data and split it i
 X, X_val, y, y_val = data.demo(n=500)
 ```
 
-Now that we have our data, lets run our gridsearch.
+Now that we have our data, let's set our parameters and run our gridsearch.
 
 #### GridSearch 
 We will search a wide range of check_point, learning rates, precision parameters, and stopping conditions. Thus our parameters are:
@@ -275,7 +275,7 @@ stop_metric = ['a', 'r']
 ```
 `r kfigr::figr(label = "gs_params_1", prefix = TRUE, link = TRUE, type="Figure")` Gridsearch Parameters
 
-Ok, let's run our gridsearch.
+An SGDLab class was created to iterate through the parameter space and perform the gridsearch.
 ```{python sgd_gs_echo, echo=T, eval=F}
 lab = SGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha,
@@ -291,11 +291,10 @@ sgd_gs()
 report = read.csv("./report/figures/SGD/Stochastic Gradient Descent - Gridsearch Report.csv")
 ```
 #### Cost and Computation Time Analysis
-`r kfigr::figr(label = "sgd_gs_cost_time", prefix = TRUE, link = TRUE, type="Figure")` shows validation set cost analysis for `r nrow(report)` experiments by learning rate. The plot on the left shows the entire range of costs and computation times. The right plot zooms in on the solutions with costs less than 0.2 and computation times less than 0.02.
+`r kfigr::figr(label = "sgd_gs_cost_time", prefix = TRUE, link = TRUE, type="Figure")` shows validation set cost analysis for `r nrow(report)` experiments by learning rate. The plot on the left shows the entire range of costs and computation times. The right plot zooms in on the solutions with costs less than 0.2 and computation times less than 0.02 milliseconds.
 
 ![](../report/figures/SGD/Validation Set Costs and TimeBy Learning Rate.png)
 
-`r kfigr::figr(label = "sgd_gs_cost", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent 
 `r kfigr::figr(label = "sgd_gs_cost_time", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Validation Set Costs and Time by Learning Rate
 
 In general, the best costs and computation times were associated with higher learning rates. As we move away from the lower-left corner of the plots, we encounter higher costs and longer computation times, both associated with lower learning rates. 
@@ -306,8 +305,10 @@ Next, let's examine the relationship between various stopping criteria and cost 
 Recall, our stopping criteria are defined by:    
 
 * stop condition, which is defined by:    
+
   - stop parameter, which can be validation set costs, training set costs, or the norm of the gradient,      
   - stop metric, which can be absolute change or relative change in the stop parameter,     
+
 * precision parameter $\epsilon$, the tolerance between consecutive stop conditions, and    
 * check point, the frequency by which convergence is checked.         
 
@@ -321,9 +322,7 @@ On the left of `r kfigr::figr(label = "sgd_gs_cost_precision", prefix = TRUE, li
 
 `r kfigr::figr(label = "sgd_gs_cost_precision", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Cost by Precision and Stop Condition
 
-It might be reasonable to expect smaller values for our precision parameter to produce better cost performance; however, this does not appear to be the case with our data set. Precision alone doesn't appear to have had an effect on validation set costs. 
-
-Similarly, the 25% percentile costs for the various stopping conditions look very similar across all precision values. 
+One might expect lower values of $\epsilon$ to be associated with longer convergence rates and better parameter estimates. However, for the values of $\epsilon$ in our parameter space, no such relationship was extant. Likewise, the 25% percentile costs for the various stopping conditions look very similar across all precision values. 
 
 ###### Computation Time Analysis
 `r kfigr::figr(label = "sgd_gs_time_precision", prefix = TRUE, link = TRUE, type="Figure")` shows the computation times by precision and stop condition. The left plot shows the full range of computation times; whereas, the plot on the right has a y-axis limit of 0.015 milliseconds.
@@ -332,7 +331,7 @@ Similarly, the 25% percentile costs for the various stopping conditions look ver
 
 `r kfigr::figr(label = "sgd_gs_time_precision", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Computation Time by Precision and Stop Condition
 
-Precision didn't seem to have an effect on computation time for our dataset; however, certain stopping conditions stood out as relatively expensive. Absolute change in training set costs took longer to converge across all values of $\epsilon$. The gradient-based stopping conditions were relatively slow to converge for $\epsilon=[0.001,0.01]$.
+Again, no relationship between precision and computation time was evident, despite expectations. That said, certain stopping conditions stood out as more computationally expensive than the others. Absolute change in training set costs took longer to converge across all values of $\epsilon$. The gradient-based stopping conditions were also relatively slow to converge for $\epsilon=[0.001,0.01]$.
 
 Let's examine the effect of **stop condition** and **check point** on cost and time performance.
 
@@ -355,19 +354,19 @@ As we increase the check point parameter from 1% to 20% of the training set, we 
 
 As we increase the check point parameter from 1% to 20% of the training set, we see a clear stepwise increase in computation time. The effect of stop condition on computation time varies by the size of the dataset evaluated at each check point.
 
-To wrap up the analysis on stop condition, we saw no significant and discernable effects of stop condition on validation set costs. Levels of precision were not associated with any pattern in validation set costs.  Check point, on the other hand, was inversely correlated with validation set costs and positively correlated with computation time.
+To wrap up the analysis on stop condition, we saw no significant or discernable effects of stop condition on validation set costs. Levels of precision were not associated with any pattern in validation set costs.  Check point, on the other hand, was inversely correlated with validation set costs and positively correlated with computation time.
 
-With that, let's the effects of learning rates on validation set costs and computation time.
+With that, let's evaluate the effects of learning rates on validation set costs and computation time.
 
 #### Learning Rate
 ##### Cost Analysis
-In `r kfigr::figr(label = "sgd_gs_cost_alpha", prefix = TRUE, link = TRUE, type="Figure")`, we have validation set costs by learning rate. On the left, we plot cost distributions for each learning rate in our parameter space.  The plot on the right zooms in on the best performing learning rates from a validation set cost perspective.
+In `r kfigr::figr(label = "sgd_gs_cost_alpha", prefix = TRUE, link = TRUE, type="Figure")`, we have validation set costs by learning rate, controlled by the check point parameter. On the left, we plot cost distributions for each learning rate and check point value in our parameter space.  The plot on the right zooms in on the best performing learning rates from a validation set cost perspective.
 
-![](../report/figures/SGD/Stochastic Gradient Descent Validation Set Costs By Learning Rate.png)
+![](../report/figures/SGD/Stochastic Gradient Descent Validation Set Costs By Learning Rate and Check Point.png)
 
 `r kfigr::figr(label = "sgd_gs_cost_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Cost by Learning Rate
 
-Moving from the lowest learning rates on the left to the right, we see a decline in costs until $\alpha=0.6$. After which, the validation set costs increase with increasing values of $\alpha$ up to $\alpha=1.5$.
+Moving from the lowest learning rates on the left to the right, we see a decline in costs until $\alpha=0.6$. After which, the validation set costs increase with increasing values of $\alpha$ across all check point parameter values.
 
 ##### Learning Curve
 Let's examine the learning curves. For our stopping criteria, we will use relative change in training set costs, with $\epsilon=0.01$ and the check point values = 0.01, 0.05, 0.1, and 0.2. This means that we will check convergence each 5, 25, 50, and 100 observations. `r kfigr::figr(label = "sgd_gs_cost_curve", prefix = TRUE, link = TRUE, type="Figure")` shows from top left to bottom right, plots corresponding to our selected check point values.
@@ -383,13 +382,42 @@ Starting with the top left, we observe a rather erratic descent at the lower lea
 ##### Computation Time Analysis
 Now we examine the effect of learning rate on computation times. `r kfigr::figr(label = "sgd_gs_time_alpha", prefix = TRUE, link = TRUE, type="Figure")` shows two plots.  The left displays computation time distributions for each learning rate in our parameter space. The right plot in `r kfigr::figr(label = "sgd_gs_time_alpha", prefix = TRUE, link = TRUE, type="Figure")` reveals the computation times for the fastest converging learning rates.
 
-![](../report/figures/SGD/Stochastic Gradient Descent Computation Time By Learning Rate.png)
+![](../report/figures/SGD/Stochastic Gradient Descent Computation Time By Learning Rate and Check Point.png)
 
 `r kfigr::figr(label = "sgd_gs_time_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Computation Time by Learning Rate
 
-As indicated, we don't see any pattern between learning rate and computation time.
+For check points equal to 1% of the training set, computation time dropped for increasing learning rates until we arrive at $\alpha=1.5$, at which point computation time appeared to increase. For the other cases, computation time appeared to correlate with check point. Increasing values of check point were correlated with longer computation times, as one would expect.
 
-So what have we seen so far? Well, 
-* 
+So what have we seen so far? Well,   
+* stop condition had no practical effect on validation set costs and computation time,    
+* check point was negatively correlated with validation set costs and positively associated with computation time, and     
+* learning rates were negatively correlated with validation set costs and computation time.  
 
+#### Best Solution (so far)
+```{r best_sgd, echo=F, eval=T}
+best <- report[1,]
+```
+With that, we can now reveal the parameters that produced the lowest validation set cost in the minimal amount of computation time. Our gridsearch produced a best validation set cost of `r round(best['final_costs_val'],5)` within `r round(best['duration'],5)` milliseconds. The hyperparameters were:   
+Learning rate $\alpha$: `r best['alpha']`   
+Parameters $\theta$: [-1,-1]   
+check point: `r best['check_point']`     
+stop_parameter: `r best['stop_parameter']`   
+stop_metric: `r best['stop_metric']`    
+precision $\epsilon$: `r best['precision']`    
+maxiter: `r best['maxiter']`    
+miniter: `r best['miniter']`    
+
+```{python sgd_gs_best, echo=F, eval=T}
+report = pd.read_csv("./report/figures/SGD/Stochastic Gradient Descent - Gridsearch Report.csv")
+sgd_ani(report.iloc[0], cache=cache)
+```
+
+![](../report/figures/SGD/Stochastic Gradient Descent Search - Alpha 0.6.gif)
+
+`r kfigr::figr(label = "sgd_gs_best_search", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Search
+
+
+![](../report/figures/SGD/Stochastic Gradient Descent Fit - Alpha 0.6.gif)
+
+`r kfigr::figr(label = "sgd_gs_best_fit", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Fit
 

@@ -31,6 +31,8 @@ class GradientFit(ABC):
         self._y = None
         self._X_val = None
         self._y_val = None
+        self._iter_no_change = 0
+        self._n_iter_no_change = 5
 
     def get_alg(self):
         return(self._alg)
@@ -94,32 +96,22 @@ class GradientFit(ABC):
         state['current'] = self._zeros(state['current'])
         state['prior'] = self._zeros(state['prior'])
 
-        if self._request['hyper']['miniter']:
-            if self._request['hyper']['miniter'] <= state['iteration']:
-                if self._maxed_out(state['iteration']):
-                    return(True)
-                elif self._request['hyper']['stop_metric'] == 'a':
-                    return(abs(state['prior']-state['current']) < self._request['hyper']['precision'])
-                else:
-                    return(abs(state['prior']-state['current'])/abs(state['prior']) < self._request['hyper']['precision'])     
-        else:                    
-            if self._maxed_out(state['iteration']):
+        if self._maxed_out(state['iteration']):
+            return(True)        
+        if abs(state['prior']-state['current']) < self._request['hyper']['precision']:
+            self._iter_no_change += 1
+            if self._iter_no_change >= self._n_iter_no_change:
                 return(True)
-            elif self._request['hyper']['stop_metric'] == 'a':
-                return(abs(state['prior']-state['current']) < self._request['hyper']['precision'])
-            else:
-                return(abs(state['prior']-state['current'])/abs(state['prior']) < self._request['hyper']['precision'])    
+        else:
+            self._iter_no_change = 0
 
-    def _update_state(self,state, iteration, J, J_val, g):
+    def _update_state(self,state, iteration, J, J_val):
         state['iteration'] = iteration
         state['prior'] = state['current']
-        stop = self._request['hyper']['stop_parameter']
-        if stop == 't':
-            state['current'] = J
-        elif stop == 'v':
+        if self._request['hyper']['cross_validated']:
             state['current'] = J_val
         else:
-            state['current'] = np.sqrt(np.sum(abs(g)**2))
+            state['current'] = J
         return(state)
 
     @abstractmethod
@@ -142,6 +134,8 @@ class BGDFit(GradientFit):
         # Initialize search variables
         iteration = 0
         theta = self._request['hyper']['theta']
+        self._n_iter_no_change = self._request['hyper']['n_iter_no_change']
+        self._iter_no_change = 0
         self._J_history = []
         self._J_history_val = []
         self._theta_history = []
@@ -154,6 +148,7 @@ class BGDFit(GradientFit):
         self._y = self._request['data']['y']
         self._X_val = self._request['data']['X_val']
         self._y_val = self._request['data']['y_val']
+
 
         # Initialize State 
         state = {'prior':1, 'current':10, 'iteration':0}
@@ -181,7 +176,7 @@ class BGDFit(GradientFit):
                 J_val = self._cost(e_val)                
                 self._J_history_val.append(J_val)
 
-            state = self._update_state(state, iteration, J, J_val, g)
+            state = self._update_state(state, iteration, J, J_val)
                         
             theta = self._update(theta, g)
 
@@ -205,6 +200,8 @@ class SGDFit(GradientFit):
         self._y = None
         self._X_val = None
         self._y_val = None
+        self._iter_no_change = 0
+        self._n_iter_no_change = 5        
 
 
     def _shuffle(self, X, y):
@@ -224,6 +221,8 @@ class SGDFit(GradientFit):
         epoch = 0
         J_total = 0
         theta = self._request['hyper']['theta']
+        self._n_iter_no_change = self._request['hyper']['n_iter_no_change']
+        self._iter_no_change = 0
         self._J_history = []
         self._J_history_val = []
         self._theta_history = []
@@ -240,15 +239,10 @@ class SGDFit(GradientFit):
         # Initialize State 
         state = {'prior':1, 'current':5, 'iteration':0}
         
-        # Compute number of iterations in each batch
-        if float(self._request['hyper']['check_point']) > 1.0:
-            iterations_per_batch = float(self._request['hyper']['check_point'])
-        else:
-            iterations_per_batch = max(1,math.floor(self._X.shape[0] * float(self._request['hyper']['check_point'])))
-        
         while not self._finished(state):
             epoch += 1            
             X, y = self._shuffle(self._X, self._y)
+            J_total = 0
 
             for x_i, y_i in zip(X.values, y):
                 iteration += 1
@@ -256,31 +250,28 @@ class SGDFit(GradientFit):
                 h = self._hypothesis(x_i, theta)
                 e = self._error(h, y_i)
                 J = self._cost(e)
-                J_total = J_total + J
-                J_val = None
-                g = self._gradient(x_i, e)
-
-                if iteration % iterations_per_batch == 0:
-                    J_avg = J_total / iterations_per_batch
-                    J_total = 0                    
-                    self._J_history.append(J_avg)
-                    self._theta_history.append(theta.tolist())
-                    self._g_history.append(g)
-                    self._epochs.append(epoch)
-                    self._iterations.append(iteration)
-
-                    if self._request['hyper']['cross_validated']:
-                        h_val = self._hypothesis(self._X_val, theta)
-                        e_val = self._error(h_val, self._y_val)
-                        J_val = self._cost(e_val)                
-                        self._J_history_val.append(J_val)
-
-                    state = self._update_state(state, iteration, J, J_val, g)
-
-                    if self._finished(state):
-                        break
-
+                J_total += J
+                J_val = None                                
+                g = self._gradient(x_i, e)                
                 theta = self._update(theta, g)
+
+                self._J_history.append(J)
+                self._theta_history.append(theta.tolist())
+                self._g_history.append(g)
+                self._epochs.append(epoch)
+                self._iterations.append(iteration)
+
+
+            if self._request['hyper']['cross_validated']:
+                h_val = self._hypothesis(self._X_val, theta)
+                e_val = self._error(h_val, self._y_val)
+                J_val = self._cost(e_val)                
+                self._J_history_val.append(J_val)
+            elif self._request['hyper']['average']:
+                J = J_total / X.shape[0]            
+
+            state = self._update_state(state, iteration, J, J_val)
+
 
 
 # --------------------------------------------------------------------------- #
@@ -353,7 +344,6 @@ class MBGDFit(GradientFit):
        
         while not self._finished(state):
             epoch += 1            
-            J_total = 0
             X, y = self._shuffle(self._X, self._y, random_state=epoch)
             X_mb, y_mb = self._get_batches(X,y, self._request['hyper']['batch_size'])
 
@@ -375,11 +365,8 @@ class MBGDFit(GradientFit):
                     h_val = self._hypothesis(self._X_val, theta)
                     e_val = self._error(h_val, self._y_val)
                     J_val = self._cost(e_val)                
-                    self._J_history_val.append(J_val)
+                    self._J_history_val.append(J_val)                
 
-                state = self._update_state(state, iteration, J, J_val, g)
-
-                if self._finished(state):
-                    break
+                state = self._update_state(state, iteration, J, J_val)
 
                 theta = self._update(theta, g)
