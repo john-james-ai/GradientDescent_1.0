@@ -32,7 +32,7 @@ class GradientFit(ABC):
         self._X_val = None
         self._y_val = None
         self._iter_no_change = 0
-        self._n_iter_no_change = 5
+        self._improvement = 5
 
     def get_alg(self):
         return(self._alg)
@@ -100,7 +100,7 @@ class GradientFit(ABC):
             return(True)        
         if abs(state['prior']-state['current']) < self._request['hyper']['precision']:
             self._iter_no_change += 1
-            if self._iter_no_change >= self._n_iter_no_change:
+            if self._iter_no_change >= self._improvement:
                 return(True)
         else:
             self._iter_no_change = 0
@@ -134,7 +134,7 @@ class BGDFit(GradientFit):
         # Initialize search variables
         iteration = 0
         theta = self._request['hyper']['theta']
-        self._n_iter_no_change = self._request['hyper']['n_iter_no_change']
+        self._improvement = self._request['hyper']['improvement']
         self._iter_no_change = 0
         self._J_history = []
         self._J_history_val = []
@@ -201,7 +201,7 @@ class SGDFit(GradientFit):
         self._X_val = None
         self._y_val = None
         self._iter_no_change = 0
-        self._n_iter_no_change = 5        
+        self._improvement = 5        
 
 
     def _shuffle(self, X, y):
@@ -221,7 +221,7 @@ class SGDFit(GradientFit):
         epoch = 0
         J_total = 0
         theta = self._request['hyper']['theta']
-        self._n_iter_no_change = self._request['hyper']['n_iter_no_change']
+        self._improvement = self._request['hyper']['improvement']
         self._iter_no_change = 0
         self._J_history = []
         self._J_history_val = []

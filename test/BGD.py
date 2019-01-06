@@ -20,11 +20,11 @@ def bgd():
         alpha = 0.01
         precision = 0.0001
         maxiter = 10000
-        n_iter_no_change = 5
+        improvement = 5
         directory = "./test/figures/BGD/"
         gd = BGD()
         gd.fit(X=X, y=y, theta=theta,X_val=X_val, y_val=y_val, alpha=alpha,
-                maxiter=maxiter, precision=precision, n_iter_no_change=n_iter_no_change)
+                maxiter=maxiter, precision=precision, improvement=improvement)
         gd.plot(directory=directory)        
         rpt = gd.summary()
         return(rpt)

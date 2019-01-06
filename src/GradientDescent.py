@@ -110,7 +110,7 @@ class GradientDescent:
 
     
     def fit(self, X, y, theta, X_val=None, y_val=None, alpha=0.01, 
-            maxiter=0, precision=0.001, n_iter_no_change=5,
+            maxiter=0, precision=0.001, improvement=5,
             scaler='minmax'):
 
         # Set cross-validated flag if validation set included 
@@ -128,7 +128,7 @@ class GradientDescent:
         self._request['hyper'] = {'alpha': alpha, 'theta': theta,
                                   'maxiter': maxiter, 
                                   'precision': precision,                                  
-                                  'n_iter_no_change': n_iter_no_change,
+                                  'improvement': improvement,
                                   'cross_validated': cross_validated}
 
         # Run search and obtain result        
@@ -149,12 +149,14 @@ class GradientDescent:
         self._detail['alg'] = self._alg
         self._detail['alpha'] = self._request['hyper']['alpha']
         self._detail['precision'] = self._request['hyper']['precision']
+        self._detail['improvement'] = self._request['hyper']['improvement']
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
                                     'alpha': self._request['hyper']['alpha'],
                                     'precision': self._request['hyper']['precision'],
                                     'maxiter': self._request['hyper']['maxiter'],
+                                    'improvement': self._request['hyper']['improvement'],
                                     'start':start,
                                     'end':end,
                                     'duration':(end-start).total_seconds(),
@@ -302,7 +304,7 @@ class SGD(GradientDescent):
         self._detail = None 
 
     def fit(self, X, y, theta,  X_val=None, y_val=None,  check_point=.1, 
-            alpha=0.01, maxiter=0, precision=0.001, n_iter_no_change=5, 
+            alpha=0.01, maxiter=0, precision=0.001, improvement=5, 
             scaler='minmax', average=False):
 
         # Set cross-validated flag if validation set included 
@@ -320,7 +322,7 @@ class SGD(GradientDescent):
         self._request['hyper'] = {'alpha': alpha, 'theta': theta,
                                   'maxiter': maxiter, 
                                   'precision': precision,
-                                  'n_iter_no_change': n_iter_no_change,
+                                  'improvement': improvement,
                                   'average': average,
                                   'cross_validated': cross_validated}
 
@@ -349,6 +351,7 @@ class SGD(GradientDescent):
                                     'alpha': alpha,
                                     'precision': precision,
                                     'maxiter': maxiter,
+                                    'improvement': improvement,
                                     'start':start,
                                     'end':end,
                                     'duration':(end-start).total_seconds(),
@@ -376,7 +379,7 @@ class MBGD(GradientDescent):
         self._summary = None
         self._detail = None 
     def fit(self, X, y, theta,  X_val=None, y_val=None,  batch_size=.1, 
-            alpha=0.01, maxiter=0, precision=0.001, n_iter_no_change=5,
+            alpha=0.01, maxiter=0, precision=0.001, improvement=5,
             scaler='minmax'):            
 
         # Set cross-validated flag if validation set included 

@@ -18,34 +18,25 @@ from GradientLab import BGDLab
 import data
 
 # Data
-X, X_val, y, y_val = data.ames()
+X, X_val, y, y_val = data.demo(n=500)
 
 # Parameters
-theta = np.array([-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]) 
-alpha = [0.01, 0.03]
-precision = [0.1, 0.01]
+theta = np.array([-1,-1]) 
+alpha = [0.01, 0.03, 0.1, 0.8]
+precision = [0.1, 0.01, 0.001, 0.0001]
 maxiter = 5000
-stop_parameter = ['t', 'v']
-stop_metric = ['a', 'r']
+improvement=[5,10]
 directory = "./test/figures/BGD/Lab/"
 
 #%%
 # Run experiment
 lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
+           maxiter=maxiter, improvement=improvement)
 #%%%           
-fig, annotations = lab.plot(directory=directory, show=True)
-# lab.plot_costs(x='alpha', z='precision', fig_key='stop_condition', 
-#                row_key='stop',  directory=directory, show=False)
-# lab.plot_times(x='alpha', z='precision', fig_key='stop_parameter', row_key='stop_condition',  
-#                 directory=directory, show=False)
-# lab.plot_times(directory=directory)
+# Render plots
+dfs = lab.summary()
+dfd = lab.get_detail()
+lab.figure(data=dfs, x='precision', y='duration', z='alpha',
+           func=lab.barplot, directory=directory, show=True)
 report = lab.report(directory=directory)
-
-
-#%%
-print(annotations.value.values)
-print(report.experiment.values)
-featured = pd.merge(annotations, report, how='inner', left_on='value', right_on='experiment')
-print(featured)

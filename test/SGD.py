@@ -26,12 +26,12 @@ def sgd():
         alpha = 0.01
         precision = 0.001
         maxiter = 10000
-        n_iter_no_change = 5  
+        improvement = 5  
         directory = "./test/figures/SGD/"
         gd = SGD()
         gd.fit(X=X, y=y, theta=theta,X_val=X_val, y_val=y_val, 
                 alpha=alpha, maxiter=maxiter, precision=precision, 
-                n_iter_no_change=n_iter_no_change, average=True)
+                improvement=improvement, average=True)
         gd.plot(directory=directory)
         rpt = gd.summary()
         return(rpt)
