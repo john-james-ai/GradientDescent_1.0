@@ -102,7 +102,7 @@ class GradientLab:
                   'iterations': 'Iterations',
                   'cost': 'Training Set Costs',
                   'cost_val': 'Validation Set Costs',
-                  'improvement': 'No. Iterations No Improvement ',
+                  'improvement': 'Improvement ',
                   'batch_size': 'Batch Size',
                   'final_costs': 'Training Set Costs',
                   'final_costs_val': 'Validation Set Costs'}
@@ -133,7 +133,7 @@ class GradientLab:
     def scatterplot(self, ax,  data, x, y, z=None, title=None):
 
         # Initialize figure and settings        
-        sns.set(style="whitegrid", font_scale=1)          
+        sns.set(style="whitegrid", font_scale=1)        
 
         # Plot time by learning rate 
         ax = sns.scatterplot(x=x, y=y, hue=z, data=data, ax=ax, legend='full')
@@ -149,7 +149,7 @@ class GradientLab:
     def barplot(self, ax,  data, x, y, z=None, title=None):
 
         # Initialize figure and settings        
-        sns.set(style="whitegrid", font_scale=1)          
+        sns.set(style="whitegrid", font_scale=1)
 
         # Plot time by learning rate 
         ax = sns.barplot(x=x, y=y, hue=z, data=data, ax=ax)
@@ -165,10 +165,10 @@ class GradientLab:
     def boxplot(self, ax,  data, x, y, z=None, title=None):
 
         # Initialize figure and settings        
-        sns.set(style="whitegrid", font_scale=1)          
+        sns.set(style="whitegrid", font_scale=1)  
 
         # Plot time by learning rate 
-        ax = sns.boxplot(x=x, y=y, hue=z, data=data, ax=ax, legend='full')
+        ax = sns.boxplot(x=x, y=y, hue=z, data=data, ax=ax)
         ax.set_facecolor('w')
         ax.tick_params(colors='k')
         ax.xaxis.label.set_color('k')
@@ -181,7 +181,7 @@ class GradientLab:
     def lineplot(self, ax, data, x, y, z=None, title=None):
 
         # Initialize figure and settings        
-        sns.set(style="whitegrid", font_scale=1)          
+        sns.set(style="whitegrid", font_scale=1)
 
         # Plot time by learning rate 
         ax = sns.lineplot(x=x, y=y, hue=z, data=data, legend='full', ax=ax)
@@ -195,7 +195,7 @@ class GradientLab:
         return(ax) 
 
     def figure(self, data, x, y, z=None, groupby=None, func=None, 
-               directory=None, show=None):
+               directory=None, show=False, height=1, width=1):
 
         sns.set(style="whitegrid", font_scale=1)                
         if groupby:
@@ -206,7 +206,9 @@ class GradientLab:
             odd = True if plots.ngroups % cols != 0 else False
 
             # Obtain and initialize matplotlib figure
-            fig = plt.figure(figsize=(12,4*rows))       
+            fig_width = math.floor(12*width)
+            fig_height = math.floor(4*rows*height)
+            fig = plt.figure(figsize=(fig_width, fig_height))       
          
             # Extract group title
             group_title = ''
@@ -239,13 +241,18 @@ class GradientLab:
                 save_fig(fig, directory, filename)
             plt.close(fig)
         else:
-            # Obtain and initialize matplotlib figure
+            # Designate plot title
             title = self._alg + '\n' + self._get_label(y) + '\n' + ' By ' + self._get_label(x)
             if z:
                 title = title + ' and ' + self._get_label(z) 
-            fig, ax = plt.subplots(figsize=(12,4))        
+            # Establish plot dimensions and initiate matplotlib objects
+            fig_width = math.floor(12*width)
+            fig_height = math.floor(4*height)                
+            fig, ax = plt.subplots(figsize=(fig_width, fig_height))    
+            # Render plot    
             ax = func(ax=ax, data=data, x=x, y=y, z=z, 
                         title=title)
+            # Finalize and save
             fig.tight_layout(rect=[0,0,1,.85])
             if show:
                 plt.show()

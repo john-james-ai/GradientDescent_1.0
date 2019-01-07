@@ -17,21 +17,22 @@ sys.path.append(src)
 from GradientDemo import BGDDemo
 import data
 
+# Data
+X, X_val, y, y_val = data.demo(n=500)
+
 # Parameters
 theta = np.array([-1,-1]) 
-alpha = 0.01
-precision = 0.0001
+alpha = 1
+precision = 0.001
 maxiter = 10000
-stop_parameter = 'j'
-stop_metric = 'a'
-path_search = "./test/figures/BGD/BGDDemoSearch.gif"
-path_fit = "./test/figures/BGD/BGDDemoFit.gif"
+improvement=5
+directory = "./test/figures/BGD/"
 
 # Run experiment
 demo = BGDDemo()
-demo.fit(n=500, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
+demo.fit(X=X,y=y, theta=theta, alpha=alpha, precision=precision,
+           maxiter=maxiter, improvement=improvement)
 #%%           
-demo.show_search(path=path_search, maxframes=100)
-demo.show_fit(path=path_fit)
+demo.show_search(directory=directory, fps=1)
+#demo.show_fit(directory=directory, fps=1)
 

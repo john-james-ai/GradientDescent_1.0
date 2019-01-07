@@ -15,20 +15,13 @@ formatNumber: function (n) {return ''+n}
 ```
 ```{python GradientLab, code=readLines('../src/GradientLab.py'), message=FALSE, warning=FALSE}
 ```
-```{python BGDReport, code=readLines('../report/src/BGDReport.py'), message=FALSE, warning=FALSE}
-```
 
-```{python bgd_demo, echo=F, eval=T}
-bgd_demo(alpha=0.1, precision=0.01, maxiter=10000, miniter=150, 
-         stop_parameter='v', stop_metric='r', filename = 'Demo', 
-         fit=False)
+```{python defaults, echo=F, eval=T}
+directory = "./report/figures/BGD/Lab"
 ```
 
 ## Batch Gradient Descent 
 Batch gradient descent updates the parameters $\theta$ after computing the gradient on the entire training set. This is the key difference between batch gradient descent and its variants. 
-
-<img src="../report/figures/BGD/Demo Search Minimum Iterations - 150.gif"/>
-`r kfigr::figr(label = "bgd_search", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent 
 
 The advantage of computing the gradient on the entire dataset is that it produces a better, more stable approximation of the gradient. 
 
@@ -56,7 +49,7 @@ While stopping condition is not met
   thetas = update(thetas, learning_rate, gradient)
 return (thetas)
 ```
-`r kfigr::figr(label = "gd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`: Gradient Descent Algorithm
+`r kfigr::figr(label = "gd_algorithm", prefix = TRUE, link = TRUE, type="Code")`: Gradient Descent Algorithm
 
 ### Implementation
 Now, we will build the batch gradient descent class that will be used to solve our challenge problem. Before we start getting our code on, let's establish a few design considerations.
@@ -73,11 +66,9 @@ Our GradientDescent class will need the following methods:
 With respect to stopping criteria, we would want to stop the algorithm when one or more of the following conditions are met:    
 
 * The number of iterations has reached a preset maximum,     
-* The number of iterations has reached a preset minimum,     
-* The relative or absolute change in the training set costs have fallen below a preset precision,     
-* The relative or absolute change in the validation set costs have fallen below a preset precision,       
-* The percent or absolute change in the gradient has fallen below a preset precision, and           
-* The validation set costs has reached a preset maximum (in the case the algorithm starts to diverge).     
+* The convergence hasn't improved in $\iota$ iterations in a row,       
+
+Convergence is checked once per epoch against a validation set (if provided), or the training set. The improvement in convergence is evaluated with a precision parameter $\epsilon$.
 
 Lastly, since we will be building SGD and Minibatch Gradient Descent classes, we may want to create an abstract base class that contains the core functions used in the computation.
 
@@ -101,7 +92,7 @@ class BGD(GradientDescent):
     def __init__(self):
       pass    
 ```
-`r kfigr::figr(label = "class_init", prefix = TRUE, link = TRUE, type="Figure")` Class Initialization
+`r kfigr::figr(label = "class_init", prefix = TRUE, link = TRUE, type="Code")` Class Initialization
 
 Now, lets define the base classes that will be inherited by the specific batch, stochastic, and mini-batch implementations.
 
@@ -113,7 +104,7 @@ Thus our hypothesis method would simply be the dot product of our inputs $X^T$ a
 def _hypothesis(self, X, theta):
         return(X.dot(theta))
 ```
-`r kfigr::figr(label = "hypothesis_bgd", prefix = TRUE, link = TRUE, type="Figure")` Hypothesis Method
+`r kfigr::figr(label = "hypothesis_bgd", prefix = TRUE, link = TRUE, type="Code")` Hypothesis Method
 
 #### Error Method
 Since we'll need the error for both the cost and gradient computation, let's create a method that implements:
@@ -123,7 +114,7 @@ Taking the hypothesis from the previous method and y, we have:
 def _error(self, h, y):
         return(h-y)
 ```
-`r kfigr::figr(label = "error_bgd", prefix = TRUE, link = TRUE, type="Figure")` Error Method
+`r kfigr::figr(label = "error_bgd", prefix = TRUE, link = TRUE, type="Code")` Error Method
 
 #### Cost Method
 Recall our cost function is:
@@ -133,7 +124,7 @@ Our method simply takes half of the mean squared error as follows:
 def _cost(self, e):
         return(1/2 * np.mean(e**2))
 ```
-`r kfigr::figr(label = "cost_bgd", prefix = TRUE, link = TRUE, type="Figure")` Cost Method
+`r kfigr::figr(label = "cost_bgd", prefix = TRUE, link = TRUE, type="Code")` Cost Method
 
 #### Gradient Method
 Next, we compute the gradient from:
@@ -147,7 +138,7 @@ This is a vector valued function. This means that it returns a vector of size $n
 def _gradient(self, X, e):
         return(X.T.dot(e)/X.shape[0])
 ```
-`r kfigr::figr(label = "gradient_bgd", prefix = TRUE, link = TRUE, type="Figure")` Gradient Method
+`r kfigr::figr(label = "gradient_bgd", prefix = TRUE, link = TRUE, type="Code")` Gradient Method
 
 #### Update Method
 Our update function, you recall, looks like this.
@@ -157,7 +148,7 @@ Our update method is therefore:
 def _update(self, alpha, theta, gradient):
         return(theta-(alpha * gradient))
 ```
-`r kfigr::figr(label = "update_bgd", prefix = TRUE, link = TRUE, type="Figure")` Update Method
+`r kfigr::figr(label = "update_bgd", prefix = TRUE, link = TRUE, type="Code")` Update Method
 
 #### Finished Method
 This method determines when the algorithm should stop. Again, we stop if the maximum number of iterations has been reached, or the absolute or relative change in our stopping measure has fallen below our precision parameter. If a minimum number of iterations is set, then the algorithm continues until that minimum is reached. We'll store the current state of the search in a dictionary.  It will contain the current iteration as well as the current and prior values of our evaluation parameter.
@@ -181,7 +172,7 @@ def _finished(self, state, miniter, maxiter, stop_metric, precision):
             return(abs(state['prior']-state['current'])/abs(state['prior']) < precision)     
 
 ```
-`r kfigr::figr(label = "finished_bgd", prefix = TRUE, link = TRUE, type="Figure")` Finished Method
+`r kfigr::figr(label = "finished_bgd", prefix = TRUE, link = TRUE, type="Code")` Finished Method
 
 we will also have a method that updates the state dictionary on each iteration. 
 ```{python, update_state, echo=T, eval=F}
@@ -197,7 +188,7 @@ def _update_state(self,state, iteration, J, J_val, g):
     return(state)  
 
 ```
-`r kfigr::figr(label = "update_state", prefix = TRUE, link = TRUE, type="Figure")` Update State
+`r kfigr::figr(label = "update_state", prefix = TRUE, link = TRUE, type="Code")` Update State
 
 Now, we can define the fit method for our BGD class.
 
@@ -243,7 +234,7 @@ class BGD(GradientDescent):
   
       return(d)
 ```
-`r kfigr::figr(label = "fit_bgd", prefix = TRUE, link = TRUE, type="Figure")` Fit Method
+`r kfigr::figr(label = "fit_bgd", prefix = TRUE, link = TRUE, type="Code")` Fit Method
 Once we've initialized some variables, we iteratively:    
 
 1. compute training set cost and gradient,   
@@ -257,135 +248,184 @@ That's it, for the most part. The complete class definitions are available at ht
 
 Next, we will learn how to set the hyperparameters that will determine algorithm performance.
 
-### Hyperparameter Tuning via Gridsearch
-The goal at this stage is to determine the set of hyperparameters that minimize cost on our validation set. A gridsearch approach will allow us to quickly sweep through a range of parameter values in an exhaustive search. Once we've completed the gridsearch, we will closely examine the best and most interesting solutions.
+### Tuning Batch Gradient Descent
+Batch gradient descent is parameterized most essentially by the learning rate, $\alpha$. In this section, we will use a gridsearch technique to explore the algorithms behavior for a range of learning rates. Our implementation is also parameterized by:    
+* $\theta$: Our initial guess at our parameters     
+* $i_{max}$: The maximum number of iterations to execute,    
+* $i_{stop}$: The number of consecutive iterations of 'non-improvement' required to stop the algorithm.   
+* $\epsilon$: The tolerance or precision parameter with which objective function improvement will be evaluated.   
 
-Our main hyperparameters are:      
-
-* $\theta$: our initial thetas,      
-* $\alpha$: our learning rate,    
-* miniter : The minimum number of iterations to execute,     
-* maxiter: The maximum number of iterations to execute,    
-* max_costs: The maximum cost allowed, in case the algorithm diverges.         
-
-Our convergence criteria parameters are:     
-
-* stop parameter: The parameter we will use to evaluate *near* convergence. Values are:   
-  - t: training set costs,    
-  - v: validation set costs,  
-  - g: gradient norm     
-  
-* stop metric: The metric we will use when evaluating the stop parameter. Values are:     
-  - a: absolute change in the stop parameter, and      
-  - r: relative change in the stop parameter.     
-  
-* precision: the $\epsilon$ for our stopping criteria, e.g. we stop when $J_k - J_{k-1} < \epsilon$
-
-Our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples make up the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
-
-A small function was created to randomly sample the training data and split it into the appropriate training and validation sets.
-```{python demo_data, echo=T, eval=F}
-X, X_val, y, y_val = data.demo(n=500)
-```
-
-Now that we have our data, lets run our gridsearch.
-
-#### GridSearch 
-We will search a wide range of learning rates, precision parameters, and stopping conditions. Thus our parameters are:
-```{python gs_params_1, echo=T, eval=F}
+To isolate learning rate effects, we'll fix these *secondary* parameters as follows.
+```{python bgd_gs_params, echo=T, eval=T}
 theta = np.array([-1,-1]) 
 alpha = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1]
-precision = [0.1, 0.01, 0.001, 0.0001]
+precision = [0.001]
+improvement = [5]
 maxiter = 10000
-stop_parameter = ['t', 'v', 'g']
-stop_metric = ['a', 'r']
 ```
-`r kfigr::figr(label = "gs_params_1", prefix = TRUE, link = TRUE, type="Figure")` Gridsearch Parameters
+`r kfigr::figr(label = "bgd_gs_params", prefix = TRUE, link = TRUE, type="Code")` Gridsearch Parameters
 
-Ok, let's run our gridsearch.
-```{python bgd_gs_echo, echo=T, eval=F}
+#### The Data
+Our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples make up the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
+
+So, let's grab our data. We have a small function that was created to randomly sample the training data and split it into the appropriate training and validation sets.
+```{python bgd_gs_data, echo=T, eval=T}
+X, X_val, y, y_val = data.demo(n=500)
+```
+`r kfigr::figr(label = "bgd_gs_data", prefix = TRUE, link = TRUE, type="Code")` Batch Gradient Descent Gridsearch Data
+
+Gradient descent is sensitive to feature scaling so let's scale our data to the range [0,1] using sklearn's preprocessing module.
+```{python bgd_scale, echo=T, eval=F}
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler()
+X = scaler.fit_transform(X)
+X_val = scaler.fit_transform(X_val)
+y = scaler.fit_transform(y)
+y_val = scaler.fit_transform(y_val)
+```
+`r kfigr::figr(label = "bgd_scale", prefix = TRUE, link = TRUE, type="Code")` Batch Gradient Descent Gridsearch Data Scaling
+
+Now that we have our scaled data, lets run our gridsearch.
+
+#### GridSearch 
+A class,  BGDLab, was created to perform our gridsearch. Let's instantiate the class, run the gridsearch and obtain some diagnostic information. 
+```{python bgd_lab, echo=T, eval=T}
 lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
+               maxiter=maxiter, improvement=improvement)
+bgd_summary = lab.summary()
+bgd_detail = lab.get_detail()   
+bgd_report_filename='Batch Gradient Descent Gridsearch Report.csv'
+bgd_report = lab.report(directory=directory, filename=bgd_report_filename)
+```
+`r kfigr::figr(label = "bgd_lab", prefix = TRUE, link = TRUE, type="Code")` Batch Gradient Descent Gridsearch 
+
+#### Learning Rate Analysis
+As a first step in our analysis, let's examine the speed and accuracy with which each learning rate converges. 
+
+```{python bgd_learning_curves, echo=F, eval=T}
+lab.figure(data=bgd_detail, x='iterations', y='cost', z='alpha', 
+           func=lab.lineplot, directory=directory, height=2)   
 ```
 
-```{python bgd_gs, echo=F, eval=T}
-report = bgd_gs()
+![](../report/figures/BGD/Lab/Batch Gradient DescentTraining Set Costs By Iterations and Learning Rate.png)
+
+`r kfigr::figr(label = "bgd_learning_curve_plot", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Learning Curves
+
+In general, the algorithm is behaving as expected. Higher learning rates correlated with faster convergence times and and lower training set costs. Learning rates of 0.6 and above appear to produce the best training set cost results witin about 10 iterations. 
+
+Let's take a closer look at final training set costs and computation times.
+
+```{python bgd_alpha_costs, echo=F, eval=T}
+lab.figure(data=bgd_summary, x='alpha', y='final_costs',
+           func=lab.barplot, directory=directory, width=0.5)   
+lab.figure(data=bgd_summary, x='alpha', y='duration',
+           func=lab.barplot, directory=directory, width=0.5)              
 ```
 
-### Analysis
-`r kfigr::figr(label = "bgd_gs", prefix = TRUE, link = TRUE, type="Figure")` shows the validation set costs and elapsed time for `r nrow(py$report)` experiments by learning rate.
+![](../report/figures/BGD/Lab/Batch Gradient DescentTraining Set Costs By Learning Rate.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient DescentComputation Time (ms) By Learning Rate.png){width=50%}
 
-![](../report/figures/BGD/Validation Set Costs and TimeBy Learning Rate.png)
-`r kfigr::figr(label = "bgd_gs", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Gridsearch
-
-The solutions tend to cluster by learning rate.  The higher learning rates produce the best performance, from a cost and computation perspective. As we move out from the lower left corner of the plot we encounter declining performance as learning rates decrease. 
-
-Let's take a closer look at the behavior and performance for a few learning rates, say 0.02, 0.1 and 0.8.
-
-#### Search by Learning Rate
-```{python bgd_featured, echo=F, eval=T}
-alpha = [0.02, 0.1, 0.8]
-featured = bgd_featured(report, alpha)
-bgd_ani(featured, fontsize=24, cache=cache)
+`r kfigr::figr(label = "bgd_cost_time", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Quality and Training Time
+```{r, bgd_best, echo=F, eval=T}
+bgd_report = read.csv(file.path(py$directory, py$bgd_report_filename))
+bgd_best = bgd_report[1,]
 ```
 
-The animations in `r kfigr::figr(label = "bgd_search_by_alpha", prefix = TRUE, link = TRUE, type="Figure")` depict the path to convergence for learning rates 0.02, 0.1, and 0.8.  
+Indeed, larger learning rates within our parameter space performed better from both a quality and time perspective. In fact, our best performing learning rate was actually `r bgd_best['alpha']`. It produced a validation set final cost of `r bgd_best['final_costs_val']`.
 
-<img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.02.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.1.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.8.gif" width="250" height="250" />
+Let's evaluate the convergence and fit of this solution.
 
-`r kfigr::figr(label = "bgd_search_by_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Search by Learning Rate
+#### Evaluation
+The `r kfigr::figr(label = "bgd_converge", prefix = TRUE, link = TRUE, type="Figure")` visualization reveals the path of the $\theta$'s to approximate convergence. The oscillation around the minimum is emblematic of high learning rate gradient descent. Approximate convergence was obtained in 7 iterations, presenting a final training set cost $J\approx0.03$.
+```{python bgd_demo, echo=F, eval=T}
+alpha = bgd_report.iloc[0]['alpha']
+precision = bgd_report.iloc[0]['precision']
+improvement = bgd_report.iloc[0]['improvement']
 
-As expected, fastest convergence is associated with higher learning rates. So, how do these solutions fit the data?
-
-#### Fit by Learning Rate
-Not very well. `r kfigr::figr(label = "bgd_fit_by_alpha", prefix = TRUE, link = TRUE, type="Figure")` illustrates the regression line fit for the search. Neither of the solutions fit the data very well.  What's happening?
-
-<img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.02.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.1.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.8.gif" width="250" height="250" />
-
-`r kfigr::figr(label = "bgd_fit_by_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Fit by Learning Rate
-
-Notice, the left and center solutions have gradient based stopping criteria. In these cases, we are observing a *vanishing gradient*. As the solution approaches convergence, the gradient becomes vanishingly small, effectively preventing the $\theta$'s from changing their values. Hence the change in the gradient, from iteration to iteration, vanishes below the $\epsilon$ and the algorithm stops. This extends to other measures such as training set or validation set costs. As the $\theta$'s converge, the change in training and validation set costs diminishes falls below $\epsilon$ and the algorithm stops.
-
-We will need to introduce another parameter to our stopping condition. We will force the algorithm to execute a minimum number of iterations, after which, we will evaluate our gradient, and/or cost based stopping criteria.
-
-#### Search by Learning Rate, Minimum Iterations = 100
-```{python bgd_feature_miniter, echo=F, eval=T}
-alpha = [0.02, 0.1, 0.8]
-featured = bgd_featured(report, alpha)
-bgd_ani(featured, miniter=100, fontsize=24, cache=cache)
+bgd = BGDDemo()
+bgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, precision=precision,
+        maxiter=maxiter, improvement=improvement)
+bgd.show_search(directory=directory, fps=1)
+bgd.show_fit(directory=directory, fps=1)
 ```
 
-`r kfigr::figr(label = "bgd_search_by_alpha_100", prefix = TRUE, link = TRUE, type="Figure")` shows the convergence path for learning rates 0.02, 0.1,and 0.8 for a minimum of 100 iterations. 
+![](../report/figures/BGD/Lab/Batch Gradient Descent Search Plot Learning Rate 1.0.gif)
 
-<img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.02 Minimum Iterations - 100.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.1 Minimum Iterations - 100.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Search - Alpha 0.8 Minimum Iterations - 100.gif" width="250" height="250" />
+`r kfigr::figr(label = "bgd_converge", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Alpha = 1.0
 
-`r kfigr::figr(label = "bgd_search_by_alpha_100", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Search by Learning Rate - Minimum Iterations = 100
+So, how does the solution fit the training data? Great question!
 
-In each case, we see a longer path to convergence relative to those in `r kfigr::figr(label = "bgd_search_by_alpha", prefix = TRUE, link = TRUE, type="Figure")`. Learning rate 0.02 achieves a validation set cost of approximately 0.06 in 100 iterations. Increasing the learning rate to 0.1 reduces validation cost to about 0.03. We also see an interesting curve in the optimization path.  At about the 30th iteration, the gradient turns in the direction of the slope axis. Lastly, a learning rate of 0.8 produces validation set costs of about 0.02. Again, the gradient makes a turn in the direction of the slope early in the optimization process.  The majority of the cycles were spent optimizing in the slope direction.
+The `r kfigr::figr(label = "bgd_fit", prefix = TRUE, link = TRUE, type="Figure")` visualization illustrates the regression line fit vis-a-vis the 500 observations in our training set.   
 
-Let's see how these solutions fit the data.
+![](../report/figures/BGD/Lab/Batch Gradient Descent Fit Plot Learning Rate 1.0.gif)
 
-#### Fit by Learning Rate, Minimum Iterations = 100
-The regression lines in `r kfigr::figr(label = "bgd_fit_by_alpha_100", prefix = TRUE, link = TRUE, type="Figure")` show a marked improvement over those in `r kfigr::figr(label = "bgd_fit_by_alpha", prefix = TRUE, link = TRUE, type="Figure")`. 
+`r kfigr::figr(label = "bgd_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Fit
 
-<img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.02 Minimum Iterations - 100.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.1 Minimum Iterations - 100.gif" width="250" height="250" /><img src="../report/figures/BGD/Batch Gradient Descent Fit - Alpha 0.8 Minimum Iterations - 100.gif" width="250" height="250" />
+Actually, the solution doesn't present a very good fit to the data. What's happening here?
 
-`r kfigr::figr(label = "bgd_fit_by_alpha_100", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Fit by Learning Rate - Minimum Iterations = 100
+The challenge with this optimization problem is that of the *vanishing gradient*. This was intentionally introduced by setting the $\small \theta =[-1,-1]$. Since we assume home prices increase with area, the optimal solution would have a positive slope. Similarly, we don't have negative home prices, so the intercept would likely be positive as well. Setting the $\small \theta =[-1,-1]$ would *force* the gradient descent through a sign change.
 
-Here we see the effect of the learning rate when the number of iterations is fixed. Learning rate 0.02 was too small to make adequate progress within 100 iterations.  The situation was slightly better for learning rate 0.1. But our best result was with $\alpha=0.8$. We were able to obtain a reasonably good fit within 100 iterations. 
+Note the gradients (slope of the regression lines) in `r kfigr::figr(label = "bgd_fit", prefix = TRUE, link = TRUE, type="Figure")`. It starts with a *negative* slope, then slowly increases towards the point of zero slope, a.k.a. the point of the *vanishing gradient*. Since the step size is scaled by the magnitude of the gradient, the size of each step diminishes with gradient. Hence, the corresponding change in the cost function decays, ultimately to a value less than $\epsilon$ and the search stops. 
 
-### Key Take-Aways
-Let's recap the key points for batch gradient descent.   
+#### Refinement
+So, how do we remedy this situation? We can fix this by reducing our precision parameter, $\epsilon$, increasing the improvement parameter $i_{stop}$, or both. Let's rerun our gradient search, but this time, we'll expand our parameter space to include a range of $\epsilon$ and $i_{stop}$ values.  
 
-* The advantage of batch gradient descent vis-a-vis the other variants is the stability of the gradient and the quality of the gradient approximation.   
-* The disadvantages are:   
-  - The stable gradient may result in a suboptimal solution as batch gradient descent is susceptible to saddle points and local minima.   
-  - Convergence may be slow, especially for large data sets.    
-  - Memory intensive as the entire dataset must be memory resident.     
-  - In 'classic' batch gradient descent, learning rates are fixed and do not adjust to contours of the objective function.      
-* Learning rates determine not only step size, but convergence rate as well. Smaller learning rates tend to converge at slower rates.   
-* As a solution approaches convergence, the gradient becomes vanishingly small, effectively preventing the $\theta$'s from changing their values.  Consequently, changes in the gradient and objective function costs diminish to values approaching zero and the algorithm stops.     
-* One technique for dealing with vanishing gradient is to force the algorithm to process a preset minimum number of iterations. This hyperparameter can be set based upon available computation resources and time.               
+```{python bgd_gs_params_2, echo=T, eval=T}
+theta = np.array([-1,-1]) 
+alpha = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1]
+precision = [0.001, 0.0001]
+improvement = [5,10,15,20]
+maxiter = 10000
+```
+`r kfigr::figr(label = "bgd_gs_params_2", prefix = TRUE, link = TRUE, type="Code")`: Gridsearch II Parameters
 
-In the next section, we will update our GradientDescent module to support stochastic gradient descent.
+Ok, let's rerun our gridsearch and extract 
+
+```{python bgd_lab_II, echo=T, eval=T}
+lab = BGDLab()
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
+               maxiter=maxiter, improvement=improvement)
+bgd_report_filename='Batch Gradient Descent Gridsearch II Report.csv'
+bgd_report = lab.report(directory=directory, filename=bgd_report_filename)
+```
+`r kfigr::figr(label = "bgd_lab_II", prefix = TRUE, link = TRUE, type="Code")`: Batch Gradient Descent Gridsearch II
+
+
+```{r, bgd_best_alpha, echo=F, eval=T}
+bgd_report = read.csv(file.path(py$directory, py$bgd_report_filename))
+bgd_best = bgd_report %>% group_by(alpha) %>% slice(which.min(final_costs_val))
+rownames(bgd_best) <- NULL
+bgd_best['X'] <- NULL
+```
+
+`r kfigr::figr(label = "bgd_best_alpha_tbl", prefix = TRUE, link = TRUE, type="Table")` lists the best performing solutions by learning rate for `r nrow(bgd_report)` searches.
+
+`r kfigr::figr(label = "bgd_best_alpha_tbl", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Gridsearch II Best Performing Solutions by Learning Rate
+```{r, bgd_best_alpha_tbl, echo=F, eval=T}
+knitr::kable(bgd_best, digits = 4, format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
+```
+
+Once again, we observe the best performance from a quality and computation perspective with learning rate $\alpha=1.0$. By increasing our improvement parameter, $i_{stop}$ to 20 iterations, we've reduced validation set costs by nearly half, from $J\approx0.03$ to $J\approx0.017$.
+
+```{python bgd_demo_II, echo=F, eval=T}
+alpha = bgd_report.iloc[0]['alpha']
+precision = bgd_report.iloc[0]['precision']
+improvement = bgd_report.iloc[0]['improvement']
+bgd_search_filename = 'Batch Gradient Descent - Gridsearch II.gif'
+bgd_fit_filename = 'Batch Gradient Descent - Gridsearch II - Fit.gif'
+
+bgd = BGDDemo()
+bgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, precision=precision,
+        maxiter=maxiter, improvement=improvement)
+bgd.show_search(directory=directory, filename=bgd_search_filename, fps=1)
+bgd.show_fit(directory=directory, filename=bgd_fit_filename, fps=1)
+```
+
+![](../report/figures/BGD/Lab/Batch Gradient Descent - Gridsearch II.gif)
+
+`r kfigr::figr(label = "bgd_converge_II", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent II
+
+![](../report/figures/BGD/Lab/Batch Gradient Descent - Gridsearch II - Fit.gif)
+
+`r kfigr::figr(label = "bgd_fit_II", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent II Fit

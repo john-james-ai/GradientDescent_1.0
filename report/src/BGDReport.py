@@ -123,7 +123,8 @@ def bgd_ani(featured, filename=None, miniter=0, fontsize=None, cache=False):
             fontsize=fontsize)
 
 #%%
-report = bgd_gs()
+# report = bgd_gs()
+# print(report.head())
 # alpha = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1]
 # best_by_alpha = bgd_featured(report, alpha)
 # print(best_by_alpha.info())

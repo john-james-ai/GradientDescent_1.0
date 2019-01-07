@@ -46,15 +46,12 @@ class GradientDemo():
         self._y = None        
 
     def fit(self, X, y, theta, X_val=None, y_val=None, n=500, alpha=0.01, 
-            miniter=0, maxiter=10000, precision=0.001, stop_parameter='t',
-            stop_metric='r'):
+            maxiter=10000, precision=0.001, improvement=5):
 
         # Fit to data
         gd = BGD()
         gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, 
-               miniter=miniter, maxiter=maxiter, 
-               precision=precision, stop_parameter=stop_parameter,
-               stop_metric=stop_metric)
+               maxiter=maxiter, precision=precision, improvement=improvement)
 
         # Obtain search history detail
         self._search = gd.get_detail()
@@ -75,6 +72,7 @@ class GradientDemo():
         # Designate plot area
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111, projection='3d')
+        sns.set(style="whitegrid", font_scale=1)
 
         # Create index for n <= maxframes number of points
         idx = np.arange(0,self._search.shape[0])
@@ -82,7 +80,9 @@ class GradientDemo():
         nth = max(nth,1) 
         idx = idx[::nth]
 
-        # Create the x=theta0, y=theta1 grid for plotting]
+        # Create the x=theta0, y=theta1 grid for plotting
+        iterations = self._search['iterations']
+        costs = self._search['cost']     
         theta0 = self._search['theta_0']
         theta1 = self._search['theta_1']
 
@@ -101,8 +101,7 @@ class GradientDemo():
         Js = Js.reshape(theta0_mesh.shape)
 
         # Set Title
-        title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._summary['alpha'].item(),3)) + "\n" + \
-                'Stop Condition: ' + self._summary['stop'].item() 
+        title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._summary['alpha'].item(),3))
         if fontsize:
             ax.set_title(title, color='k', pad=30, fontsize=fontsize)                            
             display = ax.text2D(0.1,0.92, '', transform=ax.transAxes, color='k', fontsize=fontsize)
@@ -158,11 +157,11 @@ class GradientDemo():
         def animate(i):
             # Animate 3d Line
             line3d.set_data(theta0[:idx[i]], theta1[:idx[i]])
-            line3d.set_3d_properties(self._search['cost'][:idx[i]])
+            line3d.set_3d_properties(costs[:idx[i]])
 
             # Animate 3d points
             point3d.set_data(theta0[idx[i]], theta1[idx[i]])
-            point3d.set_3d_properties(self._search['cost'][idx[i]])
+            point3d.set_3d_properties(costs[idx[i]])
 
             # Animate 2d Line
             line2d.set_data(theta0[:idx[i]], theta1[:idx[i]])
@@ -173,9 +172,9 @@ class GradientDemo():
             point2d.set_3d_properties(0)
 
             # Update display
-            display.set_text('Epoch: '+ str(idx[i]) + r'$\quad\theta_0=$ ' +
+            display.set_text('Iteration: '+ str(iterations[idx[i]]) + r'$\quad\theta_0=$ ' +
                             str(round(theta0[idx[i]],3)) + r'$\quad\theta_1=$ ' + str(round(theta1[idx[i]],3)) +
-                            r'$\quad J(\theta)=$ ' + str(np.round(self._search['cost'][idx[i]], 5)))
+                            r'$\quad J(\theta)=$ ' + str(np.round(costs[idx[i]], 5)))
 
 
             return(line3d, point3d, line2d, point2d, display)
@@ -185,8 +184,7 @@ class GradientDemo():
                                             interval=interval, blit=True, repeat_delay=3000)
         if directory is not None:
             if filename is None:
-                filename = self._alg + ' Search Plot Learning Rate ' + str(round(self._summary['alpha'].item(),3)) + \
-                    ' Stop Condition ' + self._summary['stop'].item() + '.gif'              
+                filename = self._alg + ' Search Plot Learning Rate ' + str(round(self._summary['alpha'].item(),3)) +  '.gif'
             save_gif(surface_ani, directory, filename, fps)
         plt.close(fig)
         return(surface_ani)
@@ -206,30 +204,32 @@ class GradientDemo():
         X = self._X
         y = self._y
         x = X[X.columns[1]]
+        iterations = self._search['iterations']
+        costs = self._search['cost']        
         theta0 = self._search['theta_0']
         theta1 = self._search['theta_1']
         theta = np.array([theta0, theta1])
 
         # Render scatterplot
         fig, ax = plt.subplots(figsize=(12,8))
+        sns.set(style="whitegrid", font_scale=1)
         sns.scatterplot(x=x, y=y, ax=ax)
         # Set face, tick,and label colors 
         ax.set_facecolor('w')
         ax.tick_params(colors='k')
         ax.xaxis.label.set_color('k')
         ax.yaxis.label.set_color('k')
-        ax.set_ylim(-1,2)
+        ax.set_ylim(-2,2)
         # Initialize line
         line, = ax.plot([],[],'r-', lw=2)
         # Set Title, Annotations and label
-        title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._summary['alpha'].item(),3)) + "\n" + \
-                'Stop Condition: ' + self._summary['stop'].item()  
+        title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._summary['alpha'].item(),3)) 
         if fontsize:
             ax.set_title(title, color='k', fontsize=fontsize)                                    
             display = ax.text(0.1, 0.9, '', transform=ax.transAxes, color='k', fontsize=fontsize)
         else:
             ax.set_title(title, color='k')                                    
-            display = ax.text(0.2, 0.9, '', transform=ax.transAxes, color='k')
+            display = ax.text(0.35, 0.9, '', transform=ax.transAxes, color='k')
         ax.set_xlabel('X')
         ax.set_ylabel('y')
         fig.tight_layout()
@@ -248,9 +248,9 @@ class GradientDemo():
             line.set_data(x,y)
 
             # Animate text
-            display.set_text('Epoch: '+ str(idx[i]) + r'$\quad\theta_0=$ ' +
+            display.set_text('Iteration: '+ str(iterations[idx[i]]) + r'$\quad\theta_0=$ ' +
                             str(round(theta0[idx[i]],3)) + r'$\quad\theta_1=$ ' + str(round(theta1[idx[i]],3)) +
-                            r'$\quad J(\theta)=$ ' + str(round(self._search['cost'][idx[i]], 3)))
+                            r'$\quad J(\theta)=$ ' + str(round(costs[idx[i]], 3)))
             return (line, display)
 
         # create animation using the animate() function
@@ -258,8 +258,7 @@ class GradientDemo():
                                             interval=interval, blit=True, repeat_delay=3000)
         if directory is not None:
             if filename is None:
-                filename = title = self._alg + ' Fit Plot Learning Rate ' + str(round(self._summary['alpha'].item(),3)) + \
-                    ' Stop Condition ' + self._summary['stop'].item() + '.gif'  
+                filename = title = self._alg + ' Fit Plot Learning Rate ' + str(round(self._summary['alpha'].item(),3)) + '.gif'  
             save_gif(line_gd, directory, filename, fps)
         plt.close(fig)  
         return(line_gd)
@@ -293,15 +292,12 @@ class SGDDemo(GradientDemo):
         self._y = None     
 
     def fit(self, X, y, theta, X_val=None, y_val=None, n=500, alpha=0.01, 
-            miniter=0, maxiter=10000, check_point=0.1, precision=0.001, stop_parameter='t',
-            stop_metric='r'):
+            maxiter=10000, precision=0.001, improvement=5):
 
         # Fit to data
         gd = SGD()
         gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, 
-               miniter=miniter, maxiter=maxiter, check_point=check_point,
-               precision=precision, stop_parameter=stop_parameter,
-               stop_metric=stop_metric)
+               maxiter=maxiter,  precision=precision, improvement=improvement)
 
         # Obtain search history detail
         self._search = gd.get_detail()
