@@ -49,7 +49,6 @@ While stopping condition is not met
   thetas = update(thetas, learning_rate, gradient)
 return (thetas)
 ```
-`r kfigr::figr(label = "gd_algorithm", prefix = TRUE, link = TRUE, type="Code")`: Gradient Descent Algorithm
 
 ### Implementation
 Now, we will build the batch gradient descent class that will be used to solve our challenge problem. Before we start getting our code on, let's establish a few design considerations.
@@ -92,7 +91,6 @@ class BGD(GradientDescent):
     def __init__(self):
       pass    
 ```
-`r kfigr::figr(label = "class_init", prefix = TRUE, link = TRUE, type="Code")` Class Initialization
 
 Now, lets define the base classes that will be inherited by the specific batch, stochastic, and mini-batch implementations.
 
@@ -104,7 +102,6 @@ Thus our hypothesis method would simply be the dot product of our inputs $X^T$ a
 def _hypothesis(self, X, theta):
         return(X.dot(theta))
 ```
-`r kfigr::figr(label = "hypothesis_bgd", prefix = TRUE, link = TRUE, type="Code")` Hypothesis Method
 
 #### Error Method
 Since we'll need the error for both the cost and gradient computation, let's create a method that implements:
@@ -114,7 +111,6 @@ Taking the hypothesis from the previous method and y, we have:
 def _error(self, h, y):
         return(h-y)
 ```
-`r kfigr::figr(label = "error_bgd", prefix = TRUE, link = TRUE, type="Code")` Error Method
 
 #### Cost Method
 Recall our cost function is:
@@ -124,7 +120,6 @@ Our method simply takes half of the mean squared error as follows:
 def _cost(self, e):
         return(1/2 * np.mean(e**2))
 ```
-`r kfigr::figr(label = "cost_bgd", prefix = TRUE, link = TRUE, type="Code")` Cost Method
 
 #### Gradient Method
 Next, we compute the gradient from:
@@ -138,7 +133,6 @@ This is a vector valued function. This means that it returns a vector of size $n
 def _gradient(self, X, e):
         return(X.T.dot(e)/X.shape[0])
 ```
-`r kfigr::figr(label = "gradient_bgd", prefix = TRUE, link = TRUE, type="Code")` Gradient Method
 
 #### Update Method
 Our update function, you recall, looks like this.
@@ -148,47 +142,35 @@ Our update method is therefore:
 def _update(self, alpha, theta, gradient):
         return(theta-(alpha * gradient))
 ```
-`r kfigr::figr(label = "update_bgd", prefix = TRUE, link = TRUE, type="Code")` Update Method
 
 #### Finished Method
-This method determines when the algorithm should stop. Again, we stop if the maximum number of iterations has been reached, or the absolute or relative change in our stopping measure has fallen below our precision parameter. If a minimum number of iterations is set, then the algorithm continues until that minimum is reached. We'll store the current state of the search in a dictionary.  It will contain the current iteration as well as the current and prior values of our evaluation parameter.
+This method determines when the algorithm should stop. The algorithm stops of a maximum number of iterations has been reached, or there has been no improvement in the objective function over $i_{stop}$ iterations in a row.
 
 ```{python, finished, echo=T, eval=F}
-def _finished(self, state, miniter, maxiter, stop_metric, precision):
-    if miniter:
-        if miniter <= state['iteration']:
-            if self._maxed_out(state['iteration']):
-                return(True)
-            elif stop_metric == 'a':
-                return(abs(state['prior']-state['current']) < precision)
-            else:
-                return(abs(state['prior']-state['current'])/abs(state['prior']) < precision)     
-    else:                    
-        if self._maxed_out(state['iteration']):
+def _finished(self, state, maxiter, precision, improvement):
+    if state['iteration'] == maxiter:
+        return(True)        
+    if abs(state['prior']-state['current']) < precision:
+        self._iter_no_change += 1
+        if self._iter_no_change >= improvement:
             return(True)
-        elif stop_metric == 'a':
-            return(abs(state['prior']-state['current']) < precision)
-        else:
-            return(abs(state['prior']-state['current'])/abs(state['prior']) < precision)     
+    else:
+        self._iter_no_change = 0   
 
 ```
-`r kfigr::figr(label = "finished_bgd", prefix = TRUE, link = TRUE, type="Code")` Finished Method
+
 
 we will also have a method that updates the state dictionary on each iteration. 
 ```{python, update_state, echo=T, eval=F}
-def _update_state(self,state, iteration, J, J_val, g):
+def _update_state(self,state, cross_validated, iteration, J, J_val):
     state['iteration'] = iteration
     state['prior'] = state['current']
-    if stop_parameter == 't':   # t for training Set Costs
-        state['current'] = J
-    elif stop_parameter == 'v': # v for validation set costs
+    if cross_validated:
         state['current'] = J_val
-    else:                       # gradient
-        state['current'] = np.sqrt(np.sum(abs(g)**2)) # Computes the norm of the gradient
-    return(state)  
-
+    else:
+        state['current'] = J
+    return(state)
 ```
-`r kfigr::figr(label = "update_state", prefix = TRUE, link = TRUE, type="Code")` Update State
 
 Now, we can define the fit method for our BGD class.
 
@@ -200,8 +182,8 @@ class BGD(GradientDescent):
       pass
 
   def fit(self, X, y, theta, X_val=None, y_val=None, 
-             alpha=0.01, miniter=0, maxiter=0, precision=0.001,
-             stop_measure='j', stop_metric='a', max_costs=100):
+             alpha=0.01, maxiter=0, precision=0.001,
+             improvement=5):
              
       state = {'iteration':0, 'prior':1, 'current':5}
       J_val = None
@@ -209,7 +191,7 @@ class BGD(GradientDescent):
       # Set cross-validated flag if validation set included 
       cross_validated = all(v is not None for v in [X_val, y_val])
   
-      while not self._finished(state, miniter, maxiter, stop_metric, precision):
+      while not self._finished(state, maxiter, precision, improvement):
           iteration += 1
   
           # Compute the costs and validation set error (if required)
@@ -223,7 +205,7 @@ class BGD(GradientDescent):
             e_val = self._error(h_val, y_val)
             J_val = self._cost(e_val)                
             
-          state = self._update_state(state, iteration, J, J_val, g)          
+          state = self._update_state(state, cross_validated, iteration, J, J_val)          
           
           theta = self._update(alpha, theta, g)
   
@@ -234,7 +216,7 @@ class BGD(GradientDescent):
   
       return(d)
 ```
-`r kfigr::figr(label = "fit_bgd", prefix = TRUE, link = TRUE, type="Code")` Fit Method
+
 Once we've initialized some variables, we iteratively:    
 
 1. compute training set cost and gradient,   
@@ -263,7 +245,6 @@ precision = [0.001]
 improvement = [5]
 maxiter = 10000
 ```
-`r kfigr::figr(label = "bgd_gs_params", prefix = TRUE, link = TRUE, type="Code")` Gridsearch Parameters
 
 #### The Data
 Our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples make up the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
@@ -272,7 +253,6 @@ So, let's grab our data. We have a small function that was created to randomly s
 ```{python bgd_gs_data, echo=T, eval=T}
 X, X_val, y, y_val = data.demo(n=500)
 ```
-`r kfigr::figr(label = "bgd_gs_data", prefix = TRUE, link = TRUE, type="Code")` Batch Gradient Descent Gridsearch Data
 
 Gradient descent is sensitive to feature scaling so let's scale our data to the range [0,1] using sklearn's preprocessing module.
 ```{python bgd_scale, echo=T, eval=F}
@@ -283,7 +263,6 @@ X_val = scaler.fit_transform(X_val)
 y = scaler.fit_transform(y)
 y_val = scaler.fit_transform(y_val)
 ```
-`r kfigr::figr(label = "bgd_scale", prefix = TRUE, link = TRUE, type="Code")` Batch Gradient Descent Gridsearch Data Scaling
 
 Now that we have our scaled data, lets run our gridsearch.
 
@@ -298,7 +277,6 @@ bgd_detail = lab.get_detail()
 bgd_report_filename='Batch Gradient Descent Gridsearch Report.csv'
 bgd_report = lab.report(directory=directory, filename=bgd_report_filename)
 ```
-`r kfigr::figr(label = "bgd_lab", prefix = TRUE, link = TRUE, type="Code")` Batch Gradient Descent Gridsearch 
 
 #### Learning Rate Analysis
 As a first step in our analysis, let's examine the speed and accuracy with which each learning rate converges. 
@@ -377,9 +355,8 @@ precision = [0.001, 0.0001]
 improvement = [5,10,15,20]
 maxiter = 10000
 ```
-`r kfigr::figr(label = "bgd_gs_params_2", prefix = TRUE, link = TRUE, type="Code")`: Gridsearch II Parameters
 
-Ok, let's rerun our gridsearch and extract 
+Ok, let's rerun our gridsearch. 
 
 ```{python bgd_lab_II, echo=T, eval=T}
 lab = BGDLab()
@@ -388,8 +365,6 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, pre
 bgd_report_filename='Batch Gradient Descent Gridsearch II Report.csv'
 bgd_report = lab.report(directory=directory, filename=bgd_report_filename)
 ```
-`r kfigr::figr(label = "bgd_lab_II", prefix = TRUE, link = TRUE, type="Code")`: Batch Gradient Descent Gridsearch II
-
 
 ```{r, bgd_best_alpha, echo=F, eval=T}
 bgd_report = read.csv(file.path(py$directory, py$bgd_report_filename))
@@ -406,7 +381,7 @@ knitr::kable(bgd_best, digits = 4, format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
 ```
 
-Once again, we observe the best performance from a quality and computation perspective with learning rate $\alpha=1.0$. By increasing our improvement parameter, $i_{stop}$ to 20 iterations, we've reduced validation set costs by nearly half, from $J\approx0.03$ to $J\approx0.017$.
+Once again, we observe the best performance from a quality and computation perspective with learning rate $\alpha=1.0$. By increasing our improvement parameter, $i_{stop}$ to 20 iterations, and lowering our precision parameter to $\epsilon=0.0001$, we've reduced validation set costs by nearly half, from $J\approx0.03$ to $J\approx0.017$.
 
 ```{python bgd_demo_II, echo=F, eval=T}
 alpha = bgd_report.iloc[0]['alpha']
@@ -426,6 +401,19 @@ bgd.show_fit(directory=directory, filename=bgd_fit_filename, fps=1)
 
 `r kfigr::figr(label = "bgd_converge_II", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent II
 
+The optimization path in `r kfigr::figr(label = "bgd_converge_II", prefix = TRUE, link = TRUE, type="Figure")` differs from that in `r kfigr::figr(label = "bgd_converge", prefix = TRUE, link = TRUE, type="Figure")` in one very important respect. Significantly more cycles were spent optimizing in the direction of the slope $\theta_1$. Let's see how batch gradient descent fits the data with this parameter set. 
+
+
 ![](../report/figures/BGD/Lab/Batch Gradient Descent - Gridsearch II - Fit.gif)
 
 `r kfigr::figr(label = "bgd_fit_II", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent II Fit
+
+Indeed, we observe a much better fit than seen in `r kfigr::figr(label = "bgd_fit", prefix = TRUE, link = TRUE, type="Figure")`. Refining our stopping criteria gave the algorithm more optimization time, resulting in a better fit to the training data and better accuracy on the validation set.
+
+### Key Takeaways
+Let's review the key ideas and our observations.
+
+* Batch gradient descent differs from other gradient descent variants in that it updates the parameters $\theta$ after computing the gradient on the entire training set.   
+* The key advantage is that it produces a better, more stable approximation of the gradient.    
+* The primary disadvantage is computational. It often results in slower convergence, especially for large datasets. It is also memory intensive since the entire training set must be memory resident.    
+* Tuning 'classic' batch gradient descent is largely a matter of experimentation with various learning rates. But, we've seen the importance of giving the algorithm the time to find its optimum. Our stopping criteria enables us to balance the need for, and availability of, optimization time.
