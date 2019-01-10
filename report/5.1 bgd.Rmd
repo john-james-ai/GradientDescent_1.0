@@ -16,12 +16,12 @@ formatNumber: function (n) {return ''+n}
 ```{python GradientLab, code=readLines('../src/GradientLab.py'), message=FALSE, warning=FALSE}
 ```
 
-```{python defaults, echo=F, eval=T}
+```{python bgd_defaults, echo=F, eval=T}
 directory = "./report/figures/BGD/Lab"
 ```
 
 ## Batch Gradient Descent 
-Batch gradient descent updates the parameters $\theta$ after computing the gradient on the entire training set. This is the key difference between batch gradient descent and its variants. 
+Batch gradient descent (BGD) updates the parameters $\theta$ after computing the gradient on the entire training set. This is the key difference between batch gradient descent and its variants. 
 
 The advantage of computing the gradient on the entire dataset is that it produces a better, more stable approximation of the gradient. 
 
@@ -62,12 +62,21 @@ Our GradientDescent class will need the following methods:
 * update - computes the updates to the $\theta$'s in the direction of greatest descent.    
 * fit - conducts the search until stopping conditions are met     
 
+We will support the following learning rate schedules:   
+
+* constant learning rate, value = 'c',        
+* time decay learning rates, value = 't',       
+* step decay learning rates, value = 's',          
+* exponential decay learning rates, value = 'e'.          
+
+Therefore, we will need a method which updates the learning rate on each epoch accordingly. 
+
 With respect to stopping criteria, we would want to stop the algorithm when one or more of the following conditions are met:    
 
 * The number of iterations has reached a preset maximum,     
-* The convergence hasn't improved in $\iota$ iterations in a row,       
+* Convergence hasn't improved in $i_{stop}$ consecutive iterations.
 
-Convergence is checked once per epoch against a validation set (if provided), or the training set. The improvement in convergence is evaluated with a precision parameter $\epsilon$.
+Convergence is checked once per epoch. If no validation set is provided, training set costs will be the metric by which we determine whether improvement is extant.  If a validation set is provided, our metric will be validation set mean squared error. The improvement in convergence is evaluated with a precision parameter $\epsilon$.
 
 Lastly, since we will be building SGD and Minibatch Gradient Descent classes, we may want to create an abstract base class that contains the core functions used in the computation.
 
@@ -121,6 +130,17 @@ def _cost(self, e):
         return(1/2 * np.mean(e**2))
 ```
 
+#### MSE Method
+This method computes validation set error. For regression our metric will be mean squared error, computed as:    
+$$MSE=\frac{1}{m}\displaystyle\sum_{i=1}^m(h_\theta(x^{(i)})-y^{(i)})^2$$
+Therefore, our validation set MSE method is as follows:
+```{python mse, echo=T, eval=F}
+def _mse(self, X, y, theta):
+    h = self._hypothesis(X, theta)
+    e = self._error(h,y)
+    return(np.mean(e**2))
+```
+
 #### Gradient Method
 Next, we compute the gradient from:
 $$
@@ -134,13 +154,31 @@ def _gradient(self, X, e):
         return(X.T.dot(e)/X.shape[0])
 ```
 
-#### Update Method
+#### Parameter Update Method
 Our update function, you recall, looks like this.
 $$\theta_j^{k+1} := \theta_j^k - \alpha \nabla_\theta J$$
 Our update method is therefore:
 ```{python update_bgd, echo=T, eval=F}
-def _update(self, alpha, theta, gradient):
-        return(theta-(alpha * gradient))
+def _update(self, theta, learning_rate, gradient):
+        return(theta-(learning_rate * gradient))
+```
+
+
+#### Update Learning Rate Method
+This method updates the learning rate in accordance with the learning rate hyperparameters.
+```{python update_learning_rate, echo=T, eval=F}
+def _update_learning_rate(self, learning_rate_init, learning_rate_schedule, learning_rate, 
+                          time_decay, step_decay, step_epochs, exp_decay, epoch):
+
+    if learning_rate_sched == 'c':  # Constant learning rate
+        learning_rate_new = learning_rate
+    elif learning_rate_sched == 't':  # Time decay learning rate
+        learning_rate_new = learning_rate_init/(1+time_decay*epoch)            
+    elif learning_rate_sched == 's':  # Step decay learning rate
+        learning_rate_new = learning_rate_init*math.pow(step_decay, math.floor((1+epoch)/step_epochs))
+    elif learning_rate_sched == 'e':  # Exponential decay learning rate
+        learning_rate_new = learning_rate_init * math.exp(-exp_decay*epoch)
+    return(learning_rate_new)
 ```
 
 #### Finished Method
@@ -154,19 +192,22 @@ def _finished(self, state, maxiter, precision, improvement):
         self._iter_no_change += 1
         if self._iter_no_change >= improvement:
             return(True)
+        else:
+            return(False)
     else:
         self._iter_no_change = 0   
+        return(False)
 
 ```
 
 
 we will also have a method that updates the state dictionary on each iteration. 
 ```{python, update_state, echo=T, eval=F}
-def _update_state(self,state, cross_validated, iteration, J, J_val):
+def _update_state(self,state, cross_validated, iteration, J, mse):
     state['iteration'] = iteration
     state['prior'] = state['current']
     if cross_validated:
-        state['current'] = J_val
+        state['current'] = mse
     else:
         state['current'] = J
     return(state)
@@ -181,48 +222,57 @@ class BGD(GradientDescent):
   def __init__(self):
       pass
 
-  def fit(self, X, y, theta, X_val=None, y_val=None, 
-             alpha=0.01, maxiter=0, precision=0.001,
-             improvement=5):
+  def fit(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
+          learning_rate_sched = 'c', time_decay=None, step_decay=None,
+          step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
+          no_improvement_stop=5, scaler='minmax'):
              
-      state = {'iteration':0, 'prior':1, 'current':5}
-      J_val = None
-  
-      # Set cross-validated flag if validation set included 
-      cross_validated = all(v is not None for v in [X_val, y_val])
-  
-      while not self._finished(state, maxiter, precision, improvement):
-          iteration += 1
-  
-          # Compute the costs and validation set error (if required)
-          h = self._hypothesis(X, theta)
-          e = self._error(h, y)
-          J = self._cost(e)
-          g = self._gradient(X, e)
-  
-          if cross_validated:
-            h_val = self._hypothesis(X_val, theta)
-            e_val = self._error(h_val, y_val)
-            J_val = self._cost(e_val)                
-            
-          state = self._update_state(state, cross_validated, iteration, J, J_val)          
-          
-          theta = self._update(alpha, theta, g)
+        # Initialize search variables
+        iteration = 0
+        self._iter_no_change = 0
+        
+        # Initialize State 
+        state = {'prior':1, 'current':10, 'iteration':0}
+        
+        # Set cross-validated flag if validation set included 
+        cross_validated = all(v is not None for v in [X_val, y_val])        
+        
+        while not self._finished(state):
+            iteration += 1
+            mse = None
+
+            # Compute the costs and validation set error (if required)
+            h = self._hypothesis(self._X, theta)
+            e = self._error(h, self._y)
+            J = self._cost(e)
+            if cross_validated:
+                mse = self._mse(X_val, y_val, theta)            
+
+            # Compute gradient
+            g = self._gradient(self._X, e)
+
+            # Update thetas 
+            theta = self._update(theta, learning_rate, g)
+
+            # Update learning rate
+            learning_rate = self._update_learning_rate(learning_rate, iteration)
+
+            # Update state vis-a-vis training set costs and validation set mse 
+            state = self._update_state(state, iteration, J, mse)
   
       d = dict()
       d['theta'] = theta
       d['J'] = J
-      d['J_val'] = J_val
+      d['mse'] = mse
   
       return(d)
 ```
 
 Once we've initialized some variables, we iteratively:    
 
-1. compute training set cost and gradient,   
-2. compute validation set cost if we are using a cross-validation set,        
-3. update our state dictionary, then    
-4. perform the $\small\theta$ update.    
+1. compute training set cost, gradient, and validation set MSE if cross_validated      
+2. update the thetas     
+3. update the learning rate according to the learning rate schedule     
 
 Once convergence criteria are met, we return our thetas and costs.
 
@@ -231,7 +281,10 @@ That's it, for the most part. The complete class definitions are available at ht
 Next, we will learn how to set the hyperparameters that will determine algorithm performance.
 
 ### Tuning Batch Gradient Descent
-Batch gradient descent is parameterized most essentially by the learning rate, $\alpha$. In this section, we will use a gridsearch technique to explore the algorithms behavior for a range of learning rates. Our implementation is also parameterized by:    
+Batch gradient descent is parameterized most essentially by the learning rate, $\alpha$. In this section, we will use a gridsearch technique to explore the algorithms behavior for a range of learning rates. We will also examine performance for time decay, step decay, and exponential decay learning rates.  
+
+Our implementation is also parameterized by:    
+
 * $\theta$: Our initial guess at our parameters     
 * $i_{max}$: The maximum number of iterations to execute,    
 * $i_{stop}$: The number of consecutive iterations of 'non-improvement' required to stop the algorithm.   
@@ -240,7 +293,6 @@ Batch gradient descent is parameterized most essentially by the learning rate, $
 To isolate learning rate effects, we'll fix these *secondary* parameters as follows.
 ```{python bgd_gs_params, echo=T, eval=T}
 theta = np.array([-1,-1]) 
-alpha = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1]
 precision = [0.001]
 improvement = [5]
 maxiter = 10000
@@ -270,7 +322,7 @@ Now that we have our scaled data, lets run our gridsearch.
 A class,  BGDLab, was created to perform our gridsearch. Let's instantiate the class, run the gridsearch and obtain some diagnostic information. 
 ```{python bgd_lab, echo=T, eval=T}
 lab = BGDLab()
-lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, precision=precision,
                maxiter=maxiter, improvement=improvement)
 bgd_summary = lab.summary()
 bgd_detail = lab.get_detail()   
@@ -295,9 +347,9 @@ In general, the algorithm is behaving as expected. Higher learning rates correla
 Let's take a closer look at final training set costs and computation times.
 
 ```{python bgd_alpha_costs, echo=F, eval=T}
-lab.figure(data=bgd_summary, x='alpha', y='final_costs',
+lab.figure(data=bgd_summary, x='learning_rate', y='final_costs',
            func=lab.barplot, directory=directory, width=0.5)   
-lab.figure(data=bgd_summary, x='alpha', y='duration',
+lab.figure(data=bgd_summary, x='learning_rate', y='duration',
            func=lab.barplot, directory=directory, width=0.5)              
 ```
 
@@ -309,19 +361,20 @@ bgd_report = read.csv(file.path(py$directory, py$bgd_report_filename))
 bgd_best = bgd_report[1,]
 ```
 
-Indeed, larger learning rates within our parameter space performed better from both a quality and time perspective. In fact, our best performing learning rate was actually `r bgd_best['alpha']`. It produced a validation set final cost of `r bgd_best['final_costs_val']`.
+Indeed, larger learning rates within our parameter space performed better from both a quality and time perspective. In fact, our best performing learning rate was actually `r bgd_best['learning_rate']`. It produced a validation set final cost of `r bgd_best['final_mse']`.
 
 Let's evaluate the convergence and fit of this solution.
 
 #### Evaluation
 The `r kfigr::figr(label = "bgd_converge", prefix = TRUE, link = TRUE, type="Figure")` visualization reveals the path of the $\theta$'s to approximate convergence. The oscillation around the minimum is emblematic of high learning rate gradient descent. Approximate convergence was obtained in 7 iterations, presenting a final training set cost $J\approx0.03$.
 ```{python bgd_demo, echo=F, eval=T}
-alpha = bgd_report.iloc[0]['alpha']
+learning_rate = bgd_report.iloc[0]['learning_rate']
 precision = bgd_report.iloc[0]['precision']
 improvement = bgd_report.iloc[0]['improvement']
 
 bgd = BGDDemo()
-bgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, precision=precision,
+bgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
+        learning_rate=learning_rate, precision=precision,
         maxiter=maxiter, improvement=improvement)
 bgd.show_search(directory=directory, fps=1)
 bgd.show_fit(directory=directory, fps=1)
@@ -368,7 +421,7 @@ bgd_report = lab.report(directory=directory, filename=bgd_report_filename)
 
 ```{r, bgd_best_alpha, echo=F, eval=T}
 bgd_report = read.csv(file.path(py$directory, py$bgd_report_filename))
-bgd_best = bgd_report %>% group_by(alpha) %>% slice(which.min(final_costs_val))
+bgd_best = bgd_report %>% group_by(alpha) %>% slice(which.min(final_mse))
 rownames(bgd_best) <- NULL
 bgd_best['X'] <- NULL
 ```

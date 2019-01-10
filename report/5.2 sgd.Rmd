@@ -15,14 +15,15 @@ formatNumber: function (n) {return ''+n}
 ```
 ```{python GradientLab, code=readLines('../src/GradientLab.py'), message=FALSE, warning=FALSE}
 ```
-```{python SGDReport, code=readLines('../report/src/SGDReport.py'), message=FALSE, warning=FALSE}
-```
 
+```{python sgd_defaults, echo=F, eval=T}
+directory = "./report/figures/SGD/Lab"
+```
 ## Stochastic Gradient Descent 
 Stochastic gradient descent (SGD), in constrast to batch gradient descent, performs a parameter update for *each* training example $x^{(i)}$ and label $y^{(i)}$:
 
 $$\theta_j := \theta_j-\alpha \nabla_\theta J(\theta, x^{(i)};y^{(i)}).$$
-Since SGD updates occur with each observation, the path towards convergence has higher variance than does the path in batch gradient descent. This additional 'noise' in the convergence can be a benefit when optimizing non-convex objective functions. The variability enables SGD to avoid some local minimums and escape some saddle points. On the other hand, the variance in SGD complicates the convergence and it may be difficult to determine whether the algorithm is converging each iteration. Therefore, we have to modify the way we check for convergence.  Rather than evaluating the costs after each iteration, we average the costs over a predeterimined number of observations. If the change in average costs drops below our precision threshold, we may say that the algorithm has arrived at the approximate minimum. Alternatively, we may use validation set costs, computed each $n$ observations.
+On the other hand, the variance in SGD complicates the convergence and it may be difficult to determine whether the algorithm is converging each iteration. Therefore, we have to modify the way we check for convergence.  Rather than evaluating the costs after each iteration, we average the costs over a predeterimined number of observations. If the change in average costs drops below our precision threshold, we may say that the algorithm has arrived at the approximate minimum. Alternatively, we may use validation set costs, computed each $n$ observations.
 
 ### Advantages of Stochastic Gradient Descent
 The primary advantages of stochastic gradient descent are time complexity for large data sets, and convergence in certain non-convex machine learning models.
@@ -31,7 +32,11 @@ The primary advantages of stochastic gradient descent are time complexity for la
 Since only one data point is used per iteration, it takes only $O(n)$ time. To process an entire epoch of stochastic gradient descent takes approximately the same amount of time as just one iteration of *batch* gradient descent. The question then becomes, which algorithm performs better, $k$ epochs of stochastic gradient descent or $k$ iterations of gradient descent. With extremely large datasets stochastic gradient descent comes out as the clear winner. Consider a dataset with 1 billion data points.  Gradient descent performs a sum over all data points to perform a single update. Stochastic gradient descent makes progress on each training example and converges much faster than gradient descent. When computational resources are the bottleneck, stochastic gradient descent is the dominant paradigm in modern large-scale machine learning.
 
 #### Non-Convex Convergence
-Optimizing a non-convex function is challenging in two respects. First, non-convex functions may have many local minima and it may be difficult to find the global minimum among them. Second, even finding a local minimum may be difficult due to the presence of saddle points which have a zero-gradient, but are not local minima. Let's be clear. There is no algorithm that guarantees convergence of non-convex objective functions to a global minimum. That said, the randomness in stochastic gradient descent can help the algorithm escape from saddle points [@Ge2015]. Here's why.
+Optimizing a non-convex function is challenging in two respects. First, non-convex functions may have many local minima and it may be difficult to find the global minimum among them. Second, even finding a local minimum may be difficult due to the presence of saddle points which have a zero-gradient, but are not local minima. 
+
+Let's be clear. There is no algorithm that guarantees convergence of non-convex objective functions to a global minimum. 
+
+That said, the frequency with which SGD performs its updates results in higher variance and in additional 'noise' in the convergence path.  This randomness enables SGD to avoid some local minimums and escape some saddle points [@Ge2015]. Here's why.
 
 ![](../report/figures/Saddle_point.svg.png) 
 Saddle Point. Digital Image. Nicoguaro https://commons.wikimedia.org/wiki/File:Saddle_point.svg
@@ -40,6 +45,8 @@ Saddle Point. Digital Image. Nicoguaro https://commons.wikimedia.org/wiki/File:S
 Consider the saddle point in   `r kfigr::figr(label = "saddle_point", prefix = TRUE, link = TRUE, type="Figure")`. The key observation is that the saddle point is actually very unstable. If you were to nudge the red dot slightly in any direction, it is likely to fall off the saddle point. Stochastic gradient descent's inherent noise is the nudge that pushes the red dot off the zero gradient saddle point. 
 
 ### Challenges of Stochastic Gradient Descent
+
+
 The most challenging aspect of stochastic gradient descent is selection of the learning rate. As with batch gradient descent, a learning rate that is too small will retard convergence.  One that is too large may explode the gradient or prevent the algorithm from converging all together. But the learning rate plays an additional role with SGD. Learning rates tend to suppress or amplify the inherent noise in the gradient. As such, the SGD learning rate has a greater effect on the behavior of the gradient. 
 
 A practitioner may designate a constant learning rate, a learning rate schedule (annealing), or an adaptive learning rate. A constant learning rate, the default in the Keras SGD optimizer, requires experimentation with a range of learning rates in order to achieve suitable performance. Learning rate schedules, such as time-based decay, step decay, and exponential decay, adjust the learning rate according to the number of iterations or epochs. The hyperperameters for the learning rate schedule must be defined a-priori. Another challenge is that the learning rate applies to all parameters during the parameter update. Adaptive learning rate methods such as Adagrad, Adadelta, RMSProp, and Adam are gradient descent optimization algorithms have performed well vis-a-vis learning rate schedule and constant learning rate methods. They will be discussed later in this series. 
@@ -53,15 +60,10 @@ The pseudocode for the SGD algorithm looks like this.
 ```{r eval=F, echo=T, tidy=F}
 randomly initialize parameters theta, 
 set learning rate, maximum interations, and precision
-Set check_point, the number or proportions of total observations that are processed between convergence checks. 
-Repeat until approximate minimum is obtained
+Repeat until approximate convergence
     Randomly shuffle the training set
     For i = 1,2,.., m do:
         costs += compute_costs(data, thetas)
-        if i % check_point == 0:
-          mean_cost = mean(costs)
-          if change in mean costs < precision
-            stop
         grad = evaluate_gradient(data, thetas)
         thetas = thetas - learning rate * grad
 return(thetas)
@@ -70,23 +72,6 @@ return(thetas)
 
 ### Implementation
 Our implementation will be a subclass of our GradientDescent base class created in the prior section. Before we get into the weeds, let's align on a few design considerations. 
-
-#### Design Considerations   
-Convergence Checking:   
-
-* Checking convergence on each iteration is intractable.  Instead, we will check convergence each $n_{cp}$ observations. 
-  - where $cp$ is the proportion of observations for $cp<1$ otherwise an integer representing the number of observations
-* Training set costs will be *averaged* over the $c$ observations.    
-* Validation set costs will be computed each $n$ observations.    
-
-Our stopping criteria are the same as that of batch gradient descent. We stop the algorithm when one or more of the following conditions are met:
-
-* The number of iterations has reached a preset maximum,     
-* The number of iterations has reached a preset minimum and,     
-* The relative or absolute change in the training set costs have fallen below a preset precision, or         
-* The relative or absolute change in the validation set costs have fallen below a preset precision, or       
-* The relative or absolute change in the gradient has fallen below a preset precision, or               
-* The validation set costs has reached a preset maximum (in the case the algorithm starts to diverge).     
 
 #### GradientDescent Abstract Base Class
 In case you are just joining us, the abstract base class for SGD is as follows:
@@ -117,307 +102,209 @@ class GradientDescent(ABC):
     def _update(self, alpha, theta, gradient):
         return(theta-(alpha * gradient))        
         
-    def _finished(self, state, miniter, maxiter, stop_metric, precision):
-      if miniter:
-          if miniter <= state['iteration']:
-              if self._maxed_out(state['iteration']):
-                  return(True)
-              elif stop_metric == 'a':
-                  return(abs(state['prior']-state['current']) < precision)
-              else:
-                  return(abs(state['prior']-state['current'])/abs(state['prior']) < precision)     
-      else:                    
-          if self._maxed_out(state['iteration']):
-              return(True)
-          elif stop_metric == 'a':
-              return(abs(state['prior']-state['current']) < precision)
-          else:
-              return(abs(state['prior']-state['current'])/abs(state['prior']) < precision) 
+    def _finished(self, state, maxiter, precision, improvement):
+        if state['iteration'] == maxiter:
+            return(True)        
+        if abs(state['prior']-state['current']) < precision:
+            self._iter_no_change += 1
+            if self._iter_no_change >= improvement:
+                return(True)
+            else:
+                return(False)
+        else:
+            self._iter_no_change = 0   
+            return(False)
               
-    def _update_state(self,state, iteration, J, J_val, g):
+    def _update_state(self,state, cross_validated, iteration, J, mse):
         state['iteration'] = iteration
         state['prior'] = state['current']
-        if stop_parameter == 't':   # t for training Set Costs
+        if cross_validated:
+            state['current'] = mse
+        else:
             state['current'] = J
-        elif stop_parameter == 'v': # v for validation set costs
-            state['current'] = J_val
-        else:                       # gradient
-            state['current'] = np.sqrt(np.sum(abs(g)**2)) # Computes the norm of the gradient
-        return(state)  
+        return(state)
         
     @abstractmethod
     def fit(self):
         pass
         
 ```
-`r kfigr::figr(label = "sgd_base_class", prefix = TRUE, link = TRUE, type="Figure")` GradientDescent Base Class
 
 #### SGD Methods
-The SGD class will have an implementation of the fit method to implement the algorithm described in `r kfigr::figr(label = "sgd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`.
+The SGD class will have a concrete implementation of the fit method to implement the algorithm described in `r kfigr::figr(label = "sgd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`. We introduce an average parameter. If true, the costs are averaged over the 
 
 ```{python sgd_fit, echo=T, eval=F}
-def fit(self, X, y, theta,  X_val=None, y_val=None,  check_point=.1, 
-            alpha=0.01, miniter=0, maxiter=0, precision=0.001, stop_parameter='t', 
-            stop_metric='a', scaler='minmax', max_cost=100):
+def fit(self, X, y, theta,  X_val=None, y_val=None, average=False,
+      alpha=0.01, maxiter=0, precision=0.001, improvement=5):
 
     iteration = 0
     epoch = 0
     J_total = 0
     state = {'prior':1, 'current':5, 'iteration':0}
     
+    # Extract data
+    self._X = X
+    self._y = y
+    self._X_val = X_val
+    self._y_val = y_val
+    
     # Set cross-validated flag if validation set included 
     cross_validated = all(v is not None for v in [X_val, y_val])
     
-    # Compute number of observations per convergence check
-    if check_point > 1:
-        iterations_per_batch = check_point
-    else:
-        iterations_per_batch = np.max(1,math.floor(X.shape[0] * check_point))
-    
-    while not self._finished(state):
-        epoch += 1            
-        X, y = self._shuffle(X, y)
-
-        for x_i, y_i in zip(X.values, y):
-            iteration += 1
-
-            h = self._hypothesis(x_i, theta)
-            e = self._error(h, y_i)
-            J = self._cost(e)
-            J_total = J_total + J
-            J_val = None
-            g = self._gradient(x_i, e)
-
-            if iteration % iterations_per_batch == 0:
-                J_avg = J_total / iterations_per_batch
-                J_total = 0
-
-                if cross_validated:
-                    h_val = self._hypothesis(self._X_val, theta)
-                    e_val = self._error(h_val, self._y_val)
-                    J_val = self._cost(e_val)        
-
-                state = self._update_state(state, iteration, J, J_val, g)
-
-                if self._finished(state):
-                    break
-
-            theta = self._update(theta, g)
+    while not self._finished(state, maxiter, precision, improvement):
+      epoch += 1            
+      X, y = self._shuffle(self._X,self._y)
+      J_total = 0
+  
+      for x_i, y_i in zip(X.values, y):
+          iteration += 1
+  
+          h = self._hypothesis(x_i, theta)
+          e = self._error(h, y_i)
+          J = self._cost(e)
+          J_total += J
+          mse = None                                
+          g = self._gradient(x_i, e)                
+          theta = self._update(theta, g)
+  
+      if cross_validated:
+          h_val = self._hypothesis(X_val, theta)
+          e_val = self._error(h_val, y_val)
+          mse = self._cost(e_val)                
+          self._J_history_val.append(mse)
+      if average:
+          J = J_total / X.shape[0]            
+  
+      state = self._update_state(state, cross_validated, iteration, J, mse)
     return(theta)
 ```
-`r kfigr::figr(label = "sgd_fit", prefix = TRUE, link = TRUE, type="Figure")` Stochastic Gradient Descent Fit Method
+
 
 The fit method:     
-1. computes the number of iterations per batch$^*$          
-2. iterates until finished         
-  2.1. iterates each batch        
-    2.1.1. computes hypothesis, error, cost and gradient          
-    2.1.2. if end of batch,       
-      - compute average gradient      
-      - compute validation set costs        
-      - check convergence       
-    2.1.3. update theta     
+1. initializes counts and totals
+2. iterates until finished:      
+    2.1. Shuffles the dataset       
+    2.2. iterates over each observation in the shuffled dataset
+        2.2.1. computes hypothesis, error, cost and gradient          
+        2.2.2. updates the thetas
+    2.3. if cross_validated:
+       2.3.1. compute cost on validation set
+    2.4. if average is True:
+        2.4.1. compute the average cost in training set 
+    2.5. update the state   
 3. return(theta)      
-
-$^*$not to be confused with the minibatch size, this is the proportion or number of observations over which the training set costs will be averaged.
 
 That's it, for the most part. The complete class definitions are available at https://github.com/DecisionScients/GradientDescent.
 
 Next, we'll tune the hyperparameters on a validation set.
 
-### Hyperparameter Tuning via Gridsearch
-The goal at this stage is to determine the set of hyperparameters that minimize cost on our validation set. A gridsearch approach will allow us to quickly sweep through a range of parameter values in an exhaustive search. Once we've completed the gridsearch, we will closely examine the best and most interesting solutions.
+### Tuning Stochastic Gradient Descent
+Like batch gradient descent, SGD is parameterized most essentially by the learning rate, $\alpha$. In this section, we will use the gridsearch technique to explore the effects of various learning rates on algorithm performance. Our implementation is also parameterized by:   
 
-Our main hyperparameters are:      
+* $\theta$: Our initial guess at our parameters     
+* $i_{max}$: The maximum number of iterations to execute,    
+* $i_{stop}$: The number of consecutive iterations of 'non-improvement' required to stop the algorithm.   
+* $\epsilon$: The tolerance or precision parameter with which objective function improvement will be evaluated. 
+* average: If True, convergence is based upon the average of the costs 
 
-* $\theta$: our initial thetas,      
-* $\alpha$: our learning rate,    
-* miniter : The minimum number of iterations to execute,     
-* maxiter: The maximum number of iterations to execute,    
-* max_costs: The maximum cost allowed, in case the algorithm diverges.         
-* check_point: the frequency by which convergence is evaluated
+To contrast the performance of SGD with BGD in the prior section, we will fix these secondary parameters to the same values from our first BGD gridsearch, with one exception. 
+```{python sgd_gs_params, echo=T, eval=T}
+theta = np.array([-1,-1]) 
+alpha = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1]
+precision = [0.001]
+improvement = [5]
+maxiter = 10000
+average=[True]
+```
 
-Our convergence criteria parameters are:     
-
-* stop parameter: The parameter we will use to evaluate *near* convergence. Values are:   
-
-  - t: training set costs,    
-  - v: validation set costs,  
-  - g: gradient norm     
-  
-* stop metric: The metric we will use when evaluating the stop parameter. Values are:     
-
-  - a: absolute change in the stop parameter, and      
-  - r: relative change in the stop parameter.     
-  
-* precision: the $\epsilon$ for our stopping criteria, e.g. we stop when $J_k - J_{k-1} < \epsilon$
-
-Our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples make up the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
+#### The Data
+We will use the same data from the prior section. Our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples make up the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
 
 A small function was created to randomly sample the training data and split it into the appropriate training and validation sets.
-```{python demo_data, echo=T, eval=F}
+```{python sgd_data, echo=T, eval=T}
 X, X_val, y, y_val = data.demo(n=500)
 ```
 
-Now that we have our data, let's set our parameters and run our gridsearch.
-
-#### GridSearch 
-We will search a wide range of check_point, learning rates, precision parameters, and stopping conditions. Thus our parameters are:
-```{python gs_params_1, echo=T, eval=F}
-theta = np.array([-1,-1]) 
-alpha = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1, 1.5]
-precision = [0.1, 0.01, 0.001, 0.0001]
-maxiter = 10000
-miniter = 0
-check_point = [0.01, 0.05, 0.1, 0.2]
-stop_parameter = ['t', 'v', 'g']
-stop_metric = ['a', 'r']
+Gradient descent is sensitive to feature scaling so let's scale our data to the range [0,1] using sklearn's preprocessing module.
+```{python sgd_scale, echo=T, eval=F}
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler()
+X = scaler.fit_transform(X)
+X_val = scaler.fit_transform(X_val)
+y = scaler.fit_transform(y)
+y_val = scaler.fit_transform(y_val)
 ```
-`r kfigr::figr(label = "gs_params_1", prefix = TRUE, link = TRUE, type="Figure")` Gridsearch Parameters
 
-An SGDLab class was created to iterate through the parameter space and perform the gridsearch.
-```{python sgd_gs_echo, echo=T, eval=F}
+Now that we have our scaled data, lets run our gridsearch.
+
+#### Gridsearch
+A class,  SGDLab, was created to perform our gridsearch. Let's instantiate the class, run the gridsearch and obtain some diagnostic information. 
+```{python sgd_lab, echo=T, eval=T}
 lab = SGDLab()
-lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha,
-               precision=precision, check_point=check_point, miniter=miniter,
-               maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric)
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
+               maxiter=maxiter, improvement=improvement, average=average)
+sgd_summary = lab.summary()
+sgd_detail = lab.get_detail()   
+sgd_report_filename='Stochastic Gradient Descent Gridsearch Report.csv'
+sgd_report = lab.report(directory=directory, filename=sgd_report_filename)
 ```
 
-```{python sgd_gs, echo=F, eval=T}
-sgd_gs()
+#### Learning Rate Analysis
+As a first step in our analysis, let's examine the speed and accuracy with which each learning rate converges. 
+
+```{python sgd_learning_curves, echo=F, eval=T}
+lab.figure(data=sgd_detail, x='iterations', y='cost', z='alpha', 
+           func=lab.lineplot, directory=directory, height=2)   
 ```
 
-```{r get_sgd_report, echo=F, eval=T}
-report = read.csv("./report/figures/SGD/Stochastic Gradient Descent - Gridsearch Report.csv")
-```
-#### Cost and Computation Time Analysis
-`r kfigr::figr(label = "sgd_gs_cost_time", prefix = TRUE, link = TRUE, type="Figure")` shows validation set cost analysis for `r nrow(report)` experiments by learning rate. The plot on the left shows the entire range of costs and computation times. The right plot zooms in on the solutions with costs less than 0.2 and computation times less than 0.02 milliseconds.
+![](../report/figures/SGD/Lab/Stochastic Gradient DescentTraining Set Costs By Iterations and Learning Rate.png)
 
-![](../report/figures/SGD/Validation Set Costs and TimeBy Learning Rate.png)
+`r kfigr::figr(label = "sgd_learning_curve_plot", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Learning Curves
 
-`r kfigr::figr(label = "sgd_gs_cost_time", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Validation Set Costs and Time by Learning Rate
+Let's take a closer look at final training set costs and computation times.
 
-In general, the best costs and computation times were associated with higher learning rates. As we move away from the lower-left corner of the plots, we encounter higher costs and longer computation times, both associated with lower learning rates. 
-
-Next, let's examine the relationship between various stopping criteria and cost and computation performance.
-
-#### Stop Criteria
-Recall, our stopping criteria are defined by:    
-
-* stop condition, which is defined by:    
-
-  - stop parameter, which can be validation set costs, training set costs, or the norm of the gradient,      
-  - stop metric, which can be absolute change or relative change in the stop parameter,     
-
-* precision parameter $\epsilon$, the tolerance between consecutive stop conditions, and    
-* check point, the frequency by which convergence is checked.         
-
-We'll first examine costs vis-a-vis our **stop condition** and **precision**.
-
-##### Stop Condition and Precision
-###### Cost Analysis
-On the left of `r kfigr::figr(label = "sgd_gs_cost_precision", prefix = TRUE, link = TRUE, type="Figure")`, we have grouped boxplots showing the distributions of validation set costs by stop condition and precision.  The plot on the right limits the y-axis to a cost of 0.2, in order to get a better visual of the distributions.
-
-![](../report/figures/SGD/Stochastic Gradient Descent Validation Set Costs By Precision and Stop Condition.png)
-
-`r kfigr::figr(label = "sgd_gs_cost_precision", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Cost by Precision and Stop Condition
-
-One might expect lower values of $\epsilon$ to be associated with longer convergence rates and better parameter estimates. However, for the values of $\epsilon$ in our parameter space, no such relationship was extant. Likewise, the 25% percentile costs for the various stopping conditions look very similar across all precision values. 
-
-###### Computation Time Analysis
-`r kfigr::figr(label = "sgd_gs_time_precision", prefix = TRUE, link = TRUE, type="Figure")` shows the computation times by precision and stop condition. The left plot shows the full range of computation times; whereas, the plot on the right has a y-axis limit of 0.015 milliseconds.
-
-![](../report/figures/SGD/Stochastic Gradient Descent Computation Time By Precision and Stop Condition.png)
-
-`r kfigr::figr(label = "sgd_gs_time_precision", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Computation Time by Precision and Stop Condition
-
-Again, no relationship between precision and computation time was evident, despite expectations. That said, certain stopping conditions stood out as more computationally expensive than the others. Absolute change in training set costs took longer to converge across all values of $\epsilon$. The gradient-based stopping conditions were also relatively slow to converge for $\epsilon=[0.001,0.01]$.
-
-Let's examine the effect of **stop condition** and **check point** on cost and time performance.
-
-##### Stop Condition and Check Point
-###### Cost Analysis
-The two plots below show validation set costs by stop condition and various values of the check point parameter. As with the other plots, the left plot in `r kfigr::figr(label = "sgd_gs_cost_check_point", prefix = TRUE, link = TRUE, type="Figure")` shows the full range of costs; whereas, the plot imposes a y-axis limit of 0.2.
-
-![](../report/figures/SGD/Stochastic Gradient Descent Validation Set Costs By Check Point and Stop Condition.png)
-
-`r kfigr::figr(label = "sgd_gs_cost_check_point", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Cost by Check Point and Stop Condition
-
-As we increase the check point parameter from 1% to 20% of the training set, we observe a clear reduction in costs across all stop conditions. Again, the effect of stopping condition on costs is less discernable. 
-
-###### Computation Time Analysis
-`r kfigr::figr(label = "sgd_gs_time_check_point", prefix = TRUE, link = TRUE, type="Figure")` shows the computation time by stopping condition and check point. Again, the plot on the left shows the full range of computation times.  On the right, we zoom in on computation times less than 0.015 milliseconds.
-
-![](../report/figures/SGD/Stochastic Gradient Descent Computation Time By Check Point and Stop Condition.png)
-
-`r kfigr::figr(label = "sgd_gs_time_check_point", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Computation Time by Check Point and Stop Condition
-
-As we increase the check point parameter from 1% to 20% of the training set, we see a clear stepwise increase in computation time. The effect of stop condition on computation time varies by the size of the dataset evaluated at each check point.
-
-To wrap up the analysis on stop condition, we saw no significant or discernable effects of stop condition on validation set costs. Levels of precision were not associated with any pattern in validation set costs.  Check point, on the other hand, was inversely correlated with validation set costs and positively correlated with computation time.
-
-With that, let's evaluate the effects of learning rates on validation set costs and computation time.
-
-#### Learning Rate
-##### Cost Analysis
-In `r kfigr::figr(label = "sgd_gs_cost_alpha", prefix = TRUE, link = TRUE, type="Figure")`, we have validation set costs by learning rate, controlled by the check point parameter. On the left, we plot cost distributions for each learning rate and check point value in our parameter space.  The plot on the right zooms in on the best performing learning rates from a validation set cost perspective.
-
-![](../report/figures/SGD/Stochastic Gradient Descent Validation Set Costs By Learning Rate and Check Point.png)
-
-`r kfigr::figr(label = "sgd_gs_cost_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Cost by Learning Rate
-
-Moving from the lowest learning rates on the left to the right, we see a decline in costs until $\alpha=0.6$. After which, the validation set costs increase with increasing values of $\alpha$ across all check point parameter values.
-
-##### Learning Curve
-Let's examine the learning curves. For our stopping criteria, we will use relative change in training set costs, with $\epsilon=0.01$ and the check point values = 0.01, 0.05, 0.1, and 0.2. This means that we will check convergence each 5, 25, 50, and 100 observations. `r kfigr::figr(label = "sgd_gs_cost_curve", prefix = TRUE, link = TRUE, type="Figure")` shows from top left to bottom right, plots corresponding to our selected check point values.
-
-![](../report/figures/SGD/Stochastic Gradient Descent Learning Curves Relative Change in Training Set Costs less than 0.01.png)
-
-`r kfigr::figr(label = "sgd_gs_cost_curve", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Learning Curves
-
-As indicated in `r kfigr::figr(label = "sgd_gs_cost_curve", prefix = TRUE, link = TRUE, type="Figure")` the higher learning rates tended to converge faster than did the lower learning rates, for each of the check point values. 
-
-Starting with the top left, we observe a rather erratic descent at the lower learning rates when averaging over 5 iterations. The larger learning rates tended to descend to a minimum within 2 batches, or 10 observations. Moving to the top right, we observe a less chaotic descent. The higher learning rates achieved their minimums within 2 batches of 25 observations. The slowest to converge was learning rate 0.04 which took 3 batches of 25 observations to arrive at its minimum. The lower plots of `r kfigr::figr(label = "sgd_gs_cost_curve", prefix = TRUE, link = TRUE, type="Figure")`, reveal similar trajectories towards their minima. The convergence is checked each 50 and 100 observations for the lower left and lower right plots, respectively.
-
-##### Computation Time Analysis
-Now we examine the effect of learning rate on computation times. `r kfigr::figr(label = "sgd_gs_time_alpha", prefix = TRUE, link = TRUE, type="Figure")` shows two plots.  The left displays computation time distributions for each learning rate in our parameter space. The right plot in `r kfigr::figr(label = "sgd_gs_time_alpha", prefix = TRUE, link = TRUE, type="Figure")` reveals the computation times for the fastest converging learning rates.
-
-![](../report/figures/SGD/Stochastic Gradient Descent Computation Time By Learning Rate and Check Point.png)
-
-`r kfigr::figr(label = "sgd_gs_time_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Computation Time by Learning Rate
-
-For check points equal to 1% of the training set, computation time dropped for increasing learning rates until we arrive at $\alpha=1.5$, at which point computation time appeared to increase. For the other cases, computation time appeared to correlate with check point. Increasing values of check point were correlated with longer computation times, as one would expect.
-
-So what have we seen so far? Well,   
-* stop condition had no practical effect on validation set costs and computation time,    
-* check point was negatively correlated with validation set costs and positively associated with computation time, and     
-* learning rates were negatively correlated with validation set costs and computation time.  
-
-#### Best Solution (so far)
-```{r best_sgd, echo=F, eval=T}
-best <- report[1,]
-```
-With that, we can now reveal the parameters that produced the lowest validation set cost in the minimal amount of computation time. Our gridsearch produced a best validation set cost of `r round(best['final_costs_val'],5)` within `r round(best['duration'],5)` milliseconds. The hyperparameters were:   
-Learning rate $\alpha$: `r best['alpha']`   
-Parameters $\theta$: [-1,-1]   
-check point: `r best['check_point']`     
-stop_parameter: `r best['stop_parameter']`   
-stop_metric: `r best['stop_metric']`    
-precision $\epsilon$: `r best['precision']`    
-maxiter: `r best['maxiter']`    
-miniter: `r best['miniter']`    
-
-```{python sgd_gs_best, echo=F, eval=T}
-report = pd.read_csv("./report/figures/SGD/Stochastic Gradient Descent - Gridsearch Report.csv")
-sgd_ani(report.iloc[0], cache=cache)
+```{python bgd_alpha_costs, echo=F, eval=T}
+lab.figure(data=sgd_summary, x='alpha', y='final_costs',
+           func=lab.barplot, directory=directory, width=0.5)   
+lab.figure(data=sgd_summary, x='alpha', y='duration',
+           func=lab.barplot, directory=directory, width=0.5)              
 ```
 
-![](../report/figures/SGD/Stochastic Gradient Descent Search - Alpha 0.6.gif)
+![](../report/figures/SGD/Lab/Stochastic Gradient DescentTraining Set Costs By Learning Rate.png){width=50%}![](../report/figures/SGD/Lab/Stochastic Gradient DescentComputation Time (ms) By Learning Rate.png){width=50%}
 
-`r kfigr::figr(label = "sgd_gs_best_search", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Search
+`r kfigr::figr(label = "sgd_cost_time", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Quality and Training Time
+```{r, sgd_best, echo=F, eval=T}
+sgd_report = read.csv(file.path(py$directory, py$sgd_report_filename))
+sgd_best = sgd_report[1,]
+```
 
+Indeed, larger learning rates within our parameter space performed better from both a quality and time perspective. In fact, our best performing learning rate was actually `r sgd_best['alpha']`. It produced a validation set final cost of `r sgd_best['final_mse']`.
 
-![](../report/figures/SGD/Stochastic Gradient Descent Fit - Alpha 0.6.gif)
+Let's evaluate the convergence and fit of this solution.
 
-`r kfigr::figr(label = "sgd_gs_best_fit", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Fit
+#### Evaluation
+The `r kfigr::figr(label = "sgd_converge", prefix = TRUE, link = TRUE, type="Figure")` visualization reveals the path of the $\theta$'s to approximate convergence. The oscillation around the minimum is emblematic of high learning rate gradient descent. Approximate convergence was obtained in 7 iterations, presenting a final training set cost $J\approx0.03$.
+```{python sgd_demo, echo=F, eval=T}
+alpha = sgd_report.iloc[0]['alpha']
+precision = sgd_report.iloc[0]['precision']
+improvement = sgd_report.iloc[0]['improvement']
 
+if not cache:
+  sgd = SGDDemo()
+  sgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, precision=precision,
+          maxiter=maxiter, improvement=improvement)
+  sgd.show_search(directory=directory, fps=10)
+  sgd.show_fit(directory=directory, fps=10)
+```
+
+![](../report/figures/SGD/Lab/Stochastic Gradient Descent Search Plot Learning Rate 0.04.gif)
+
+`r kfigr::figr(label = "sgd_converge", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent - Alpha = 1.0
+
+So, how does the solution fit the training data? Great question!
+
+The `r kfigr::figr(label = "sgd_fit", prefix = TRUE, link = TRUE, type="Figure")` visualization illustrates the regression line fit vis-a-vis the 500 observations in our training set.   
+
+![](../report/figures/SGD/Lab/Stochastic Gradient Descent Fit Plot Learning Rate 0.04.gif)
+
+`r kfigr::figr(label = "sgd_fit", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Fit

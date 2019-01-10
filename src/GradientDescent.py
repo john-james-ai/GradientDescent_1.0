@@ -63,7 +63,7 @@ class GradientDescent:
     def get_transformed_data(self):
         return(self._request['data'])
 
-    def get_detail(self):
+    def detail(self):
         if self._detail is None:
             raise Exception('No search results to report.')
         else:
@@ -108,10 +108,27 @@ class GradientDescent:
         X, y = self._scale(X,y, scaler, bias)
         return(X,y)         
 
+    def _validate(self):
+        if (self._request['hyper']['learning_rate_sched'] == 't' and 
+           self._request['hyper']['time_decay'] is None):
+           raise Exception("Time decay parameter required for time decay learning rate schedule.") 
+        elif (self._request['hyper']['learning_rate_sched'] == 's' and  
+           self._request['hyper']['step_decay'] is None):
+           raise Exception("Step decay parameter required for step decay learning rate schedule.") 
+        elif (self._request['hyper']['learning_rate_sched'] == 's' and 
+           self._request['hyper']['step_epochs'] is None):
+           raise Exception("Step epochs parameter required for step decay learning rate schedule.") 
+        elif (self._request['hyper']['learning_rate_sched'] == 'e' and 
+           self._request['hyper']['exp_decay'] is None):
+           raise Exception("Exp decay parameter required for step decay learning rate schedule.") 
+        elif self._request['hyper']['learning_rate_sched'] not in ['t', 's', 'e', 'c']:
+            raise Exception("Learning rate schedule must be in ['c', 't', 'e', 's'].") 
+
     
-    def fit(self, X, y, theta, X_val=None, y_val=None, alpha=0.01, 
-            maxiter=0, precision=0.001, improvement=5,
-            scaler='minmax'):
+    def fit(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
+            learning_rate_sched = 'c', time_decay=None, step_decay=None,
+            step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
+            no_improvement_stop=5, scaler='minmax'):
 
         # Set cross-validated flag if validation set included 
         cross_validated = all(v is not None for v in [X_val, y_val])
@@ -125,11 +142,18 @@ class GradientDescent:
         self._request = dict()
         self._request['alg'] = self._alg        
         self._request['data'] = {'X': X, 'y':y, 'X_val':X_val, 'y_val':y_val} 
-        self._request['hyper'] = {'alpha': alpha, 'theta': theta,
+        self._request['hyper'] = {'learning_rate': learning_rate, 'theta': theta,
+                                  'learning_rate_sched': learning_rate_sched,
+                                  'time_decay': time_decay,
+                                  'step_decay': step_decay,
+                                  'step_epochs': step_epochs,
+                                  'exp_decay': exp_decay,
                                   'maxiter': maxiter, 
                                   'precision': precision,                                  
-                                  'improvement': improvement,
+                                  'no_improvement_stop': no_improvement_stop,
                                   'cross_validated': cross_validated}
+        
+        self._validate()
 
         # Run search and obtain result        
         gd = BGDFit()
@@ -140,23 +164,34 @@ class GradientDescent:
         # Extract detail information
         epochs = pd.DataFrame(gd.get_epochs(), columns=['epochs'])        
         iterations = pd.DataFrame(gd.get_iterations(), columns=['iterations'])
-        thetas = self._todf(gd.get_thetas(), stub='theta_')        
-        J = pd.DataFrame(gd.get_costs(dataset='t'), columns=['cost'])   
-        self._detail = pd.concat([epochs, iterations, thetas, J], axis=1)        
+        alphas = pd.DataFrame(gd.get_learning_rates(), columns=['learning_rates'])
+        thetas = self._todf(gd.get_thetas(), stub='theta_')                
+        J = pd.DataFrame(gd.get_costs(), columns=['cost'])   
+        self._detail = pd.concat([epochs, iterations, alphas, thetas, J], axis=1)        
         if cross_validated:            
-            J_val = pd.DataFrame(gd.get_costs(dataset='v'), columns=['cost_val'])               
-            self._detail = pd.concat([self._detail, J_val], axis=1)
+            mse = pd.DataFrame(gd.get_mse(), columns=['mse'])               
+            self._detail = pd.concat([self._detail, mse], axis=1)
         self._detail['alg'] = self._alg
-        self._detail['alpha'] = self._request['hyper']['alpha']
-        self._detail['precision'] = self._request['hyper']['precision']
-        self._detail['improvement'] = self._request['hyper']['improvement']
+        self._detail['learning_rate_sched'] = learning_rate_sched
+        self._detail['learning_rate'] = learning_rate
+        self._detail['time_decay'] = time_decay
+        self._detail['step_decay'] = step_decay
+        self._detail['step_epochs'] = step_epochs
+        self._detail['exp_decay'] = exp_decay
+        self._detail['precision'] = precision    
+        self._detail['no_improvement_stop'] = self._request['hyper']['no_improvement_stop']
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
-                                    'alpha': self._request['hyper']['alpha'],
-                                    'precision': self._request['hyper']['precision'],
-                                    'maxiter': self._request['hyper']['maxiter'],
-                                    'improvement': self._request['hyper']['improvement'],
+                                    'learning_rate_sched': learning_rate_sched,
+                                    'learning_rate': learning_rate,
+                                    'time_decay': time_decay,
+                                    'step_decay': step_decay,
+                                    'step_epochs': step_epochs,
+                                    'exp_decay': exp_decay,
+                                    'precision': precision,
+                                    'maxiter': maxiter,
+                                    'no_improvement_stop': no_improvement_stop,
                                     'start':start,
                                     'end':end,
                                     'duration':(end-start).total_seconds(),
@@ -166,11 +201,11 @@ class GradientDescent:
                                     'final_costs': J.iloc[-1].item()},
                                     index=[0])
         if cross_validated:                                    
-            self._summary['initial_costs_val'] = J_val.iloc[0].item()
-            self._summary['final_costs_val'] = J_val.iloc[-1].item()
+            self._summary['initial_mse'] = mse.iloc[0].item()
+            self._summary['final_mse'] = mse.iloc[-1].item()
         else:
-            self._summary['initial_costs_val'] = None
-            self._summary['final_costs_val'] = None
+            self._summary['initial_mse'] = None
+            self._summary['final_mse'] = None
     
     def plot(self, directory, show=True):
 
@@ -186,8 +221,8 @@ class GradientDescent:
             x = ['Initial Cost', 'Final Costs', 'Initial Cost', 'Final Costs',]
             y = [self._summary['initial_costs'].values.tolist(),
                  self._summary['final_costs'].values.tolist(),
-                 self._summary['initial_costs_val'].values.tolist(),
-                 self._summary['final_costs_val'].values.tolist()]
+                 self._summary['initial_mse'].values.tolist(),
+                 self._summary['final_mse'].values.tolist()]
             z = ['Training Set', 'Training Set', 'Validation Set', 'Validation Set']
             y = [item for sublist in y for item in sublist]
             # Main plot
@@ -208,7 +243,7 @@ class GradientDescent:
                         ha='center', va='bottom')                
             # Title                        
             title = 'Initial and Final Costs ' + '\n' + \
-                    r'$\alpha$' + " = " + str(self._request['hyper']['alpha']) + " " + \
+                    r'$\learning_rate$' + " = " + str(self._request['hyper']['learning_rate']) + " " + \
                     r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5))                         
             ax0.set_title(title, color='k', pad=15)
             
@@ -226,7 +261,7 @@ class GradientDescent:
             ax1.set_xlabel('Iterations')
             ax1.set_ylabel('Cost')
             title = 'Learning Curve ' + '\n' + \
-            r'$\alpha$' + " = " + str(self._request['hyper']['alpha']) + \
+            r'$\learning_rate$' + " = " + str(self._request['hyper']['learning_rate']) + \
             r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
             ax1.set_title(title, color='k', pad=15)
         else:
@@ -243,7 +278,7 @@ class GradientDescent:
             ax0.yaxis.label.set_color('k')        
             ax0.set_ylabel('Cost')
             title = 'Initial and Final Costs ' + '\n' + \
-                    r'$\alpha$' + " = " + str(self._request['hyper']['alpha']) + " " + \
+                    r'$\learning_rate$' + " = " + str(self._request['hyper']['learning_rate']) + " " + \
                     r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
             rects = ax0.patches
             for rect, label in zip(rects, y):
@@ -264,7 +299,7 @@ class GradientDescent:
             ax1.set_xlabel('Iterations')
             ax1.set_ylabel('Cost')
             title = 'Learning Curve ' + '\n' + \
-            r'$\alpha$' + " = " + str(self._request['hyper']['alpha']) + ' ' +\
+            r'$\learning_rate$' + " = " + str(self._request['hyper']['learning_rate']) + ' ' +\
             r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
             ax1.set_title(title, color='k', pad=15)
 
@@ -274,7 +309,7 @@ class GradientDescent:
         if show:
             plt.show()
         if directory is not None:
-            filename = self._alg + ' Learning Rate: ' + str(self._summary['alpha'].item()) + '.png'
+            filename = self._alg + ' Learning Rate: ' + str(self._summary['learning_rate'].item()) + '.png'
             filename = filename.replace(':', '')
             save_fig(fig, directory, filename)
         plt.close(fig)        
@@ -303,9 +338,10 @@ class SGD(GradientDescent):
         self._summary = None
         self._detail = None 
 
-    def fit(self, X, y, theta,  X_val=None, y_val=None,  check_point=.1, 
-            alpha=0.01, maxiter=0, precision=0.001, improvement=5, 
-            scaler='minmax', average=False):
+    def fit(self, X, y, theta,  X_val=None, y_val=None,  learning_rate=0.01, 
+            learning_rate_sched = 'c', time_decay=None, step_decay=None,
+            step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, no_improvement_stop=5, 
+            scaler='minmax'):
 
         # Set cross-validated flag if validation set included 
         cross_validated = all(v is not None for v in [X_val, y_val])
@@ -319,12 +355,18 @@ class SGD(GradientDescent):
         self._request = dict()
         self._request['alg'] = self._alg        
         self._request['data'] = {'X': X, 'y':y, 'X_val':X_val, 'y_val':y_val} 
-        self._request['hyper'] = {'alpha': alpha, 'theta': theta,
+        self._request['hyper'] = {'learning_rate': learning_rate, 'theta': theta,
+                                  'learning_rate_sched': learning_rate_sched,
+                                  'time_decay': time_decay,
+                                  'step_decay': step_decay,
+                                  'step_epochs': step_epochs,
+                                  'exp_decay': exp_decay,
                                   'maxiter': maxiter, 
                                   'precision': precision,
-                                  'improvement': improvement,
-                                  'average': average,
+                                  'no_improvement_stop': no_improvement_stop,
                                   'cross_validated': cross_validated}
+
+        self._validate()                                  
 
         # Run search and obtain result        
         gd = SGDFit()
@@ -335,23 +377,35 @@ class SGD(GradientDescent):
         # Extract detail information
         epochs = pd.DataFrame(gd.get_epochs(), columns=['epochs'])        
         iterations = pd.DataFrame(gd.get_iterations(), columns=['iterations'])
+        alphas = pd.DataFrame(gd.get_learning_rates(), columns=['learning_rates'])
         thetas = self._todf(gd.get_thetas(), stub='theta_')        
-        J = pd.DataFrame(gd.get_costs(dataset='t'), columns=['cost'])   
-        self._detail = pd.concat([epochs, iterations, thetas, J], axis=1)        
+        J = pd.DataFrame(gd.get_costs(), columns=['cost'])   
+        self._detail = pd.concat([epochs, iterations, alphas, thetas, J], axis=1)        
         if cross_validated:            
-            J_val = pd.DataFrame(gd.get_costs(dataset='v'), columns=['cost_val'])               
-            self._detail = pd.concat([self._detail, J_val], axis=1)
+            mse = pd.DataFrame(gd.get_mse(), columns=['mse'])               
+            self._detail = pd.concat([self._detail, mse], axis=1)
         self._detail['alg'] = self._alg
-        self._detail['alpha'] = alpha
-        self._detail['precision'] = precision
+        self._detail['learning_rate_sched'] = learning_rate_sched
+        self._detail['learning_rate'] = learning_rate
+        self._detail['time_decay'] = time_decay
+        self._detail['step_decay'] = step_decay
+        self._detail['step_epochs'] = step_epochs
+        self._detail['exp_decay'] = exp_decay
+        self._detail['precision'] = precision    
+        self._detail['no_improvement_stop'] = self._request['hyper']['no_improvement_stop']
 
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
-                                    'alpha': alpha,
+                                    'learning_rate_sched': learning_rate_sched,
+                                    'learning_rate': learning_rate,
+                                    'time_decay': time_decay,
+                                    'step_decay': step_decay,
+                                    'step_epochs': step_epochs,
+                                    'exp_decay': exp_decay,                                    
                                     'precision': precision,
                                     'maxiter': maxiter,
-                                    'improvement': improvement,
+                                    'no_improvement_stop': no_improvement_stop,
                                     'start':start,
                                     'end':end,
                                     'duration':(end-start).total_seconds(),
@@ -361,11 +415,11 @@ class SGD(GradientDescent):
                                     'final_costs': J.iloc[-1].item()},
                                     index=[0])
         if cross_validated:                                    
-            self._summary['initial_costs_val'] = J_val.iloc[0].item()
-            self._summary['final_costs_val'] = J_val.iloc[-1].item()
+            self._summary['initial_mse'] = mse.iloc[0].item()
+            self._summary['final_mse'] = mse.iloc[-1].item()
         else:
-            self._summary['initial_costs_val'] = None
-            self._summary['final_costs_val'] = None  
+            self._summary['initial_mse'] = None
+            self._summary['final_mse'] = None  
 
 # --------------------------------------------------------------------------- #
 #                     MINI-BATCH GRADIENT DESCENT CLASS                       #
@@ -379,7 +433,8 @@ class MBGD(GradientDescent):
         self._summary = None
         self._detail = None 
     def fit(self, X, y, theta,  X_val=None, y_val=None,  batch_size=.1, 
-            alpha=0.01, maxiter=0, precision=0.001, improvement=5,
+            learning_rate=0.01, learning_rate_sched = 'c', time_decay=None, step_decay=None,
+            step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, no_improvement_stop=5,
             scaler='minmax'):            
 
         # Set cross-validated flag if validation set included 
@@ -394,11 +449,19 @@ class MBGD(GradientDescent):
         self._request = dict()
         self._request['alg'] = self._alg        
         self._request['data'] = {'X': X, 'y':y, 'X_val':X_val, 'y_val':y_val} 
-        self._request['hyper'] = {'alpha': alpha, 'theta': theta,
+        self._request['hyper'] = {'learning_rate': learning_rate, 'theta': theta,
+                                  'learning_rate_sched': learning_rate_sched,
+                                  'time_decay': time_decay,
+                                  'step_decay': step_decay,
+                                  'step_epochs': step_epochs,
+                                  'exp_decay': exp_decay,
                                   'maxiter': maxiter, 
                                   'precision': precision,
                                   'batch_size': batch_size,
+                                  'no_improvement_stop': no_improvement_stop,
                                   'cross_validated': cross_validated}
+
+        self._validate()                                  
 
         # Run search and obtain result        
         gd = MBGDFit()
@@ -409,22 +472,36 @@ class MBGD(GradientDescent):
         # Extract detail information
         epochs = pd.DataFrame(gd.get_epochs(), columns=['epochs'])        
         iterations = pd.DataFrame(gd.get_iterations(), columns=['iterations'])
+        alphas = pd.DataFrame(gd.get_learning_rates(), columns=['learning_rates'])
         thetas = self._todf(gd.get_thetas(), stub='theta_')        
-        J = pd.DataFrame(gd.get_costs(dataset='t'), columns=['cost'])   
-        self._detail = pd.concat([epochs, iterations, thetas, J], axis=1)        
+        J = pd.DataFrame(gd.get_costs(), columns=['cost'])   
+        self._detail = pd.concat([epochs, iterations, alphas, thetas, J], axis=1)        
         if cross_validated:            
-            J_val = pd.DataFrame(gd.get_costs(dataset='v'), columns=['cost_val'])               
-            self._detail = pd.concat([self._detail, J_val], axis=1)
+            mse = pd.DataFrame(gd.get_mse(), columns=['mse'])               
+            self._detail = pd.concat([self._detail, mse], axis=1)
         self._detail['alg'] = self._alg
-        self._detail['alpha'] = alpha
+        self._detail['learning_rate_sched'] = learning_rate_sched
+        self._detail['learning_rate'] = learning_rate
+        self._detail['time_decay'] = time_decay
+        self._detail['step_decay'] = step_decay
+        self._detail['step_epochs'] = step_epochs
+        self._detail['exp_decay'] = exp_decay
+        self._detail['precision'] = precision    
+        self._detail['no_improvement_stop'] = self._request['hyper']['no_improvement_stop']
         self._detail['batch_size'] = batch_size
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
-                                    'alpha': alpha,
+                                    'learning_rate_sched': learning_rate_sched,
+                                    'learning_rate': learning_rate,
+                                    'time_decay': time_decay,
+                                    'step_decay': step_decay,
+                                    'step_epochs': step_epochs,
+                                    'exp_decay': exp_decay,                                    
                                     'precision': precision,
                                     'batch_size': batch_size,
                                     'maxiter': maxiter,
+                                    'no_improvement_stop': no_improvement_stop,
                                     'start':start,
                                     'end':end,
                                     'duration':end-start,
@@ -434,9 +511,9 @@ class MBGD(GradientDescent):
                                     'final_costs': J.iloc[-1].item()},
                                     index=[0])
         if cross_validated:                                    
-            self._summary['initial_costs_val'] = J_val.iloc[0].item()
-            self._summary['final_costs_val'] = J_val.iloc[-1].item()
+            self._summary['initial_mse'] = mse.iloc[0].item()
+            self._summary['final_mse'] = mse.iloc[-1].item()
         else:
-            self._summary['initial_costs_val'] = None
-            self._summary['final_costs_val'] = None  
+            self._summary['initial_mse'] = None
+            self._summary['final_mse'] = None  
 

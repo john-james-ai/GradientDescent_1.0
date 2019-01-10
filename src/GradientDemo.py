@@ -45,16 +45,16 @@ class GradientDemo():
         self._X = None
         self._y = None        
 
-    def fit(self, X, y, theta, X_val=None, y_val=None, n=500, alpha=0.01, 
-            maxiter=10000, precision=0.001, improvement=5):
+    def fit(self, X, y, theta, X_val=None, y_val=None, n=500, learning_rate=0.01, 
+            maxiter=10000, precision=0.001, no_improvement_stop=5):
 
         # Fit to data
         gd = BGD()
-        gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, 
-               maxiter=maxiter, precision=precision, improvement=improvement)
+        gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, learning_rate=learning_rate, 
+               maxiter=maxiter, precision=precision, no_improvement_stop=no_improvement_stop)
 
         # Obtain search history detail
-        self._search = gd.get_detail()
+        self._search = gd.detail()
         self._summary = gd.summary()
 
         # Extract transformed data for plotting
@@ -101,7 +101,7 @@ class GradientDemo():
         Js = Js.reshape(theta0_mesh.shape)
 
         # Set Title
-        title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._summary['alpha'].item(),3))
+        title = self._alg + '\n' + r' $\learning_rate$' + " = " + str(round(self._summary['learning_rate'].item(),3))
         if fontsize:
             ax.set_title(title, color='k', pad=30, fontsize=fontsize)                            
             display = ax.text2D(0.1,0.92, '', transform=ax.transAxes, color='k', fontsize=fontsize)
@@ -123,7 +123,7 @@ class GradientDemo():
         ax.zaxis._axinfo["grid"]['color'] =  (1,1,1,0)
         # Make surface plot
         ax.plot_surface(theta0_mesh, theta1_mesh, Js, rstride=1,
-                cstride=1, cmap='jet', alpha=0.5, linewidth=0)
+                cstride=1, cmap='jet', learning_rate=0.5, linewidth=0)
         ax.set_xlabel(r'Intercept($\theta_0$)')
         ax.set_ylabel(r'Slope($\theta_1$)')
         ax.set_zlabel(r'Cost $J(\theta)$')        
@@ -184,7 +184,7 @@ class GradientDemo():
                                             interval=interval, blit=True, repeat_delay=3000)
         if directory is not None:
             if filename is None:
-                filename = self._alg + ' Search Plot Learning Rate ' + str(round(self._summary['alpha'].item(),3)) +  '.gif'
+                filename = self._alg + ' Search Plot Learning Rate ' + str(round(self._summary['learning_rate'].item(),3)) +  '.gif'
             save_gif(surface_ani, directory, filename, fps)
         plt.close(fig)
         return(surface_ani)
@@ -223,7 +223,7 @@ class GradientDemo():
         # Initialize line
         line, = ax.plot([],[],'r-', lw=2)
         # Set Title, Annotations and label
-        title = self._alg + '\n' + r' $\alpha$' + " = " + str(round(self._summary['alpha'].item(),3)) 
+        title = self._alg + '\n' + r' $\learning_rate$' + " = " + str(round(self._summary['learning_rate'].item(),3)) 
         if fontsize:
             ax.set_title(title, color='k', fontsize=fontsize)                                    
             display = ax.text(0.1, 0.9, '', transform=ax.transAxes, color='k', fontsize=fontsize)
@@ -258,7 +258,7 @@ class GradientDemo():
                                             interval=interval, blit=True, repeat_delay=3000)
         if directory is not None:
             if filename is None:
-                filename = title = self._alg + ' Fit Plot Learning Rate ' + str(round(self._summary['alpha'].item(),3)) + '.gif'  
+                filename = title = self._alg + ' Fit Plot Learning Rate ' + str(round(self._summary['learning_rate'].item(),3)) + '.gif'  
             save_gif(line_gd, directory, filename, fps)
         plt.close(fig)  
         return(line_gd)
@@ -291,16 +291,16 @@ class SGDDemo(GradientDemo):
         self._X = None
         self._y = None     
 
-    def fit(self, X, y, theta, X_val=None, y_val=None, n=500, alpha=0.01, 
-            maxiter=10000, precision=0.001, improvement=5):
+    def fit(self, X, y, theta, X_val=None, y_val=None, n=500, learning_rate=0.01, 
+            maxiter=10000, precision=0.001, no_improvement_stop=5):
 
         # Fit to data
         gd = SGD()
-        gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, 
-               maxiter=maxiter,  precision=precision, improvement=improvement)
+        gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, learning_rate=learning_rate, 
+               maxiter=maxiter,  precision=precision, no_improvement_stop=no_improvement_stop)
 
         # Obtain search history detail
-        self._search = gd.get_detail()
+        self._search = gd.detail()
         self._summary = gd.summary()
 
         # Extract transformed data for plotting

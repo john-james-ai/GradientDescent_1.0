@@ -23,18 +23,23 @@ import data
 def sgd():
         X, X_val, y, y_val = data.demo()
         theta = np.array([-1,-1])
-        alpha = 0.01
+        learning_rate = 0.01
+        learning_rate_sched = 'e'
+        time_decay = 0.1
+        step_decay=0.5
+        step_epochs=2
+        exp_decay=0.1        
         precision = 0.001
         maxiter = 10000
-        improvement = 5  
+        no_improvement_stop = 5  
         directory = "./test/figures/SGD/"
         gd = SGD()
-        gd.fit(X=X, y=y, theta=theta,X_val=X_val, y_val=y_val, 
-                alpha=alpha, maxiter=maxiter, precision=precision, 
-                improvement=improvement, average=True)
-        gd.plot(directory=directory)
-        rpt = gd.summary()
-        return(rpt)
+        gd.fit(X=X, y=y, theta=theta,X_val=X_val, y_val=y_val, learning_rate=learning_rate,
+               learning_rate_sched=learning_rate_sched, time_decay=time_decay, step_decay=step_decay,
+               step_epochs=step_epochs, exp_decay=exp_decay,
+               maxiter=maxiter, precision=precision, no_improvement_stop=no_improvement_stop)        
+        return(gd)
 #%%
-report = sgd()        
-print(report)
+gd = sgd()
+print(gd.summary())
+print(gd.detail())

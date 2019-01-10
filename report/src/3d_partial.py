@@ -45,18 +45,18 @@ def partial():
     X, Y = np.meshgrid(x, y)
     zs = np.array([z(x, y) for x, y in zip(np.ravel(X), np.ravel(Y))])
     Z = zs.reshape(X.shape)
-    ax.plot_surface(X, Y, Z, alpha=0.2)
+    ax.plot_surface(X, Y, Z, learning_rate=0.2)
 
 
     # 2D Partial plot with respect to x
     xx, zz = np.meshgrid(x, z(x, y))
     yy = xx*0
-    #ax.plot_surface(xx, yy, zz, alpha=0.5)
+    #ax.plot_surface(xx, yy, zz, learning_rate=0.5)
 
     # 2D Partial plot with respect to y
     yy, zz = np.meshgrid(y, z(x, y))
     xx = yy*0
-    #ax.plot_surface(xx, yy, zz, alpha=0.5)
+    #ax.plot_surface(xx, yy, zz, learning_rate=0.5)
 
     # Plot point
     point_x = -2

@@ -22,12 +22,12 @@ show = False
 # --------------------------------------------------------------------------- #
 #                                 GRIDSEARCH                                  #
 # --------------------------------------------------------------------------- #
-def sgd_gs(alpha=None, precision=None, miniter=None, maxiter=None, 
+def sgd_gs(learning_rate=None, precision=None, miniter=None, maxiter=None, 
            stop_parameter=None, stop_metric=None, check_point=None,
            directory=None, filename=None):
     theta = np.array([-1,-1]) 
-    if not alpha:
-        alpha = [0.02, 0.04, 0.06, 0.08, 0.2, 0.4, 0.6, 0.8, 1, 1.5]
+    if not learning_rate:
+        learning_rate = [0.02, 0.04, 0.06, 0.08, 0.2, 0.4, 0.6, 0.8, 1, 1.5]
     if not precision:
         precision = [0.1, 0.01, 0.001, 0.0001]
     if not check_point:
@@ -48,11 +48,11 @@ def sgd_gs(alpha=None, precision=None, miniter=None, maxiter=None,
     # Run experiment
     if cache is False:
         lab = SGDLab()
-        lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
+        lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, precision=precision,
                     check_point=check_point, miniter=miniter, maxiter=maxiter, 
                     stop_parameter=stop_parameter, stop_metric=stop_metric)
         fig = lab.plot(directory=directory, show=show)
-        lab.plot_alpha(directory=directory, show=show)
+        lab.plot_learning_rate(directory=directory, show=show)
         lab.plot_check_point(directory=directory, show=show)
         lab.plot_precision(directory=directory, show=show)
         lab.plot_curves(stop_parameter='Training Set Costs', 
@@ -64,10 +64,10 @@ def sgd_gs(alpha=None, precision=None, miniter=None, maxiter=None,
 # --------------------------------------------------------------------------- #
 #                         GET FEATURED OBSERVATIONS                           #
 # --------------------------------------------------------------------------- #
-def sgd_featured(report, alpha):
+def sgd_featured(report, learning_rate):
     featured = pd.DataFrame()
-    for a in alpha:
-        f = report[report.alpha==a].nsmallest(1, 'final_costs_val', 'duration')
+    for a in learning_rate:
+        f = report[report.learning_rate==a].nsmallest(1, 'final_mse', 'duration')
         featured = pd.concat([featured, f], axis=0)
     return(featured)
     
@@ -75,7 +75,7 @@ def sgd_featured(report, alpha):
 # --------------------------------------------------------------------------- #
 #                                    DEMO                                     #
 # --------------------------------------------------------------------------- #
-def sgd_demo(alpha, precision, maxiter, miniter, stop_parameter, stop_metric, 
+def sgd_demo(learning_rate, precision, maxiter, miniter, stop_parameter, stop_metric, 
              check_point=0.1, filename=None, search=True, fit=True, 
              fontsize=None, cache=False):
     theta = np.array([-1,-1]) 
@@ -89,13 +89,13 @@ def sgd_demo(alpha, precision, maxiter, miniter, stop_parameter, stop_metric,
         filename_fit = filename + ' Fit' + stub + '.gif'
     else:
 
-        filename_search =  'Stochastic Gradient Descent Search - Alpha ' + str(alpha) + stub + '.gif'
-        filename_fit = 'Stochastic Gradient Descent Fit - Alpha ' + str(alpha) + stub + '.gif'
+        filename_search =  'Stochastic Gradient Descent Search - learning_rate ' + str(learning_rate) + stub + '.gif'
+        filename_fit = 'Stochastic Gradient Descent Fit - learning_rate ' + str(learning_rate) + stub + '.gif'
 
     # Run Demo Animation
     if not cache:
         sgd = SGDDemo()
-        sgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, precision=precision, 
+        sgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, learning_rate=learning_rate, precision=precision, 
                 check_point=check_point, miniter=miniter, maxiter=maxiter, 
                 stop_parameter=stop_parameter, stop_metric=stop_metric)
         if search:
@@ -110,7 +110,7 @@ def sgd_demo(alpha, precision, maxiter, miniter, stop_parameter, stop_metric,
 # --------------------------------------------------------------------------- #
 def sgd_ani(featured, filename=None, fontsize=None, cache=False):
     if cache is False:    
-        sgd_demo(alpha=featured.alpha, precision=featured.precision,
+        sgd_demo(learning_rate=featured.learning_rate, precision=featured.precision,
         maxiter=featured.maxiter, miniter=featured.miniter,
         stop_parameter=featured.stop_parameter, 
         check_point=featured.check_point,

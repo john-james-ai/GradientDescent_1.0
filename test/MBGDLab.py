@@ -18,25 +18,34 @@ from GradientLab import MBGDLab
 import data
 
 # Data
-X, X_val, y, y_val = data.ames()
+X, X_val, y, y_val = data.demo()
 
 # Parameters
-theta = np.array([-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]) 
-alpha = [0.01]
-precision = [0.01]
+theta = np.array([-1,-1]) 
+batch_size=10
+learning_rate = [0.01, 0.03, 0.1, 0.8]
+precision = [0.1, 0.01, 0.001]
 maxiter = 5000
-stop_parameter = ['g']
-stop_metric = ['r']
-batch_size = [0.01, 0.05, 0.1, 0.2]
-directory = "./test/figures/MBGD/Lab/"
+learning_rate_sched = ['c', 't', 's', 'e']
+time_decay = [0.1, 0.01]
+step_decay = [0.1, 0.01]
+step_epochs = [2,4]
+exp_decay = [0.1, 0.01, 0.001]
+no_improvement_stop=[5,10]
+directory = "./test/figures/SGD/Lab/"
 
 #%%
 # Run experiment
 lab = MBGDLab()
-lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-           maxiter=maxiter, stop_parameter=stop_parameter, stop_metric=stop_metric, batch_size=batch_size)
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
+               learning_rate_sched=learning_rate_sched, time_decay=time_decay, 
+               step_decay=step_decay, step_epochs=step_epochs, exp_decay=exp_decay,
+               batch_size=batch_size, precision=precision, maxiter=maxiter, 
+               no_improvement_stop=no_improvement_stop)
 #%%%           
-lab.plot_costs(directory=directory)
-lab.plot_curves(directory=directory)
-lab.plot_times(directory=directory)
-lab.report(n=5)
+dfs = lab.summary()
+dfd = lab.detail()
+lab.figure(data=dfs, x='learning_rate', y='final_mse', z='learning_rate_sched',
+           func=lab.barplot, directory=directory, show=True)
+report = lab.report(directory=directory, filename='Minibatch Gradient Descent Report.csv')
+print(report)

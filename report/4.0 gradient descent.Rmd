@@ -174,43 +174,51 @@ Since the learning rate effects the magnitude of the update on each iteration, i
 As depicted in `r kfigr::figr(label = "learning_rates", prefix = TRUE, link = TRUE, type="Figure")`, a low learning rate decays the loss at a linear rate and may result in slow convergence. The high learning rate will decay the loss faster, but may converge suboptimally. This is because the gradient descends chaotically, oscillating back and forth around the local minimum. A very high learning rate could introduce too much "energy" into the optimization, causing instability and exponentially increasing divergence from the optimal solution. A good learning rate is one in the "Goldilocks" zone.  It decays the learning rate quickly and settles at the local minimum. 
 
 The literature is rife with strategies for optimizing the learning rates. Generally, learning rate strategies can be characterized as:   
+
 * fixed learning rates,      
 * time decay based learning rates 
 * step decay based learning rates
 * exponential decay based learning rates
 * learning rates that adapt to the contours of the objective function.    
 
-Of course, fixed learning rates are the most basic method, yet this technique can be suprisingly effective on a range of optimization problems. The best practice is to test a range of values, then adjust to a higher or lower 
+##### Constant Learning Rate
+Of course, constant learning rates are the most basic method, yet this technique can be suprisingly effective on a range of optimization problems. The best practice is to test a range of values, then adjust to a higher or lower 
 learning rate based upon the quality and time of the optimization. The aim is to start high in order to find the fastest rate that produces decreasing loss on the objective function.  
 
+##### Time Decay Learning Rates  
 Time decay based learning rates adjust according to the number of iterations. Common implementations divide the learning rate by the iteration number $t$ or $\sqrt{t}$. Keras implements a time-based decay:
 $$\alpha=\alpha_0/(1+kt)$$
 where:     
+
 * $\alpha$ is the new learning rate,   
 * $\alpha_0$ is the initial learning rate,      
 * $t$ is the iteration number,    
-* $k$ is a hyperparameter.
+* $k$ is the decay hyperparameter.
 
-Step decay algoritms reduce the learning rate by a factor very $n$ epochs, where $n\approx10$. A common strategy is based upon validation set loss. 
+##### Step Decay Learning Rates
+Step decay algoritms reduce the learning rate by a factor $d$ every $t_d$ epochs, where $t_d\approx10$. Again, we see the step decay method implemented in Keras with the following mathematical formulation:  
+$$\alpha = \alpha_0 * d^{floor((1+t)/t_d)}$$
+where:   
 
-Exponential decay based learning rates are very common. One has the following mathematical formulation:     
+* $\alpha$ is the new learning rate,   
+* $\alpha_0$ is the initial learning rate,      
+* $d$ is the factor by which the learning rate decays each step,    
+* $t$ is the iteration or epoch number,    
+* $t_d$ is the number of epochs in each step, typically $t_d\approx10$
+
+##### Exponential Decay Learning Rates
+Exponential decay based learning rates are also very common. One has the following mathematical formulation:     
 $$\alpha = \alpha_0 \times e^{(-kt)}$$,
 where:    
+
 * $\alpha$ is the new learning rate,   
 * $\alpha_0$ is the initial learning rate,      
 * $t$ is the iteration number,    
 * $k$ is a hyperparameter.
 
-Lastly, we have those learning rates that adapt to the shape of the objective function. A very popular Stochastic Gradient Descent (SGD) implementation starts with a learning rate $\alpha=0.01$. Then the learning rate is reduced by a factor each time the validation error stops decreasing. This proceeds until the learning rate reaches some lower limit. Another formulation is:
-$$\alpha = \alpha_0 \times d^{(1+t)/e_d}$$,
-where:    
-* $\alpha$ is the new learning rate,   
-* $\alpha_0$ is the initial learning rate,    
-* $d$ is the amount by which the learning rate drops,   
-* $t$ is the iteration number,    
-* $e_d$ is the number of epochs between each drop.    
-    
-Selecting the right learning rate schedule for an implementation often requires experimentation and intuition.
+Lastly, we have those learning rates that adapt to the shape of the objective function. A very popular Stochastic Gradient Descent (SGD) implementation starts with a learning rate $\alpha\approx0.01$. Then the learning rate is reduced by a factor each time the validation error stops decreasing. This proceeds until the learning rate reaches some lower limit. 
+
+There is no dearth of learning rate schedules in literature. We'll experiment with a few as selecting the right learning rate schedule for any implementation often requires experimentation and intuition.
 
 #### Convergence for Non-Convex Loss Functions
 So far, we've observed gradient descent when applied to a linear regression problem with a convex loss function and a single global minimum. Consider instead, a deep learning neural network with an extremely complicated non-linear hypothesis function. Its associated cost function may be far from convex and may look something like this.
@@ -227,11 +235,10 @@ There are several methods used in practice. The method that is most appropriate 
 The simpliest method is to stop at a predetermined maximum number of iterations. If an approximate solution is the objective, this approach can be very reasonable. 
 
 One family of stopping rules are based upon the level of improvement obtained by each iteration of the search in terms of:       
-* Absolute or percent change in absolute value of the objective function,   
-* Absolute or percent change in norm of the gradient, 
-* Absolute or percent change in absolute value of the objective function computed on a separate cross validation set. 
-
-The algorithm stops when the level of improvement drops below a predetermined threshold. 
+* Absolute or relative change in absolute value of the objective function,   
+* Absolute or relative change in norm of the gradient, 
+* Absolute or relative change in absolute value of the objective function computed on a separate cross validation set. 
+The algorithm stops when the level of improvement drops below a predetermined threshold once, or some $i_{stop}$ iterations of non-improvement in a row.
 
 Another category conditions on the proximity of the objective function or gradient to zero. However, determining the appropriate proximity to zero for an objective function may be difficult as one typically does not expect zero cost. Additionally, a gradient in the vicinity of zero may indicate a local minimum, or a saddle point. 
 
