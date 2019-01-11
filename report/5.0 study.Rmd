@@ -1,0 +1,28 @@
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+TeX: {
+equationNumbers: {
+autoNumber: "all",
+formatNumber: function (n) {return ''+n}
+}
+}});</script>
+
+# Gradient Descent Study
+In this section, we'll develop our understanding of, and intuition about, gradient descent optimization through hands-on experience. We will introduce, implement, tune and analyze the the three variants of gradient descent: 
+* batch gradient descent,    
+* stochastic gradient descent, and    
+* mini-batch gradient descent.
+
+Once we've covered the basics, we will also explore some algorithms that have been widely used by the Deep Learning community to address some of the challenges and limitations of the aforementioned variants:      
+* Momentum - [@sutton:problems]  
+* Nesterov Accelerated Gradient [@nesterov1983]    
+* Adagrad [@DuchiJDUCHI2011]     
+* Adadelta [@Zeiler]      
+* RMSProp [@Hinton2012]      
+* Adam [@KingmaB14]     
+* AdaMax [@KingmaB14]         
+* Nadam [@Dozat]  
+
+Once we've surveyed, implemented and tuned the algorithms, we will turn our attention to our home price prediction challenge. We will use what we've learned to develop, tune, evaluate and select a model to predict home prices using the Ames Housing Project Test Set. We can then compare our results with top 100 scores on the Kaggle leaderboard for the Ames Housing Project.
+
+With that, let's get started with batch gradient descent.

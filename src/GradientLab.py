@@ -204,11 +204,11 @@ class GradientLab:
                   'duration': 'Computation Time (ms)',
                   'iterations': 'Iterations',
                   'cost': 'Training Set Costs',
-                  'cost_val': 'Validation Set Costs',
+                  'mse': 'Validation Set MSE',
                   'no_improvement_stop': 'no_improvement_stop ',
                   'batch_size': 'Batch Size',
                   'final_costs': 'Training Set Costs',
-                  'final_mse': 'Validation Set Costs'}
+                  'final_mse': 'Validation Set MSE'}
         return(labels[x])
 
     def report(self,  n=None, sort='v', directory=None, filename=None):
@@ -300,7 +300,7 @@ class GradientLab:
         return(ax) 
 
     def figure(self, data, x, y, z=None, groupby=None, func=None, 
-               directory=None, show=False, height=1, width=1):
+               directory=None, filename=None, show=False, height=1, width=1):
 
         sns.set(style="whitegrid", font_scale=1)                
         if groupby:
@@ -340,9 +340,10 @@ class GradientLab:
             if show:
                 plt.show()
             if directory is not None:
-                filename = suptitle.replace('\n', '')
-                filename = filename.replace('  ', ' ')
-                filename = filename.replace(':', '') + '.png'
+                if filename is None:
+                    filename = suptitle.replace('\n', '')
+                    filename = filename.replace('  ', ' ')
+                    filename = filename.replace(':', '') + '.png'
                 save_fig(fig, directory, filename)
             plt.close(fig)
         else:
@@ -356,15 +357,16 @@ class GradientLab:
             fig, ax = plt.subplots(figsize=(fig_width, fig_height))    
             # Render plot    
             ax = func(ax=ax, data=data, x=x, y=y, z=z, 
-                        title=title)
+                        title=title)            
             # Finalize and save
             fig.tight_layout(rect=[0,0,1,.85])
             if show:
                 plt.show()
             if directory is not None:
-                filename = title.replace('\n', '')
-                filename = filename.replace('  ', ' ')
-                filename = filename.replace(':', '') + '.png'
+                if filename is None:
+                    filename = title.replace('\n', '')
+                    filename = filename.replace('  ', ' ')
+                    filename = filename.replace(':', '') + '.png'
                 save_fig(fig, directory, filename)
             plt.close(fig)      
          

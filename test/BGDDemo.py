@@ -22,17 +22,19 @@ X, X_val, y, y_val = data.demo(n=500)
 
 # Parameters
 theta = np.array([-1,-1]) 
-learning_rate = 1
+learning_rate_sched = 'c'
+learning_rate = 1.24
 precision = 0.001
-maxiter = 10000
+maxiter = 5000
 no_improvement_stop=5
 directory = "./test/figures/BGD/"
 
 # Run experiment
 demo = BGDDemo()
-demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, precision=precision,
+demo.fit(X=X,y=y, theta=theta, learning_rate_sched=learning_rate_sched,
+         learning_rate=learning_rate, precision=precision,
            maxiter=maxiter, no_improvement_stop=no_improvement_stop)
 #%%           
 demo.show_search(directory=directory, fps=1)
-#demo.show_fit(directory=directory, fps=1)
+demo.show_fit(directory=directory, fps=1)
 
