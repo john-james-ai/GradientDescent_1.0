@@ -22,15 +22,15 @@ X, X_val, y, y_val = data.demo(n=500)
 
 # Parameters
 theta = np.array([-1,-1]) 
-learning_rate = np.arange(0,1,0.01)
-precision = [0.1, 0.01, 0.001, 0.0001]
-maxiter = 5000
-learning_rate_sched = ['c']
-time_decay = [0.1, 0.01, 0.001]
+learning_rate = [1.6]
+precision = [0.001]
+maxiter = [5000]
+learning_rate_sched = ['t']
+time_decay = [0.01]
 step_decay = [0.1, 0.01, 0.001]
 step_epochs = [2,4]
 exp_decay = [0.1, 0.01, 0.001]
-no_improvement_stop=[5,10]
+no_improvement_stop=[20]
 directory = "./test/figures/BGD/Lab/"
 
 #%%
@@ -44,7 +44,8 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
 # Render plots
 dfs = lab.summary()
 dfd = lab.detail()
-lab.figure(data=dfs, x='learning_rate', y='final_costs', 
+print(dfd.head())
+lab.figure(data=dfd, x='iterations', y='learning_rates', 
            func=lab.lineplot, directory=directory, show=True)
 report = lab.report(directory=directory)
 print(report)

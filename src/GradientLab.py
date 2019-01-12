@@ -194,6 +194,7 @@ class GradientLab:
 
     def _get_label(self, x):
         labels = {'learning_rate': 'Learning Rate',
+                  'learning_rates': 'Learning Rates',
                   'learning_rate_sched': 'Learning Rate Schedule',
                   'time_decay': 'Time Decay',
                   'step_decay': 'Step Decay',

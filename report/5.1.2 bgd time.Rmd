@@ -7,34 +7,8 @@ formatNumber: function (n) {return ''+n}
 }
 }});</script>
 
-```{python GradientDescent, code=readLines('../src/GradientDescent.py'), message=FALSE, warning=FALSE}
-```
-```{python GradientDemo, code=readLines('../src/GradientDemo.py'), message=FALSE, warning=FALSE}
-```
-```{python GradientFit, code=readLines('../src/GradientFit.py'), message=FALSE, warning=FALSE}
-```
-```{python GradientLab, code=readLines('../src/GradientLab.py'), message=FALSE, warning=FALSE}
-```
-
-```{python bgd_defaults, echo=F, eval=T}
-directory = "./report/figures/BGD/Lab"
-```
-
-```{r constant_learning_rate_results, eval=T, echo=F}
-filename <- 'Batch Gradient Descent - GS III - Report.png'
-report <- read.csv(file.path(py$directory, filename))
-report_cost <- report %>% arrange(final_costs, duration) 
-report_error <- report %>% arrange(final_mse, duration)
-```
-
-```{python bgd_time_data, echo=F, eval=T}
-X, X_val, y, y_val = data.demo(n=500)
-```
-
 #### Time Decay Learning Rates
-We've optimized our batch gradient descent for a constant learning rate. Our goal here is to determine whether a more optimal solution can be derived using a time decay learning rate.  Recall, our optimal constant learning rate solution had a minimum training set costs of `r round(report_cost['final_costs'][1,],4)` and a minimum validation set error of `r round(report_error['final_mse'][1,],4)` both occurring at learning rate `r report_error['learning_rate'][1,]`
-
-Recall that, time decay based learning rates adjust according to the number of iterations. Our time decay implementation is mathematically defined as:     
+Our purpose here is to identify the time decay learning rate hyperparameters that minimize our objective function on our training set. Recall that, time decay based learning rates adjust according to the number of iterations. Our time decay implementation is mathematically defined as:     
 $$\alpha=\alpha_0/(1+kt)$$
 where:     
 
@@ -44,11 +18,11 @@ where:
 * $k$ is the decay hyperparameter.
 
 ##### Time Decay Learning Rate Gridsearch 
-For our initial alpha, we will use $\alpha_0=1.6$, the maximum learning rate from the learning rate test in the prior section. Using gridsearch, we will evaluate a range of values for $k$. Again, we'll use default values for our initial $\theta$'s, maxiter, and precision $\epsilon$ parameters. Learning from the last section, we will set the $i_{stop}$ parameter to 20 to allow the algorithm the enough time to arrive at a suitable optimum. 
+For our initial alpha, we will use $\alpha_0=1.6$, the maximum learning rate from the learning rate test in `r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")`. Using a gridsearch, we will evaluate a range of values for $k$. Again, we'll use default values for our initial $\theta$'s, maxiter, and precision $\epsilon$ parameters. Learning from the last section, we will set the $i_{stop}$ parameter to 20 to grant the algorithm the time to arrive at a suitable optimum. 
 
 ```{python bgd_time_params_i, echo=T, eval=T}
 theta = np.array([-1,-1]) 
-learning_rate_sched = ['t']
+learning_rate_sched = 't'
 learning_rate = [1.6]
 time_decay = np.arange(0,1,0.01)
 precision = [0.001]
@@ -58,7 +32,7 @@ no_improvement_stop=[20]
 
 Ok, let's run the search and evaluate performance. 
 
-```{python bgd_time_gs_i, echo=T, eval=T}
+```{python bgd_time_gs, echo=T, eval=T}
 lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=time_decay, 
@@ -66,37 +40,45 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
                precision=precision, maxiter=maxiter, no_improvement_stop=no_improvement_stop)
 ```
 
-```{python bgd_time_plots_i, echo=F, eval=T}
+```{python bgd_time_plots, echo=F, eval=T}
 filename = 'Batch Gradient Descent - Time Decay - Costs by Learning Rate.png'
 lab.figure(data=lab.summary(), x='time_decay', y='final_costs', 
            func=lab.lineplot, directory=directory, 
            filename=filename, width=0.5)             
-filename = 'Batch Gradient Descent - Time Decay - Error by Learning Rate.png'
-lab.figure(data=lab.summary(), x='time_decay', y='final_mse', 
+filename = 'Batch Gradient Descent - Time Decay - Time by Learning Rate.png'
+lab.figure(data=lab.summary(), x='time_decay', y='duration', 
            func=lab.lineplot, directory=directory, 
            filename=filename, width=0.5)                        
 filename = 'Batch Gradient Descent - Time Decay Report.csv'             
 lab.report(directory=directory, filename=filename)
 ```
 
-![](../report/figures/BGD/Lab/Batch Gradient Descent - Time Decay - Costs by Learning Rate.png)![](../report/figures/BGD/Lab/Batch Gradient Descent - Time Decay - Error by Learning Rate.png)
+![](../report/figures/BGD/Lab/Batch Gradient Descent - Time Decay - Costs by Learning Rate.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient Descent - Time Decay - Time by Learning Rate.png){width=50%}
 
-`r kfigr::figr(label = "bgd_time_plots_i", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Training Costs and Validation Error by Time Decay Parameter
+`r kfigr::figr(label = "bgd_time_plots", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Training Costs and Computation Time by Time Decay Parameter
 
 ```{r bgd_time_report, echo=F, eval=T}
 report <- read.csv(file.path(py$directory, py$filename))
-report_costs <- report %>% arrange(final_costs, duration)
-report_error <- report %>% arrange(final_mse, duration)
+report_costs <- report %>% arrange(final_costs, duration) %>% select(learning_rate, time_decay, final_costs, duration)
+report_error <- report %>% arrange(final_mse, duration) %>% select(learning_rate, time_decay, final_mse)
 ```
 
-Our diagnostic, `r kfigr::figr(label = "bgd_time_plots_i", prefix = TRUE, link = TRUE, type="Figure")`, shows the relationship between training set costs, validation error and our time decay parameter, $k$. Our highest costs occur at $k=0$, then drops rapidly to a minimum cost of `r round(report_costs['final_costs'][1,],4)` at a time decay parameter $k=$ `r report_costs['time_decay'][1,]`. Similarly, we observe maximum validation set error at time decay parameter, $k=0$, then a precipitous drop to a minimum error of `r round(report_error['final_mse'][1,],4)`, again at $k=$ `r report_error['time_decay'][1,]`.
+`r kfigr::figr(label = "bgd_time_plots", prefix = TRUE, link = TRUE, type="Figure")`, shows the relationship between training set costs, computation time and our time decay parameter, $k$. Our highest costs occur at $k=0$, then drops rapidly to a minimum cost of `r round(report_costs['final_costs'][1,],4)` at a time decay parameter $k=$ `r report_costs['time_decay'][1,]`. Similarly, we observe maximum computation time at time decay parameter, $k=0$, followed by a significant reduction. After $k\approx0.1$, computation times appear to stabalize.
 
-##### Time Decay Learning Rate Convergence
-Let's examine the path to convergence for this parameter set. 
-```{python bgd_time_convergence, echo=F, eval=T, cache=T}
+##### Time Decay Learning Rate Solution Path
+The following animation reveals the effect of a time decayed learning rate over 27 iterations, starting with an initial learning rate $\alpha=1.6$. 
+
+```{python bgd_time_path, echo=F, eval=T, cache=T}
+theta = np.array([-1,-1]) 
+learning_rate_sched = 't'
+learning_rate = 1.6
+time_decay = 0.01
+precision = 0.001
+maxiter = 5000
+no_improvement_stop=20
 time_decay_demo = BGDDemo()
 time_decay_demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, 
-         learning_rate_sched=learning_rate_sched,
+         learning_rate_sched=learning_rate_sched, time_decay=time_decay,
          precision=precision, maxiter=maxiter, 
          no_improvement_stop=no_improvement_stop)
          
@@ -107,9 +89,51 @@ time_decay_demo.show_fit(directory=directory, filename=filename, fps=1)
 ```
 ![](../report/figures/BGD/Lab/Batch Gradient Descent - Time Decay Convergence.gif)
 
-`r kfigr::figr(label = "bgd_time_convergence", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Time Decay Convergence k=0.01
+`r kfigr::figr(label = "bgd_time_path", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Time Decay Convergence k=0.01
+
+The oscillation in the solution path, caused by the very high initial learning rate $\alpha=1.6$, diminishes systematically as the learning rate decays. Optimal cost of $J\approx0.019$ is reached in 27 iterations.  `r kfigr::figr(label = "bgd_time_alpha", prefix = TRUE, link = TRUE, type="Figure")` reveals the learning rates applied at each iteration. 
+
+```{python bgd_time_alpha, echo=F, eval=T}
+filename = 'Batch Gradient Descent - Time Decay - Learning Rates by Iteration.png'
+data = lab.detail()
+data = data[data.time_decay==0.01]
+lab.figure(data=data, x='iterations', y='learning_rates', 
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)
+last = data['learning_rates'].iloc[-1].item()
+```
+![](../report/figures/BGD/Lab/Batch Gradient Descent - Time Decay - Learning Rates by Iteration.png)
+
+`r kfigr::figr(label = "bgd_time_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent - Time Decay Learning Rates by Iteration
+
+##### Time Decay Learning Rate Evaluation
+Here, we evaluate the empirical solution obtained from the training set as well as the generalizability of the solution to new data. We will use regression line fit to assess our empirical result. Validation set performance will be our measure of generalizability.   
 
 
 ![](../report/figures/BGD/Lab/Batch Gradient Descent - Time Decay Fit.gif)
 
 `r kfigr::figr(label = "bgd_time_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Time Decay Fit k=0.01
+
+The time decay effect is evident in the regression plot above As a consequence of the high initial learning rate $\alpha_0=1.6$, the oscillation around the optimum is rather dramatic at first. The oscillations diminish in magnitude as the learning rate decays and the norm of the gradient goes to zero. Optimal parameters $\theta$ are obtained in 27 iterations at a minimum cost of $J\approx0.019$
+
+Does our solution generalize well to unseen data? If it did, we would expect that our best performing parameters on the training set would be among the best performing parameters on the validation set. The following plot contrasts training and validation set performance across our parameter sets.
+
+```{python bgd_time_eval, echo=F, eval=T}
+filename = 'Batch Gradient Descent Time Decay Learning Rate Costs.png'
+lab.figure(data=lab.summary(), x='time_decay', y='final_costs',
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)  
+filename = 'Batch Gradient Descent Time Decay Learning Rate Error.png'
+lab.figure(data=lab.summary(), x='time_decay', y='final_mse',
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)         
+```
+![](../report/figures/BGD/Lab/Batch Gradient Descent Time Decay Learning Rate Costs.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient Descent Time Decay Learning Rate Error.png){width=50%}
+
+`r kfigr::figr(label = "bgd_time_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Time Decay Learning Rate Costs and Error
+
+The plots look remarkably similar. In fact, both the minimum training set cost $J=$ `r round(report_costs['final_costs'][1,], 4)` and the minimum validation set error, `r round(report_error['final_mse'][1,], 4)`, occur at a time decay value $k=$ `r report_error['time_decay'][1,]`
+
+That said, we can conclude that the solution generalizes reasonably well to unseen data.
+
+Next, we'll explore the step decay learning rate.

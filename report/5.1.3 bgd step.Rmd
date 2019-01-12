@@ -1,0 +1,153 @@
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+TeX: {
+equationNumbers: {
+autoNumber: "all",
+formatNumber: function (n) {return ''+n}
+}
+}});</script>
+
+#### Step Decay Learning Rates
+Our goal is to identify the step decay hyperparameters that minimize our training set objective function and yields a model that generalizes well to new data. Recall that, step decay based learning rates drop by a factor every few epochs. The mathematical form of step decay is:     
+$$\alpha = \alpha_0 * d^{floor((1+t)/t_d)}$$
+where:   
+
+* $\alpha$ is the new learning rate,   
+* $\alpha_0$ is the initial learning rate,      
+* $d$ is the factor by which the learning rate decays each step,    
+* $t$ is the iteration or epoch number,    
+* $t_d$ is the number of epochs in each step, typically $t_d\approx10$
+
+##### Step Decay Learning Rate Gridsearch 
+For our initial alpha, we will use $\alpha_0=1.6$, the maximum learning rate from the learning rate test in `r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")`. Using a gridsearch, we will evaluate a range of values for our drop factor, $d$, and the number of epochs per step, $t_d$. Parameters $\theta$, maxiter, precision, and $i_{stop}$ will be set to their default values.
+
+```{python bgd_step_params, echo=T, eval=T}
+theta = np.array([-1,-1]) 
+learning_rate_sched = 's'
+learning_rate = [1.6]
+step_decay = np.arange(0,1,0.01)
+step_epochs = np.arange(5,25,5)
+precision = [0.001]
+maxiter = [5000]
+no_improvement_stop=[20]
+```
+
+In case you are just joining us, the algorithm stops if maxiter iterations is reached, or the objective function has not improved over $i_{stop}$, a.k.a. no_improvement_stop iterations. Improvement is measured with a tolerance given by our parmeter, $\epsilon$.  
+
+Ok, let's run the search and evaluate performance. 
+
+```{python bgd_step_gs, echo=T, eval=T}
+lab = BGDLab()
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
+               learning_rate_sched=learning_rate_sched, time_decay=None, 
+               step_decay=step_decay, step_epochs=step_epochs, exp_decay=None,
+               precision=precision, maxiter=maxiter, no_improvement_stop=no_improvement_stop)
+```
+
+```{python bgd_step_plots, echo=F, eval=T}
+filename = 'Batch Gradient Descent - Step Decay - Costs.png'
+lab.figure(data=lab.summary(), x='step_decay', y='final_costs', z='step_epochs', 
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)             
+filename = 'Batch Gradient Descent - Step Decay - Time.png'
+lab.figure(data=lab.summary(), x='step_decay', y='duration', z='step_epochs',
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)                        
+```
+
+```{python bgd_step_plots_2, echo=F, eval=T}
+data = lab.summary()
+data = data.loc[(data['step_decay'] > 0.2) & (data['step_decay'] < 0.9)]
+filename = 'Batch Gradient Descent - Step Decay - Costs II.png'
+lab.figure(data=data, x='step_decay', y='final_costs', z='step_epochs', 
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)             
+filename = 'Batch Gradient Descent - Step Decay - Time II.png'
+lab.figure(data=data, x='step_decay', y='duration', z='step_epochs',
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)                        
+filename = 'Batch Gradient Descent - Step Decay Report.csv'             
+step_decay_report = lab.report(directory=directory, filename=filename)           
+```
+
+![](../report/figures/BGD/Lab/Batch Gradient Descent - Step Decay - Costs.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient Descent - Step Decay - Time.png){width=50%}
+![](../report/figures/BGD/Lab/Batch Gradient Descent - Step Decay - Costs II.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient Descent - Step Decay - Time II.png){width=50%}
+
+`r kfigr::figr(label = "bgd_step_plots", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Training Costs and Computation Time by Step Decay Parameters
+
+```{r bgd_step_report, echo=F, eval=T}
+report <- read.csv(file.path(py$directory, py$filename))
+report_costs <- report %>% arrange(final_costs, duration) %>% select(learning_rate, step_decay, step_epochs, final_costs, duration)
+report_error <- report %>% arrange(final_mse, duration) %>% select(learning_rate, step_decay, step_epochs,  final_mse)
+```
+
+The four plots in `r kfigr::figr(label = "bgd_step_plots", prefix = TRUE, link = TRUE, type="Figure")`, show the relationship between training set costs, computation time and our step decay parameters. The first row represents the full range of parameter values. We've narrowed the range of Step Decay values on the second row so that we exclude outliers.
+
+Lower training set costs appear to correlate with greater numbers of epochs per step and higher decay rates. Computation times are clearly associated with the number of epochs per step. Step decay rates don't appear to be a factor which influences computation.
+
+
+`r kfigr::figr(label = "bgd_best_step", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Best Performing Step Decay Parameters
+```{r bgd_best_step, echo=F, eval=T}
+knitr::kable(head(report_costs,3), format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
+```
+
+The above table summarizes the three best step decay parameter settings. We'll analyze and evaluate step decay value $d=0.88$ and epochs per step $t_d=20$.
+
+##### Step Decay Learning Rate Solution Path
+The following animation reveals the effect of our step decay learning rate over 39 iterations, starting with an initial learning rate $\alpha=1.6$. 
+
+```{python bgd_step_path, echo=F, eval=T, cache=T}
+theta = np.array([-1,-1]) 
+learning_rate_sched = 's'
+learning_rate = step_decay_report['learning_rate'].iloc[0]
+step_decay = step_decay_report['step_decay'].iloc[0]
+step_epochs = step_decay_report['step_epochs'].iloc[0]
+precision = step_decay_report['precision'].iloc[0]
+maxiter = step_decay_report['maxiter'].iloc[0]
+no_improvement_stop=step_decay_report['no_improvement_stop'].iloc[0]
+step_decay_demo = BGDDemo()
+step_decay_demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, 
+         learning_rate_sched=learning_rate_sched, step_decay=step_decay,
+         step_epochs=step_epochs, precision=precision, maxiter=maxiter, 
+         no_improvement_stop=no_improvement_stop)
+         
+filename = 'Batch Gradient Descent - Step Decay Convergence.gif'
+step_decay_demo.show_search(directory=directory, filename=filename, fps=1)
+filename = 'Batch Gradient Descent - Step Decay Fit.gif'
+step_decay_demo.show_fit(directory=directory, filename=filename, fps=1)
+```
+![](../report/figures/BGD/Lab/Batch Gradient Descent - Step Decay Convergence.gif)
+
+`r kfigr::figr(label = "bgd_step_path", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Step Decay Learning Rate Solution Path
+
+The effects of the high initial learning rate and the large epochs per step parameter are visibly extant in `r kfigr::figr(label = "bgd_step_path", prefix = TRUE, link = TRUE, type="Figure")`. For the first 20 epochs, the solution dramatically oscillates around an optimum with seemingly little improvement. At epoch 21, the learning rate is decayed by a factor of 0.88, which puts the optimization on the path to convergence. The gradient is reduced at a faster rate, convergence accelerates, and the algorithm settles at a cost $J\approx0.2$ in 39 epochs. 
+
+##### Step Decay Learning Rate Evaluation
+In this section, we ask two questions.  Is the solution that indeed optimal, and does it generalize well? To the former, we examine the solution's fit to the test data. For the latter question, we evaluate the validation set error of the solution.
+
+`r kfigr::figr(label = "bgd_step_fit", prefix = TRUE, link = TRUE, type="Figure")` shows a scatter plot of the training data. The regression lines given by the $\theta$'s computed for each epoch, are juxtaposed. A good regression line fit suggests a high quality approximation of the optimal solution. 
+![](../report/figures/BGD/Lab/Batch Gradient Descent - Step Decay Fit.gif)
+
+`r kfigr::figr(label = "bgd_step_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Step Decay Learning Rate Fit
+
+As expected, the algorithm oscillates dramatically around the optimal fit, making little progress until epoch 20. At this stage, the magnitude of the oscillation diminishes fairly rapidly, and the algorithm settles into its optimum. The quality of the fit suggests a good approximation of the true parameters $\theta$.
+
+How does the solution generalize to new data? If the optimal training set parameters performed similarly well on the validation set, we can infer that the solution will generalize well to unseen data.   
+
+```{python bgd_step_eval, echo=F, eval=T}
+data = lab.summary()
+data = data.loc[(data['step_decay'] > 0.5) & (data['step_decay'] < 0.9) & (data['step_epochs']==20)]
+filename = 'Batch Gradient Descent - Step Decay Eval - Costs.png'
+lab.figure(data=data, x='step_decay', y='final_costs',  
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)             
+filename = 'Batch Gradient Descent - Step Decay Eval - Error.png'
+lab.figure(data=data, x='step_decay', y='final_mse', 
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)                        
+```
+![](../report/figures/BGD/Lab/Batch Gradient Descent - Step Decay Eval - Costs.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient Descent - Step Decay Eval - Error.png){width=50%}
+`r kfigr::figr(label = "bgd_step_eval", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Step Decay Learning Rate Cost and Error Evaluation
+
+The above two plots show training set costs (left) and validation set error (right) for our epochs per step parameter, $t_d=20$ and a range of step decay rates $d$. Both plots have similar shapes, and appear to minimize at $d\approx0.9$. In fact, both training set costs and validation set error are minimized precisely at $d=$ `r report_error['step_decay'][1,]`. We can safely infer that the solution generalizes well.
