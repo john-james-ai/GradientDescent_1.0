@@ -30,7 +30,7 @@ time_decay = [0.01]
 step_decay = [0.1, 0.01, 0.001]
 step_epochs = [2,4]
 exp_decay = [0.1, 0.01, 0.001]
-no_improvement_stop=[20]
+i_s=[20]
 directory = "./test/figures/BGD/Lab/"
 
 #%%
@@ -39,7 +39,7 @@ lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=time_decay, 
                step_decay=step_decay, step_epochs=step_epochs, exp_decay=exp_decay,
-               precision=precision, maxiter=maxiter, no_improvement_stop=no_improvement_stop)
+               precision=precision, maxiter=maxiter, i_s=i_s)
 #%%%           
 # Render plots
 dfs = lab.summary()

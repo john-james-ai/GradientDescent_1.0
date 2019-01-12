@@ -32,6 +32,8 @@ from numpy import array, newaxis
 import pandas as pd
 import seaborn as sns
 from textwrap import wrap
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 from GradientDescent import BGD, SGD, MBGD
 from utils import save_fig, save_csv
@@ -56,7 +58,7 @@ class GradientLab:
     def _save_params(self, X, y, X_val, y_val, theta, learning_rate, 
                      learning_rate_sched, time_decay, step_decay,
                      step_epochs, exp_decay, precision, 
-                     no_improvement_stop, maxiter, scaler):
+                     i_s, maxiter, scaler):
 
         self._params = {'X': X, 'y':y, 'X_val': X_val, 'y_val':y_val,
                         'theta':theta, 'learning_rate':learning_rate, 
@@ -66,7 +68,7 @@ class GradientLab:
                         'step_epochs': step_epochs,
                         'exp_decay': exp_decay,
                         'precision':precision,
-                        'no_improvement_stop': no_improvement_stop,
+                        'i_s': i_s,
                         'maxiter':maxiter,
                         'scaler':scaler}
     def summary(self):
@@ -99,19 +101,19 @@ class GradientLab:
         step_epochs = self._params['step_epochs']
         exp_decay = self._params['exp_decay']
         precision = self._params['precision']
-        no_improvement_stop = self._params['no_improvement_stop']
+        i_s = self._params['i_s']
         maxiter = self._params['maxiter']
         scaler = self._params['scaler']
 
         # Constant learning rates
         if 'c' in learning_rate_sched:
-            for n in no_improvement_stop:
+            for n in i_s:
                 for p in precision:
                     for a in learning_rate:                    
                         gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
                                 learning_rate=a, learning_rate_sched='c',                                 
                                 maxiter=maxiter, precision=p, 
-                                no_improvement_stop=n, scaler=scaler)
+                                i_s=n, scaler=scaler)
                         detail = gd.detail()
                         summary = gd.summary()
                         summary['experiment'] = experiment
@@ -121,14 +123,14 @@ class GradientLab:
 
         # Time Decay Learning Rates
         if 't' in learning_rate_sched:
-            for n in no_improvement_stop:
+            for n in i_s:
                 for p in precision:
                     for a in learning_rate:
                         for d in time_decay:                    
                             gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
                                     learning_rate=a, learning_rate_sched='t',
                                     time_decay=d, maxiter=maxiter, precision=p, 
-                                    no_improvement_stop=n, scaler=scaler)
+                                    i_s=n, scaler=scaler)
                             detail = gd.detail()
                             summary = gd.summary()
                             summary['experiment'] = experiment
@@ -138,7 +140,7 @@ class GradientLab:
 
         # Step Decay Learning Rates
         if 's' in learning_rate_sched:
-            for n in no_improvement_stop:
+            for n in i_s:
                 for p in precision:
                     for a in learning_rate:
                         for d in step_decay:                    
@@ -146,7 +148,7 @@ class GradientLab:
                                 gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
                                         learning_rate=a, learning_rate_sched='s',
                                         step_decay=d, step_epochs=e, maxiter=maxiter, precision=p, 
-                                        no_improvement_stop=n, scaler=scaler)
+                                        i_s=n, scaler=scaler)
                                 detail = gd.detail()
                                 summary = gd.summary()
                                 summary['experiment'] = experiment
@@ -156,14 +158,14 @@ class GradientLab:
 
         # Exponential Decay Learning Rates
         if 'e' in learning_rate_sched:
-            for n in no_improvement_stop:
+            for n in i_s:
                 for p in precision:
                     for a in learning_rate:
                         for d in exp_decay:                    
                             gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
                                     learning_rate=a, learning_rate_sched='e',
                                     exp_decay=d, maxiter=maxiter, precision=p, 
-                                    no_improvement_stop=n, scaler=scaler)
+                                    i_s=n, scaler=scaler)
                             detail = gd.detail()
                             summary = gd.summary()
                             summary['experiment'] = experiment
@@ -175,14 +177,14 @@ class GradientLab:
     def gridsearch(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
             learning_rate_sched = 'c', time_decay=None, step_decay=None,
             step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
-            no_improvement_stop=5, scaler='minmax'):
+            i_s=5, scaler='minmax'):
 
         self._save_params(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, 
                          learning_rate=learning_rate, 
                          learning_rate_sched=learning_rate_sched, 
                          time_decay=time_decay, step_decay=step_decay,
                          step_epochs=step_epochs, exp_decay=exp_decay, 
-                         precision=precision, no_improvement_stop=no_improvement_stop, 
+                         precision=precision, i_s=i_s, 
                          maxiter=maxiter, scaler=scaler)
 
         bgd = BGD()
@@ -206,7 +208,7 @@ class GradientLab:
                   'iterations': 'Iterations',
                   'cost': 'Training Set Costs',
                   'mse': 'Validation Set MSE',
-                  'no_improvement_stop': 'no_improvement_stop ',
+                  'i_s': 'i_s ',
                   'batch_size': 'Batch Size',
                   'final_costs': 'Training Set Costs',
                   'final_mse': 'Validation Set MSE'}
@@ -219,7 +221,7 @@ class GradientLab:
             vars = ['experiment', 'alg', 'learning_rate',
                     'learning_rate_sched', 'time_decay',
                     'step_decay', 'step_epochs', 'exp_decay',
-                    'precision', 'no_improvement_stop', 'maxiter', 
+                    'precision', 'i_s', 'maxiter', 
                     'epochs', 'iterations','duration',
                     'final_costs', 'final_mse']
             df = self._summary
@@ -402,14 +404,14 @@ class SGDLab(GradientLab):
     def gridsearch(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
             learning_rate_sched = 'c', time_decay=None, step_decay=None,
             step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
-            no_improvement_stop=5, scaler='minmax'):
+            i_s=5, scaler='minmax'):
         self._save_params(X=X, y=y, X_val=X_val, y_val=y_val, 
                         theta=theta, learning_rate=learning_rate, 
                      learning_rate_sched=learning_rate_sched,
                      time_decay=time_decay, step_decay=step_decay,
                      step_epochs=step_epochs, exp_decay=exp_decay, 
                      precision=precision, 
-                     no_improvement_stop=no_improvement_stop, 
+                     i_s=i_s, 
                      maxiter=maxiter, scaler=scaler)
 
         sgd = SGD()
@@ -429,7 +431,7 @@ class MBGDLab(GradientLab):
     def _save_params(self, X, y, X_val, y_val, batch_size, theta, learning_rate, 
                      learning_rate_sched, time_decay, step_decay,
                      step_epochs, exp_decay, precision, 
-                     no_improvement_stop, maxiter, scaler):
+                     i_s, maxiter, scaler):
 
         self._params = {'X': X, 'y':y, 'X_val': X_val, 'y_val':y_val,
                         'batch_size': batch_size,
@@ -440,7 +442,7 @@ class MBGDLab(GradientLab):
                         'step_epochs': step_epochs,
                         'exp_decay': exp_decay,
                         'precision':precision,
-                        'no_improvement_stop': no_improvement_stop,
+                        'i_s': i_s,
                         'maxiter':maxiter,
                         'scaler':scaler}
 
@@ -451,7 +453,7 @@ class MBGDLab(GradientLab):
             vars = ['experiment', 'alg', 'batch_size', 'learning_rate',
                     'learning_rate_sched', 'time_decay',
                     'step_decay', 'step_epochs', 'exp_decay',
-                    'precision', 'no_improvement_stop', 'maxiter', 
+                    'precision', 'i_s', 'maxiter', 
                     'epochs', 'iterations','duration',
                     'final_costs', 'final_mse']
             df = self._summary
@@ -471,7 +473,7 @@ class MBGDLab(GradientLab):
     def gridsearch(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
             learning_rate_sched = 'c', time_decay=None, step_decay=None,
             step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
-            batch_size=10, no_improvement_stop=5, scaler='minmax'):
+            batch_size=10, i_s=5, scaler='minmax'):
 
         self._save_params(X=X, y=y, X_val=X_val, y_val=y_val, 
                         theta=theta, learning_rate=learning_rate, 
@@ -479,7 +481,7 @@ class MBGDLab(GradientLab):
                      time_decay=time_decay, step_decay=step_decay,
                      step_epochs=step_epochs, exp_decay=exp_decay, 
                      precision=precision, batch_size=batch_size,
-                     no_improvement_stop=no_improvement_stop, 
+                     i_s=i_s, 
                      maxiter=maxiter, scaler=scaler)
 
         mbgd = MBGD()

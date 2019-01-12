@@ -23,21 +23,35 @@ directory = "./report/figures/BGD/Lab"
 ## Batch Gradient Descent 
 Batch gradient descent (BGD) updates the parameters $\theta$ after computing the gradient on the entire training set. This is the key difference between batch gradient descent and its variants. 
 
+> What is the advantage of batch gradient descent?
+
 The advantage of computing the gradient on the entire dataset is that it produces a better, more stable approximation of the gradient. 
+
+> What are batch gradient descent challenges?
 
 On the other hand, batch gradient descent has its challenges:    
 
 * The stability of the gradient may result in a suboptimal state of convergence when local minimums or saddle points are encountered. A more noisy gradient can enable the algorithm to escape saddle points or subvert local minima.     
 * Computing the gradient on the entire dataset often results in a slower convergence, especially for large datasets.    
 * Batch gradient descent requires the entire dataset to be memory resident, which can be problematic for large datasets.   
-* Classic batch gradient descent works on a constant learning rate for all iterations of the search. Ideally, we would like a learning rate to adapt to the contours of our objective function. Many textbook optimization algorithms use analytic approaches, such as Newton's method, to determine the exact step size. However, the computation can be too expensive to be used in the context of large neural networks. Most practitioners simply fix it to a constant or slowly decay it over iterations. Determining optimal learning rates is an area of open research.
+* Classic batch gradient descent works on a constant learning rate for all iterations of the search. Ideally, we would like a learning rate to adapt to the contours of our objective function. Many textbook optimization algorithms use analytic approaches, such as Newton's method, to determine the exact step size. However, the computation can be too expensive to be used in the context of large neural networks. Most practitioners simply fix it to a constant or slowly decay it over iterations. 
 
-In the following sections, we will review the algorithm, implement a basic batch gradient descent class, perform hyperparameter tuning using a gridsearch, then evaluate algorithm behavior for select hyperparameter sets. 
+> When should one use batch gradient descent?
 
-### Algorithm
+Given its computational cost, batch gradient descent is most appropriate for small or medium scale problems of, say up to 50,000 data points and 2,000 parameters.    
+
+> What will this section cover?
+
+In this section, we will implement batch gradient descent, perform hyperparameter tuning using a gridsearch, then evaluate algorithm behavior for select hyperparameter sets. 
+
+> Are there any prerequisites?
+
+The following material assumes a basic understanding of 'textbook' gradient descent provided in the Introduction to Gradient Descent [enter link to section 4]
+
+### Implementation
 Batch gradient descent, starts with an initial $\theta$ and performs the following recursive update rule:
 $$\theta_j^{k+1} := \theta_j^k - \alpha \nabla_\theta J,$$
-for $k$ iterations until approximate convergence condition or a preset maximum number of iterations is reached.
+for $k$ iterations until approximate convergence or a preset maximum number of iterations is reached.
 The pseudocode for the algorithm looks like this. 
 ```{r eval=F, echo=T, tidy=F}
 Standardize our data
@@ -50,35 +64,40 @@ While stopping condition is not met
 return (thetas)
 ```
 
-### Implementation
-Now, we will build the batch gradient descent class that will be used to solve our challenge problem. Before we start getting our code on, let's establish a few design considerations.
+Before getting our code on, let's establish a few design considerations.
 
 #### Design Considerations   
+General considerations:    
+
+* Our implementation will support not only batch gradient descent, but the other variants and optimization algorithms included in this series.    
+* We will create an abstract base class, GradientDescent, which will house the basic functionality common among the various implementations.     
+* A concrete class, BGD, will inherit functionality from GradientDescent, and contain the methods unique to this variant.    
+
 Our GradientDescent class will need the following methods:    
 
-* hypothesis - computes the hypothesis given $X$ and the parameters, $\theta$.     
-* cost - computes the cost given $y$ and our hypotheses.     
+* hypothesis - computes the hypothesis for a given observation or a full data set,   
+* error - computes the error associated with a hypothesis and $y$.    
+* cost - computes the cost given $y$ and our hypothes(es).     
+* mse - computes mean squared error for a validation set $X$ and $y$.      
 * gradient - calculates the gradient based upon error and the values $X_j$ for each $j$.      
 * update - computes the updates to the $\theta$'s in the direction of greatest descent.    
-* fit - conducts the search until stopping conditions are met     
+* fit - conducts the search until stopping conditions are met   
 
 We will support the following learning rate schedules:   
 
-* constant learning rate, value = 'c',        
-* time decay learning rates, value = 't',       
-* step decay learning rates, value = 's',          
-* exponential decay learning rates, value = 'e'.          
+* constant learning rate,    
+* time decay learning rates,    
+* step decay learning rates, and    
+* exponential decay learning rates.   
 
 Therefore, we will need a method which updates the learning rate on each epoch accordingly. 
 
 With respect to stopping criteria, we would want to stop the algorithm when one or more of the following conditions are met:    
 
 * The number of iterations has reached a preset maximum,     
-* Convergence hasn't improved in $i_{stop}$ consecutive iterations.
+* Convergence hasn't improved in $i_s$ consecutive iterations.
 
-Convergence is checked once per epoch. If no validation set is provided, training set costs will be the metric by which we determine whether improvement is extant.  If a validation set is provided, our metric will be validation set mean squared error. The improvement in convergence is evaluated with a precision parameter $\epsilon$.
-
-Lastly, since we will be building SGD and Minibatch Gradient Descent classes, we may want to create an abstract base class that contains the core functions used in the computation.
+Convergence is checked once per epoch. The algorithm stops if there has been no improvement (within a precision, $\epsilon$) in the training set costs over $i_s$ consecutive epochs. 
 
 Ok, here we go.
 
@@ -101,7 +120,7 @@ class BGD(GradientDescent):
       pass    
 ```
 
-Now, lets define the base classes that will be inherited by the specific batch, stochastic, and mini-batch implementations.
+Now, lets define the methods of our abstract base class, GradientDescent.
 
 #### Hypothesis Method
 Recall that our linear hypothesis is:
@@ -165,7 +184,7 @@ def _update(self, theta, learning_rate, gradient):
 
 
 #### Update Learning Rate Method
-This method updates the learning rate in accordance with the learning rate hyperparameters.
+This method updates the learning rate in accordance with the learning rate schedule.
 ```{python update_learning_rate, echo=T, eval=F}
 def _update_learning_rate(self, learning_rate_init, learning_rate_schedule, learning_rate, 
                           time_decay, step_decay, step_epochs, exp_decay, epoch):
@@ -182,15 +201,15 @@ def _update_learning_rate(self, learning_rate_init, learning_rate_schedule, lear
 ```
 
 #### Finished Method
-This method determines when the algorithm should stop. The algorithm stops of a maximum number of iterations has been reached, or there has been no improvement in the objective function over $i_{stop}$ iterations in a row.
+This method determines when the algorithm should stop. The algorithm stops if a maximum number of iterations has been reached, or there has been no improvement in the objective function over $i_s$ iterations in a row.
 
 ```{python, finished, echo=T, eval=F}
-def _finished(self, state, maxiter, precision, improvement):
+def _finished(self, state, maxiter, precision, i_s):
     if state['iteration'] == maxiter:
         return(True)        
     if abs(state['prior']-state['current']) < precision:
         self._iter_no_change += 1
-        if self._iter_no_change >= improvement:
+        if self._iter_no_change >= i_s:
             return(True)
         else:
             return(False)
@@ -200,8 +219,7 @@ def _finished(self, state, maxiter, precision, improvement):
 
 ```
 
-
-we will also have a method that updates the state dictionary on each iteration. 
+Let's also create a convience method that maintains the state of the optimization at each iteration. 
 ```{python, update_state, echo=T, eval=F}
 def _update_state(self,state, cross_validated, iteration, J, mse):
     state['iteration'] = iteration
@@ -213,10 +231,18 @@ def _update_state(self,state, cross_validated, iteration, J, mse):
     return(state)
 ```
 
-Now, we can define the fit method for our BGD class.
+Now, we can define the workhorse of our algorithm, the fit method.
 
 #### Fit Method
-Finally, the workhorse of our algorithm. 
+Once we've initialized some variables, we iteratively:    
+
+1. compute training set cost, gradient, and validation set MSE if cross_validated      
+2. update the thetas     
+3. update the learning rate according to the learning rate schedule  
+4. update the state variables
+
+Once convergence criteria are met, we return our thetas and costs.
+
 ```{python fit_bgd, echo=T, eval=F}
 class BGD(GradientDescent):
   def __init__(self):
@@ -225,7 +251,7 @@ class BGD(GradientDescent):
   def fit(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
           learning_rate_sched = 'c', time_decay=None, step_decay=None,
           step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
-          no_improvement_stop=5, scaler='minmax'):
+          i_s=5, scaler='minmax'):
              
       # Initialize search variables
       iteration = 0
@@ -241,7 +267,7 @@ class BGD(GradientDescent):
           iteration += 1
           mse = None
 
-          # Compute the costs and validation set error (if required)
+          # Compute the costs (and validation set error if required)
           h = self._hypothesis(X, theta)
           e = self._error(h, y)
           J = self._cost(e)
@@ -272,14 +298,6 @@ class BGD(GradientDescent):
       return(d)
 ```
 
-Once we've initialized some variables, we iteratively:    
-
-1. compute training set cost, gradient, and validation set MSE if cross_validated      
-2. update the thetas     
-3. update the learning rate according to the learning rate schedule  
-4. update the state variables
-
-Once convergence criteria are met, we return our thetas and costs.
 
 That's it, for the most part. The complete class definitions are available at https://github.com/DecisionScients/GradientDescent.
 
@@ -305,9 +323,9 @@ Our hyperparameters for batch gradient descent are:
 
 * **stopping condition hyperparameters**:
     - precision parameter $\epsilon$ by which we evaluate whether a quantum, e.g. training set costs, has changed,   
-    - $i_{stop}$, the algorithm stops when the number of consecutive iterations of no improvement equals $i_{stop}$.
+    - $i_s$, the algorithm stops when the number of consecutive iterations of no improvement equals $i_s$.
 
-Of the hyperparameters listed above, the learning rate related hyperparameters have the greatest effect on performance. We will therefore use a gridsearch strategy to create candidate functions $f_\theta(x)$ for a range of learning rate schedules and learning rates. The initial $\theta$'s, precision parameter, maxiter, $\epsilon$ and the $i_{stop}$, a.k.a. the no improvement stop parameter will be set to their default values and  adjusted as needed. 
+Of the hyperparameters listed above, the learning rate related hyperparameters have the greatest effect on performance. We will therefore use a gridsearch strategy to create candidate functions $f_\theta(x)$ for a range of learning rate schedules and learning rates. The initial $\theta$'s, our precision parameter $\epsilon$, maxiter, and the $i_s$ parameter will be set to their default values and adjusted as needed. 
 
 #### Data Preparation
 As stated above, our training set is comprised of 500 observations, randomly selected from the Ames Housing Project Training Set. The remaining 960 observations in the Ames Housing Project Training Set will be allocated to our validation set. 
@@ -330,27 +348,27 @@ y_val = scaler.fit_transform(y_val)
 With that, we are ready to start the tuning process. Let's begin with a learning rate test.
 
 #### Learning Rate Test
-What is a learning rate test and why would we conduct one? As we seek to find an optimal constant learning rate, we need an upper bound on the learning rates to evaluate. This upper bound is the maximum learning rate that still improves performance of the objective function. This maximum also serves as our initial learning rate when performing time, step, or exponential learning rate annealing. 
+What is a learning rate test and why would we conduct one? As we seek to find an optimal constant learning rate, we need an upper bound on the learning rates which we will evaluate. This upper bound is the maximum learning rate that still improves performance of the objective function. This maximum will also serves as our initial learning rate for our learning rate annealing schedules. 
 
-So, let's fix our initial $\theta$'s, precision parameter $\epsilon$, and $i_{stop}$, a.k.a. no_improvement_stop parameter to their default values. We will evaluate a range of learning rates from 0 to 2 incrementing by 0.01.
+So, let's fix our initial $\theta$'s, precision parameter $\epsilon$, and $i_s$ to their default values. We will evaluate a range of learning rates from 0.01 to 2 incrementing by 0.01.
 
-```{python bgd_learning_rate_test_params, echo=T, eval=T}
+```{python bgd_learning_rate_test_params, echo=T, eval=T, warning=F}
 theta = np.array([-1,-1]) 
 learning_rate_sched = ['c']
-learning_rate = np.arange(0,2, 0.01)
+learning_rate = np.arange(0.01,2, 0.01)
 precision = [0.001]
 maxiter = 5000
-no_improvement_stop=[5]
+i_s=[5]
 ```
 We will stop the algorithm when we observe 5 consecutive iterations with no improvement in the objective function computed on the training set. 
 
-With that we can run our gridsearch on our learning rates to determine the maximum learning rate that improves performance of the objective function. A class,  BGDLab, was created to perform our gridsearch. Let's instantiate the class, run the gridsearch and obtain some diagnostic information. 
+With that we can run our gridsearch on our learning rates to determine the maximum learning rate that improves objective function performance. A class,  BGDLab (available at https://github.com/DecisionScients/GradientDescent), was created to perform our gridsearch. Let's instantiate the class, run the gridsearch and obtain some diagnostic information. 
 ```{python bgd_learning_rate_test, echo=T, eval=T, cache=T}
-lab = BGDLab() 
+lab = BGDLab()  
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=None, 
                step_decay=None, step_epochs=None, exp_decay=None,
-               precision=precision, maxiter=maxiter, no_improvement_stop=no_improvement_stop)
+               precision=precision, maxiter=maxiter, i_s=i_s)
 ```
 
 Now, let's evaluate our training set costs and computation time vis-a-vis learning rate. 
@@ -368,21 +386,13 @@ lab.figure(data=lab.summary(), x='learning_rate', y='duration',
 
 `r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Learning Rate Test 
 
-Training set costs in `r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")` indicate divergence at a learning rate $\alpha \approx 1.6$. We'll use this as our upper bound for constant learning rates and our initial learning rate for our annealing learning rate schedules.  
+Training set costs indicate divergence at a learning rate $\alpha \approx 1.6$. We'll use this as our upper bound for constant learning rates and our initial learning rate for our annealing learning rate schedules.  
 
-Next, let's tune our constant learning rate.
-
-```{r sgd, child = '5.1.1 bgd constant.Rmd'}
-```
+Next, let's tune learning rate, starting with the constant learning rate schedule. 
 
 ```{r sgd, child = '5.1.2 bgd time.Rmd'}
 ```
 
-```{r sgd, child = '5.1.3 bgd step.Rmd'}
-```
-
-```{r sgd, child = '5.1.4 bgd exp.Rmd'}
-```
 
 ### Batch Gradient Descent Key Takeaways
 We've introduced the batch gradient descent optimization algorithm, implemented a basic batch gradient descent class, tuned a range of hyperparameters, most important of which, the learning rate and we've analyzed the effects of various learning rate schedules on empirical and expected performance. Before we take on Stochastic Gradient Descent, let's briefly summarize the key ideas and takeaways with respect to batch gradient descent. 

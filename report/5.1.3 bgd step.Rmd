@@ -19,7 +19,7 @@ where:
 * $t_d$ is the number of epochs in each step, typically $t_d\approx10$
 
 ##### Step Decay Learning Rate Gridsearch 
-For our initial alpha, we will use $\alpha_0=1.6$, the maximum learning rate from the learning rate test in `r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")`. Using a gridsearch, we will evaluate a range of values for our drop factor, $d$, and the number of epochs per step, $t_d$. Parameters $\theta$, maxiter, precision, and $i_{stop}$ will be set to their default values.
+For our initial alpha, we will use $\alpha_0=1.6$, the maximum learning rate from the learning rate test in `r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")`. Using a gridsearch, we will evaluate a range of values for our drop factor, $d$, and the number of epochs per step, $t_d$. Parameters $\theta$, maxiter, precision, and $i_s$ will be set to their default values.
 
 ```{python bgd_step_params, echo=T, eval=T}
 theta = np.array([-1,-1]) 
@@ -29,10 +29,10 @@ step_decay = np.arange(0,1,0.01)
 step_epochs = np.arange(5,25,5)
 precision = [0.001]
 maxiter = [5000]
-no_improvement_stop=[20]
+i_s=[20]
 ```
 
-In case you are just joining us, the algorithm stops if maxiter iterations is reached, or the objective function has not improved over $i_{stop}$, a.k.a. no_improvement_stop iterations. Improvement is measured with a tolerance given by our parmeter, $\epsilon$.  
+In case you are just joining us, the algorithm stops if maxiter iterations is reached, or the objective function has not improved over $i_s$, a.k.a. i_s iterations. Improvement is measured with a tolerance given by our parmeter, $\epsilon$.  
 
 Ok, let's run the search and evaluate performance. 
 
@@ -41,7 +41,7 @@ lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=None, 
                step_decay=step_decay, step_epochs=step_epochs, exp_decay=None,
-               precision=precision, maxiter=maxiter, no_improvement_stop=no_improvement_stop)
+               precision=precision, maxiter=maxiter, i_s=i_s)
 ```
 
 ```{python bgd_step_plots, echo=F, eval=T}
@@ -105,12 +105,12 @@ step_decay = step_decay_report['step_decay'].iloc[0]
 step_epochs = step_decay_report['step_epochs'].iloc[0]
 precision = step_decay_report['precision'].iloc[0]
 maxiter = step_decay_report['maxiter'].iloc[0]
-no_improvement_stop=step_decay_report['no_improvement_stop'].iloc[0]
+i_s=step_decay_report['i_s'].iloc[0]
 step_decay_demo = BGDDemo()
 step_decay_demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, 
          learning_rate_sched=learning_rate_sched, step_decay=step_decay,
          step_epochs=step_epochs, precision=precision, maxiter=maxiter, 
-         no_improvement_stop=no_improvement_stop)
+         i_s=i_s)
          
 filename = 'Batch Gradient Descent - Step Decay Convergence.gif'
 step_decay_demo.show_search(directory=directory, filename=filename, fps=1)

@@ -18,16 +18,16 @@ where:
 * $k$ is the decay hyperparameter.
 
 ##### Time Decay Learning Rate Gridsearch 
-For our initial alpha, we will use $\alpha_0=1.6$, the maximum learning rate from the learning rate test in `r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")`. Using a gridsearch, we will evaluate a range of values for $k$. Again, we'll use default values for our initial $\theta$'s, maxiter, and precision $\epsilon$ parameters. Learning from the last section, we will set the $i_{stop}$ parameter to 20 to grant the algorithm the time to arrive at a suitable optimum. 
+For our initial alpha, we will use $\alpha_0=1.6$, the maximum learning rate from the learning rate test in `r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")`. Using a gridsearch, we will evaluate a range of values for $k$. Again, we'll use default values for our initial $\theta$'s, maxiter, and precision $\epsilon$ parameters. Learning from the last section, we will set the $i_s$ parameter to 20 to grant the algorithm the time to arrive at a suitable optimum. 
 
 ```{python bgd_time_params_i, echo=T, eval=T}
 theta = np.array([-1,-1]) 
 learning_rate_sched = 't'
 learning_rate = [1.6]
-time_decay = np.arange(0,1,0.01)
+time_decay = np.arange(0.01,1,0.01)
 precision = [0.001]
 maxiter = [5000]
-no_improvement_stop=[20]
+i_s=[20]
 ```
 
 Ok, let's run the search and evaluate performance. 
@@ -37,8 +37,11 @@ lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=time_decay, 
                step_decay=None, step_epochs=None, exp_decay=None,
-               precision=precision, maxiter=maxiter, no_improvement_stop=no_improvement_stop)
+               precision=precision, maxiter=maxiter, i_s=i_s)
 ```
+
+##### Time Decay Learning Rate Analysis
+How does time decay parameter affect objective function performance and computation times? The following visually represents training set costs and computation times vis-a-vis our time decay parameters.
 
 ```{python bgd_time_plots, echo=F, eval=T}
 filename = 'Batch Gradient Descent - Time Decay - Costs by Learning Rate.png'
@@ -75,12 +78,12 @@ learning_rate = 1.6
 time_decay = 0.01
 precision = 0.001
 maxiter = 5000
-no_improvement_stop=20
+i_s=20
 time_decay_demo = BGDDemo()
 time_decay_demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, 
          learning_rate_sched=learning_rate_sched, time_decay=time_decay,
          precision=precision, maxiter=maxiter, 
-         no_improvement_stop=no_improvement_stop)
+         i_s=i_s)
          
 filename = 'Batch Gradient Descent - Time Decay Convergence.gif'
 time_decay_demo.show_search(directory=directory, filename=filename, fps=1)

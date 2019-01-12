@@ -19,7 +19,7 @@ where:
 Since we are decaying the learning rate each iteration, $\alpha_0$ is typically set high. Our learning rate test (`r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")`) revealed 1.6 to be the highest learning rate that still reduced costs on our training set. This will serve as our $\alpha_0$ parameter.  Our goal; therefore, is to find a parameter $k$ that minimizes our training set objective function and yields a model that generalizes well to new data. 
 
 ##### Exponential Decay Learning Rate Gridsearch 
-Using a gridsearch, we will evaluate a range of values for our exponential decay factor, $k$. Parameters $\theta$, maxiter, precision, and $i_{stop}$ will be set to their default values.
+Using a gridsearch, we will evaluate a range of values for our exponential decay factor, $k$. Parameters $\theta$, maxiter, precision, and $i_s$ will be set to their default values.
 
 ```{python bgd_exp_params, echo=T, eval=T}
 theta = np.array([-1,-1]) 
@@ -28,10 +28,10 @@ learning_rate = [1.6]
 exp_decay = np.arange(0,1,0.01)
 precision = [0.001]
 maxiter = [5000]
-no_improvement_stop=[20]
+i_s=[20]
 ```
 
-In case you are just joining us, the algorithm stops if maxiter iterations is reached, or the objective function has not improved over $i_{stop}$, a.k.a. no_improvement_stop iterations. Improvement is measured with a tolerance given by our precision parameter, $\epsilon$.  
+In case you are just joining us, the algorithm stops if maxiter iterations is reached, or the objective function has not improved over $i_s$, a.k.a. i_s iterations. Improvement is measured with a tolerance given by our precision parameter, $\epsilon$.  
 
 Ok, let's run the search and evaluate performance. 
 
@@ -40,7 +40,7 @@ lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=None, 
                step_decay=None, step_epochs=None, exp_decay=exp_decay,
-               precision=precision, maxiter=maxiter, no_improvement_stop=no_improvement_stop)
+               precision=precision, maxiter=maxiter, i_s=i_s)
 ```
 
 ```{python bgd_exp_plots, echo=F, eval=T}
@@ -90,12 +90,12 @@ learning_rate = exp_decay_report['learning_rate'].iloc[0]
 exp_decay = exp_decay_report['exp_decay'].iloc[0]
 precision = exp_decay_report['precision'].iloc[0]
 maxiter = exp_decay_report['maxiter'].iloc[0]
-no_improvement_stop=exp_decay_report['no_improvement_stop'].iloc[0]
+i_s=exp_decay_report['i_s'].iloc[0]
 exp_decay_demo = BGDDemo()
 exp_decay_demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, 
          learning_rate_sched=learning_rate_sched, exp_decay=exp_decay,
          precision=precision, maxiter=maxiter, 
-         no_improvement_stop=no_improvement_stop)
+         i_s=i_s)
          
 filename = 'Batch Gradient Descent - Exp Decay Convergence.gif'
 exp_decay_demo.show_search(directory=directory, filename=filename, fps=1)

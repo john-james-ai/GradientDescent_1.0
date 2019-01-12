@@ -238,7 +238,7 @@ One family of stopping rules are based upon the level of improvement obtained by
 * Absolute or relative change in absolute value of the objective function,   
 * Absolute or relative change in norm of the gradient, 
 * Absolute or relative change in absolute value of the objective function computed on a separate cross validation set. 
-The algorithm stops when the level of improvement drops below a predetermined threshold once, or some $i_{stop}$ iterations of non-improvement in a row.
+The algorithm stops when the level of improvement drops below a predetermined threshold once, or some $i_s$ iterations of non-improvement in a row.
 
 Another category conditions on the proximity of the objective function or gradient to zero. However, determining the appropriate proximity to zero for an objective function may be difficult as one typically does not expect zero cost. Additionally, a gradient in the vicinity of zero may indicate a local minimum, or a saddle point. 
 

@@ -128,7 +128,7 @@ class GradientDescent:
     def fit(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
             learning_rate_sched = 'c', time_decay=None, step_decay=None,
             step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
-            no_improvement_stop=5, scaler='minmax'):
+            i_s=5, scaler='minmax'):
 
         # Set cross-validated flag if validation set included 
         cross_validated = all(v is not None for v in [X_val, y_val])
@@ -150,7 +150,7 @@ class GradientDescent:
                                   'exp_decay': exp_decay,
                                   'maxiter': maxiter, 
                                   'precision': precision,                                  
-                                  'no_improvement_stop': no_improvement_stop,
+                                  'i_s': i_s,
                                   'cross_validated': cross_validated}
         
         self._validate()
@@ -179,7 +179,7 @@ class GradientDescent:
         self._detail['step_epochs'] = step_epochs
         self._detail['exp_decay'] = exp_decay
         self._detail['precision'] = precision    
-        self._detail['no_improvement_stop'] = self._request['hyper']['no_improvement_stop']
+        self._detail['i_s'] = self._request['hyper']['i_s']
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
@@ -191,7 +191,7 @@ class GradientDescent:
                                     'exp_decay': exp_decay,
                                     'precision': precision,
                                     'maxiter': maxiter,
-                                    'no_improvement_stop': no_improvement_stop,
+                                    'i_s': i_s,
                                     'start':start,
                                     'end':end,
                                     'duration':(end-start).total_seconds(),
@@ -340,7 +340,7 @@ class SGD(GradientDescent):
 
     def fit(self, X, y, theta,  X_val=None, y_val=None,  learning_rate=0.01, 
             learning_rate_sched = 'c', time_decay=None, step_decay=None,
-            step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, no_improvement_stop=5, 
+            step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, i_s=5, 
             scaler='minmax'):
 
         # Set cross-validated flag if validation set included 
@@ -363,7 +363,7 @@ class SGD(GradientDescent):
                                   'exp_decay': exp_decay,
                                   'maxiter': maxiter, 
                                   'precision': precision,
-                                  'no_improvement_stop': no_improvement_stop,
+                                  'i_s': i_s,
                                   'cross_validated': cross_validated}
 
         self._validate()                                  
@@ -392,7 +392,7 @@ class SGD(GradientDescent):
         self._detail['step_epochs'] = step_epochs
         self._detail['exp_decay'] = exp_decay
         self._detail['precision'] = precision    
-        self._detail['no_improvement_stop'] = self._request['hyper']['no_improvement_stop']
+        self._detail['i_s'] = self._request['hyper']['i_s']
 
         
         # Package summary results
@@ -405,7 +405,7 @@ class SGD(GradientDescent):
                                     'exp_decay': exp_decay,                                    
                                     'precision': precision,
                                     'maxiter': maxiter,
-                                    'no_improvement_stop': no_improvement_stop,
+                                    'i_s': i_s,
                                     'start':start,
                                     'end':end,
                                     'duration':(end-start).total_seconds(),
@@ -434,7 +434,7 @@ class MBGD(GradientDescent):
         self._detail = None 
     def fit(self, X, y, theta,  X_val=None, y_val=None,  batch_size=.1, 
             learning_rate=0.01, learning_rate_sched = 'c', time_decay=None, step_decay=None,
-            step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, no_improvement_stop=5,
+            step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, i_s=5,
             scaler='minmax'):            
 
         # Set cross-validated flag if validation set included 
@@ -458,7 +458,7 @@ class MBGD(GradientDescent):
                                   'maxiter': maxiter, 
                                   'precision': precision,
                                   'batch_size': batch_size,
-                                  'no_improvement_stop': no_improvement_stop,
+                                  'i_s': i_s,
                                   'cross_validated': cross_validated}
 
         self._validate()                                  
@@ -487,7 +487,7 @@ class MBGD(GradientDescent):
         self._detail['step_epochs'] = step_epochs
         self._detail['exp_decay'] = exp_decay
         self._detail['precision'] = precision    
-        self._detail['no_improvement_stop'] = self._request['hyper']['no_improvement_stop']
+        self._detail['i_s'] = self._request['hyper']['i_s']
         self._detail['batch_size'] = batch_size
         
         # Package summary results
@@ -501,7 +501,7 @@ class MBGD(GradientDescent):
                                     'precision': precision,
                                     'batch_size': batch_size,
                                     'maxiter': maxiter,
-                                    'no_improvement_stop': no_improvement_stop,
+                                    'i_s': i_s,
                                     'start':start,
                                     'end':end,
                                     'duration':end-start,

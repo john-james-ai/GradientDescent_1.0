@@ -203,7 +203,7 @@ Like batch gradient descent, SGD is parameterized most essentially by the learni
 
 * $\theta$: Our initial guess at our parameters     
 * $i_{max}$: The maximum number of iterations to execute,    
-* $i_{stop}$: The number of consecutive iterations of 'non-improvement' required to stop the algorithm.   
+* $i_s$: The number of consecutive iterations of 'non-improvement' required to stop the algorithm.   
 * $\epsilon$: The tolerance or precision parameter with which objective function improvement will be evaluated. 
 * average: If True, convergence is based upon the average of the costs 
 

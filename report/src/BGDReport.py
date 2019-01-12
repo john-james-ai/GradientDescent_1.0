@@ -22,7 +22,7 @@ show = True
 #                                 GRIDSEARCH                                  #
 # --------------------------------------------------------------------------- #
 def bgd_gs(learning_rate=None, precision=None, maxiter=None, 
-           no_improvement_stop=None, directory=None, filename=None):
+           i_s=None, directory=None, filename=None):
     theta = np.array([-1,-1]) 
     if not learning_rate:
         learning_rate = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1]
@@ -30,8 +30,8 @@ def bgd_gs(learning_rate=None, precision=None, maxiter=None,
         precision = [0.1, 0.01, 0.001, 0.0001]
     if not maxiter:
         maxiter = 10000
-    if not no_improvement_stop:
-        no_improvement_stop = [5,10,20]
+    if not i_s:
+        i_s = [5,10,20]
     if not directory:
         directory = "./report/figures/BGD/"
     if not filename:
@@ -40,31 +40,31 @@ def bgd_gs(learning_rate=None, precision=None, maxiter=None,
     # Run experiment
     lab = BGDLab()
     lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, precision=precision,
-                   maxiter=maxiter, no_improvement_stop=no_improvement_stop)
+                   maxiter=maxiter, i_s=i_s)
     # Obtain plot data    
     dfs = lab.summary()
     dfd = lab.detail()
 
-    # Plot Scatterplot of Costs and Time by learning_rate Group By no_improvement_stop and precision
+    # Plot Scatterplot of Costs and Time by learning_rate Group By i_s and precision
     lab.figure(data=dfs, x='duration', y='final_mse', z='learning_rate',
                func=lab.scatterplot, directory=directory, show=show)
-    # Plot Costs by learning_rate and Precision Group By no_improvement_stop
+    # Plot Costs by learning_rate and Precision Group By i_s
     lab.figure(data=dfs, x='learning_rate', y='final_mse', z='precision', 
-               groupby=['no_improvement_stop'],
+               groupby=['i_s'],
                func=lab.barplot, directory=directory, show=show)
-    # Plot Time by learning_rate and Precision Group By no_improvement_stop
+    # Plot Time by learning_rate and Precision Group By i_s
     lab.figure(data=dfs, x='learning_rate', y='duration', z='precision', 
-               groupby=['no_improvement_stop'],
+               groupby=['i_s'],
                func=lab.barplot, directory=directory, show=show)               
     # Plot Learning Curves 
     lab.figure(data=dfd, x='iterations', y='cost', z='learning_rate', 
-               groupby=['no_improvement_stop','precision'],
+               groupby=['i_s','precision'],
                func=lab.lineplot, directory=directory, show=show)               
-    # Plot no_improvement_stop Parameter Costs
-    lab.figure(data=dfs, x='no_improvement_stop', y='final_mse', z='precision',                
+    # Plot i_s Parameter Costs
+    lab.figure(data=dfs, x='i_s', y='final_mse', z='precision',                
                func=lab.barplot, directory=directory, show=show)               
-    # Plot no_improvement_stop Parameter Computation
-    lab.figure(data=dfs, x='no_improvement_stop', y='duration', z='precision',                
+    # Plot i_s Parameter Computation
+    lab.figure(data=dfs, x='i_s', y='duration', z='precision',                
                func=lab.barplot, directory=directory, show=show)        
     report = lab.report(directory=directory, filename=filename)
     return(report)

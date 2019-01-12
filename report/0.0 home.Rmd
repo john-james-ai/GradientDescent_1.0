@@ -78,12 +78,9 @@ import numpy as np
 import pandas as pd
 
 import warnings
+warnings.simplefilter(action='ignore', category=RuntimeWarning)
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
-```
-
-```{python flags}
-cache=False
 ```
 
 ```{r sgd, child = '5.1 bgd.Rmd'}
