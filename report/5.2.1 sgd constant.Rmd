@@ -1,0 +1,115 @@
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+TeX: {
+equationNumbers: {
+autoNumber: "all",
+formatNumber: function (n) {return ''+n}
+}
+}});</script>
+#### Constant Learning Rates
+Our goal here is to identify the constant learning rate that minimizes our objective function. We will run a gridsearch over the range of learning rates from 0.01 to our learning rate maximum, 2, incrementing by 0.01. The initial $\theta$'s, maxiter, precision parameter $\epsilon$, and $i_s$ will be set at their defaults. 
+```{python sgd_constant_learning_rate_i, echo=T, eval=T}
+theta = np.array([-1,-1]) 
+learning_rate_sched = ['c']
+learning_rate = np.arange(0.01,1, 0.01)
+precision = [0.001]
+maxiter = 5000
+i_s=[1]
+```
+The search stops when we observe no improvement in the objective function.
+
+Ok, let's run the search and evaluate performance. 
+
+```{python sgd_constant_learning_rate_gs, echo=T, eval=T}
+lab = SGDLab()
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
+               learning_rate_sched=learning_rate_sched, time_decay=None, 
+               step_decay=None, step_epochs=None, exp_decay=None,
+               precision=precision, maxiter=maxiter, i_s=i_s)
+```
+
+##### Constant Learning Rate Analysis
+How does learning rate affect objective function performance and computation times? The following visually represents training set costs and computation times vis-a-vis our learning rates.
+
+```{python sgd_constant_learning_rate_plots, echo=F, eval=T}
+data = lab.summary()
+filename = 'Stochastic Gradient Descent Costs by Learning Rate.png'
+lab.figure(data=data, x='learning_rate', y='final_costs', 
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)             
+filename = 'Stochastic Gradient Descent Time by Learning Rate.png'
+lab.figure(data=data, x='learning_rate', y='duration', 
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)
+```
+
+![](../report/figures/SGD/Lab/Stochastic Gradient Descent Costs by Learning Rate.png){width=50%}![](../report/figures/SGD/Lab/Stochastic Gradient Descent Time by Learning Rate.png){width=50%}
+
+`r kfigr::figr(label = "sgd_constant_learning_rate_plots", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Training Costs and Computation Time by Constant Learning Rate
+
+Two observations are worth noting. First, increasing learning rates were generally associated with higher costs on the training set. Second, variance in training set costs increased dramatically at the higher learning rates. To get a sense of what's going on, let's plot the learning curves for a few learning rates. 
+
+```{python sgd_constant_learning_rate_plots_ii, echo=F, eval=T}
+report = lab.report(directory=directory)
+alpha1 =  report['learning_rate'].iloc[0]
+alpha2 =  report['learning_rate'].iloc[-3]
+alpha3 =  report['learning_rate'].iloc[-2]
+alpha4 =  report['learning_rate'].iloc[-1]
+
+data = lab.detail()
+data1 = data.loc[data['learning_rate']==alpha1]
+filename = 'Stochastic Gradient Descent Learning Curve I.png'
+lab.figure(data=data1, x='learning_rate', y='cost', 
+           func=lab.lineplot, directory=directory, 
+           filename=filename, width=0.5)         
+```
+
+![](../report/figures/SGD/Lab/Stochastic Gradient Descent Learning Curves by Learning Rate I.png)
+
+`r kfigr::figr(label = "sgd_constant_learning_rate_curves", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Learning Curves by Learning Rate
+
+
+```{python sgd_constant_learning_rate_gs_report, echo=F, eval=T}
+filename = 'Stochastic Gradient Descent Constant Learning Rate Gridsearch Report.csv'
+sgd_constant_learning_rate_report = lab.report(directory=directory, filename=filename)
+```
+
+That said, what are our best performing learning rates? The following table lists the top performing parameter sets. 
+
+`r kfigr::figr(label = "sgd_best_constant_learning_rates", prefix = TRUE, link = TRUE, type="Table")`: Stochastic Gradient Descent Constant Learning Rate Best Performing Parameter Sets
+```{r sgd_constant_learning_rate_gs_report_tbl}
+constant_learning_rate_report <- read.csv(file.path(py$directory, py$filename))
+best_constant_learning_rates <- constant_learning_rate_report %>% select(learning_rate, precision, maxiter, i_s, final_costs, duration) 
+knitr::kable(head(best_constant_learning_rates, 3), format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
+```
+
+As indicated in `r kfigr::figr(label = "sgd_best_constant_learning_rates", prefix = TRUE, link = TRUE, type="Table")`, we obtain a minimum cost of $J\approx$ `r  round(best_constant_learning_rates['final_costs'][1,],4)` with learning rate $\alpha=$ `r best_constant_learning_rates['learning_rate'][1,]` within about  `r  round(best_constant_learning_rates['duration'][1,],4)` milliseconds.
+
+##### Constant Learning Rate Solution Path
+Animating the solution path vividly illuminates algorithm behavior w.r.t. the hyperparameters, enhances our intuition, and reveals insights into algorithm performance. Since we have just one predictor and a bias term, we can inspect the solution path in 3D. 
+
+[discuss]
+
+```{python sgd_constant_learning_rate_solution, echo=F, eval=T, cache=T}
+theta = np.array([-1,-1]) 
+learning_rate_sched = 'c'
+learning_rate = sgd_constant_learning_rate_report['learning_rate'].iloc[0]
+precision = sgd_constant_learning_rate_report['precision'].iloc[0]
+maxiter = sgd_constant_learning_rate_report['maxiter'].iloc[0]
+i_s=sgd_constant_learning_rate_report['i_s'].iloc[0]
+
+constant_lr_demo = SGDDemo()
+constant_lr_demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, 
+         learning_rate_sched=learning_rate_sched,
+         precision=precision, maxiter=maxiter, 
+         i_s=i_s)
+
+constant_lr_demo.show_search(directory=directory, fps=1)
+constant_lr_demo.show_fit(directory=directory, fps=1)
+```
+
+
+`r kfigr::figr(label = "sgd_constant_learning_rate_convergence", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Solution Path for Learning Rate [enter learning rate]
+
+[discuss]

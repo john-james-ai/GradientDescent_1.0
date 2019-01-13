@@ -23,7 +23,8 @@ directory = "./report/figures/SGD/Lab"
 Stochastic gradient descent (SGD), in constrast to batch gradient descent, performs a parameter update for *each* training example $x^{(i)}$ and label $y^{(i)}$:
 
 $$\theta_j := \theta_j-\alpha \nabla_\theta J(\theta, x^{(i)};y^{(i)}).$$
-On the other hand, the variance in SGD complicates the convergence and it may be difficult to determine whether the algorithm is converging each iteration. Therefore, we have to modify the way we check for convergence.  Rather than evaluating the costs after each iteration, we average the costs over a predeterimined number of observations. If the change in average costs drops below our precision threshold, we may say that the algorithm has arrived at the approximate minimum. Alternatively, we may use validation set costs, computed each $n$ observations.
+
+> What are the advantages of stochastic gradient descent?
 
 ### Advantages of Stochastic Gradient Descent
 The primary advantages of stochastic gradient descent are time complexity for large data sets, and convergence in certain non-convex machine learning models.
@@ -44,8 +45,9 @@ Saddle Point. Digital Image. Nicoguaro https://commons.wikimedia.org/wiki/File:S
 `r kfigr::figr(label = "saddle_point", prefix = TRUE, link = TRUE, type="Figure")`
 Consider the saddle point in   `r kfigr::figr(label = "saddle_point", prefix = TRUE, link = TRUE, type="Figure")`. The key observation is that the saddle point is actually very unstable. If you were to nudge the red dot slightly in any direction, it is likely to fall off the saddle point. Stochastic gradient descent's inherent noise is the nudge that pushes the red dot off the zero gradient saddle point. 
 
-### Challenges of Stochastic Gradient Descent
+> What are the challenges of stochastic gradient descent
 
+### Challenges of Stochastic Gradient Descent
 
 The most challenging aspect of stochastic gradient descent is selection of the learning rate. As with batch gradient descent, a learning rate that is too small will retard convergence.  One that is too large may explode the gradient or prevent the algorithm from converging all together. But the learning rate plays an additional role with SGD. Learning rates tend to suppress or amplify the inherent noise in the gradient. As such, the SGD learning rate has a greater effect on the behavior of the gradient. 
 
@@ -53,9 +55,9 @@ A practitioner may designate a constant learning rate, a learning rate schedule 
 
 Another challenge is that SGD is sequential in nature and doesn't take advantage of vectorized code optimizations. Hence classic SGD can be computationally inefficient.
 
-In the following sections, we will review the algorithm, implement a basic stochastic gradient descent class, perform hyperparameter tuning using a gridsearch, then evaluate algorithm behavior for select hyperparameter sets. 
+In the following sections, we will implement a basic stochastic gradient descent class, perform hyperparameter tuning using a gridsearch, then evaluate algorithm behavior for select hyperparameter sets. 
 
-### Algorithm
+### Implementation
 The pseudocode for the SGD algorithm looks like this. 
 ```{r eval=F, echo=T, tidy=F}
 randomly initialize parameters theta, 
@@ -70,18 +72,48 @@ return(thetas)
 ```
 `r kfigr::figr(label = "sgd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Algorithm
 
-### Implementation
-Our implementation will be a subclass of our GradientDescent base class created in the prior section. Before we get into the weeds, let's align on a few design considerations. 
+Before we get into the weeds, let's align on a few design considerations. 
+
+#### Design Considerations
+
+Our SGD class will inherit the following methods from the GradientDescent abstract base class created in [enter link to BGD]    
+
+* hypothesis - computes the hypothesis for a given observation or a full data set,   
+* error - computes the error associated with a hypothesis and $y$.    
+* cost - computes the cost given $y$ and our hypothes(es).     
+* mse - computes mean squared error for a validation set $X$ and $y$.      
+* gradient - calculates the gradient based upon error and the values $X_j$ for each $j$.      
+* update - computes the updates to the $\theta$'s in the direction of greatest descent.    
+
+Our SGD class will implement the following two methods:
+
+* shuffle - shuffles the data at the beginning of each epoch, 
+* fit - method that implements the algorithm specified in `r kfigr::figr(label = "sgd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`. 
+
+SGD will also inherit support for the following learning rate schedules from the GradientDescent base class:
+
+* constant learning rate,    
+* time decay learning rates,    
+* step decay learning rates, and    
+* exponential decay learning rates.   
+
+With respect to stopping criteria, we would want to stop the algorithm when one or more of the following conditions are met:    
+
+* The number of epochs has reached a preset maximum,     
+* Convergence hasn't improved in $i_s$ consecutive epochs.
+
+Convergence is checked once per epoch. The algorithm stops if there has been no improvement (within a precision, $\epsilon$) in the training set costs over $i_s$ consecutive epochs. 
+
+We code now!
 
 #### GradientDescent Abstract Base Class
-In case you are just joining us, the abstract base class for SGD is as follows:
+Our implementation will be a subclass of our GradientDescent base class below. 
 ```{python class_init, echo=T, eval=F}
 from abc import ABC, abstractmethod
 import datetime
 import math
 import numpy as np
 import pandas as pd
-
 
 class GradientDescent(ABC):
     def __init__(self):
@@ -94,7 +126,17 @@ class GradientDescent(ABC):
         return(h-y)
         
     def _cost(self, e):
-        return(1/2 * np.mean(e**2))        
+        return(1/2 * np.mean(e**2))    
+        
+    def _total_cost(self, X, y, theta):
+        h = self._hypothesis(X, theta)
+        e = self._error(h, y)
+        return(self._cost(e))        
+        
+    def _mse(self, X, y, theta):
+        h = self._hypothesis(X, theta)
+        e = self._error(h,y)
+        return(np.mean(e**2))
         
     def _gradient(self, X, e):
         return(X.T.dot(e)/X.shape[0])    
@@ -102,12 +144,24 @@ class GradientDescent(ABC):
     def _update(self, alpha, theta, gradient):
         return(theta-(alpha * gradient))        
         
-    def _finished(self, state, maxiter, precision, improvement):
+    def _update_learning_rate(self, learning_rate_init, learning_rate_sched, learning_rate, 
+                              time_decay, step_decay, step_epochs, exp_decay, epoch):
+        if learning_rate_sched == 'c':  # Constant learning rate
+            learning_rate_new = learning_rate
+        elif learning_rate_sched == 't':  # Time decay learning rate
+            learning_rate_new = learning_rate_init/(1+time_decay*epoch)            
+        elif learning_rate_sched == 's':  # Step decay learning rate
+            learning_rate_new = learning_rate_init*math.pow(step_decay, math.floor((1+epoch)/step_epochs))
+        elif learning_rate_sched == 'e':  # Exponential decay learning rate
+            learning_rate_new = learning_rate_init * math.exp(-exp_decay*epoch)
+        return(learning_rate_new)        
+        
+    def _finished(self, state, maxiter, precision, i_s):
         if state['iteration'] == maxiter:
             return(True)        
         if abs(state['prior']-state['current']) < precision:
             self._iter_no_change += 1
-            if self._iter_no_change >= improvement:
+            if self._iter_no_change >= i_s:
                 return(True)
             else:
                 return(False)
@@ -130,92 +184,95 @@ class GradientDescent(ABC):
         
 ```
 
-#### SGD Methods
-The SGD class will have a concrete implementation of the fit method to implement the algorithm described in `r kfigr::figr(label = "sgd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`. We introduce an average parameter. If true, the costs are averaged over the 
+#### Stochastic Gradient Descent Fit Method
+The SGD class will have a concrete implementation of the fit method to implement the algorithm described in `r kfigr::figr(label = "sgd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`.
 
 ```{python sgd_fit, echo=T, eval=F}
-def fit(self, X, y, theta,  X_val=None, y_val=None, average=False,
-      alpha=0.01, maxiter=0, precision=0.001, improvement=5):
+def fit(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
+        learning_rate_sched = 'c', time_decay=None, step_decay=None,
+        step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
+        i_s=5, scaler='minmax'):
 
+    # Initialize search variables
     iteration = 0
     epoch = 0
-    J_total = 0
-    state = {'prior':1, 'current':5, 'iteration':0}
+    self._iter_no_change = 0
     
-    # Extract data
-    self._X = X
-    self._y = y
-    self._X_val = X_val
-    self._y_val = y_val
-    
-    # Set cross-validated flag if validation set included 
+    # Set cross validated variable to True if validation set data provided
     cross_validated = all(v is not None for v in [X_val, y_val])
     
-    while not self._finished(state, maxiter, precision, improvement):
-      epoch += 1            
-      X, y = self._shuffle(self._X,self._y)
-      J_total = 0
-  
-      for x_i, y_i in zip(X.values, y):
-          iteration += 1
-  
-          h = self._hypothesis(x_i, theta)
-          e = self._error(h, y_i)
-          J = self._cost(e)
-          J_total += J
-          mse = None                                
-          g = self._gradient(x_i, e)                
-          theta = self._update(theta, g)
-  
-      if cross_validated:
-          h_val = self._hypothesis(X_val, theta)
-          e_val = self._error(h_val, y_val)
-          mse = self._cost(e_val)                
-          self._J_history_val.append(mse)
-      if average:
-          J = J_total / X.shape[0]            
-  
-      state = self._update_state(state, cross_validated, iteration, J, mse)
+    # Initialize State 
+    state = {'prior':100, 'current':10, 'iteration':0}
+    
+    while not self._finished(state):
+        epoch += 1            
+        mse = None
+
+        X, y = self._shuffle(self._X, self._y)            
+
+        for x_i, y_i in zip(X.values, y):
+            iteration += 1
+
+            h = self._hypothesis(x_i, theta)
+            e = self._error(h, y_i)
+            J = self._cost(e)                         
+            g = self._gradient(x_i, e)
+            theta = self._update(theta, learning_rate, g)
+        
+        # Compute total training set cost with latest theta
+        J = self._total_cost(X, y, theta)
+
+        # if cross_validated, compute validation set MSE 
+        if cross_validated: 
+            mse = self._mse(X_val, y_val, theta)
+            self._mse_history.append(mse)
+
+        # Update state to include current iteration, loss and mse (if cross_validated)
+        state = self._update_state(state, iteration, J, mse)
+
+        # Update learning rate
+        learning_rate = self._update_learning_rate(learning_rate, epoch)
     return(theta)
 ```
 
-
-The fit method:     
-1. initializes counts and totals
-2. iterates until finished:      
-    2.1. Shuffles the dataset       
-    2.2. iterates over each observation in the shuffled dataset
-        2.2.1. computes hypothesis, error, cost and gradient          
-        2.2.2. updates the thetas
-    2.3. if cross_validated:
-       2.3.1. compute cost on validation set
-    2.4. if average is True:
-        2.4.1. compute the average cost in training set 
-    2.5. update the state   
-3. return(theta)      
+The shuffle method referenced below is defined as follows:
+```{python shuffle, echo=T, eval=F}
+def _shuffle(self, X, y):
+    y_var = y.name
+    df = pd.concat([X,y], axis=1)
+    df = df.sample(frac=1, replace=False, axis=0)
+    X = df.drop(labels = y_var, axis=1)
+    y = df[y_var]
+    return(X, y)
+```
 
 That's it, for the most part. The complete class definitions are available at https://github.com/DecisionScients/GradientDescent.
 
-Next, we'll tune the hyperparameters on a validation set.
+Next, we'll learn how to tune the hyperparameters for stochastic gradient descent.
 
 ### Tuning Stochastic Gradient Descent
-Like batch gradient descent, SGD is parameterized most essentially by the learning rate, $\alpha$. In this section, we will use the gridsearch technique to explore the effects of various learning rates on algorithm performance. Our implementation is also parameterized by:   
+Our hyperparameters for stochastic gradient descent are:  
 
-* $\theta$: Our initial guess at our parameters     
-* $i_{max}$: The maximum number of iterations to execute,    
-* $i_s$: The number of consecutive iterations of 'non-improvement' required to stop the algorithm.   
-* $\epsilon$: The tolerance or precision parameter with which objective function improvement will be evaluated. 
-* average: If True, convergence is based upon the average of the costs 
+* **Initial condition hyperparameters**:    
+    - initial weight parameters $\theta$     
+* **learning rate hyperparameters**:    
+    - learning rate $\alpha$, this will be the initial learning rate for learning rate schedules    
+    - learning rate schedule, which can be:      
+        * 'c' for constant learning rate,    
+        * 't' for time decay learning rates,      
+        * 's' for step decay learning rates, and      
+        * 'e' for exponential decay learning rates
+    - other learning rate hyperparameters such as:     
+        * time_decay: the parameter that determines the amount the learning rate decays on each iteration,     
+        * step_decay: the parameter that determines the amount the learning rate decays on each step,     
+        * step_epochs: the parameter that specifies the number of epochs in each step,     
+        * exp_decay: the amount of exponential decay to apply to the learning rate on each iteration.     
 
-To contrast the performance of SGD with BGD in the prior section, we will fix these secondary parameters to the same values from our first BGD gridsearch, with one exception. 
-```{python sgd_gs_params, echo=T, eval=T}
-theta = np.array([-1,-1]) 
-alpha = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1]
-precision = [0.001]
-improvement = [5]
-maxiter = 10000
-average=[True]
-```
+* **stopping condition hyperparameters**:
+    - precision parameter $\epsilon$ by which we evaluate whether a quantum, e.g. training set costs, has changed,   
+    - $i_s$, the algorithm stops when the number of consecutive epochs of no improvement equals $i_s$.
+
+Like batch gradient descent, stochastic gradient descent is most essential hyperparameter is learning rate. We will therefore use a gridsearch strategy to create candidate functions $f_θ(x)$ for a range of learning rate schedules and learning rates. The initial $\theta$’s, our precision parameter $\epsilon$, maxiter, and the $i_s$ parameter will be set to default values and adjusted as needed.
 
 #### The Data
 We will use the same data from the prior section. Our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples make up the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
@@ -235,76 +292,7 @@ y = scaler.fit_transform(y)
 y_val = scaler.fit_transform(y_val)
 ```
 
-Now that we have our scaled data, lets run our gridsearch.
+With that, let's tune our hyperparameters, starting with the constant learning rate schedule.
 
-#### Gridsearch
-A class,  SGDLab, was created to perform our gridsearch. Let's instantiate the class, run the gridsearch and obtain some diagnostic information. 
-```{python sgd_lab, echo=T, eval=T}
-lab = SGDLab()
-lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, alpha=alpha, precision=precision,
-               maxiter=maxiter, improvement=improvement, average=average)
-sgd_summary = lab.summary()
-sgd_detail = lab.get_detail()   
-sgd_report_filename='Stochastic Gradient Descent Gridsearch Report.csv'
-sgd_report = lab.report(directory=directory, filename=sgd_report_filename)
+```{r sgd_constant, child = '5.2.1 sgd constant.Rmd'}
 ```
-
-#### Learning Rate Analysis
-As a first step in our analysis, let's examine the speed and accuracy with which each learning rate converges. 
-
-```{python sgd_learning_curves, echo=F, eval=T}
-lab.figure(data=sgd_detail, x='iterations', y='cost', z='alpha', 
-           func=lab.lineplot, directory=directory, height=2)   
-```
-
-![](../report/figures/SGD/Lab/Stochastic Gradient DescentTraining Set Costs By Iterations and Learning Rate.png)
-
-`r kfigr::figr(label = "sgd_learning_curve_plot", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Learning Curves
-
-Let's take a closer look at final training set costs and computation times.
-
-```{python bgd_alpha_costs, echo=F, eval=T}
-lab.figure(data=sgd_summary, x='alpha', y='final_costs',
-           func=lab.barplot, directory=directory, width=0.5)   
-lab.figure(data=sgd_summary, x='alpha', y='duration',
-           func=lab.barplot, directory=directory, width=0.5)              
-```
-
-![](../report/figures/SGD/Lab/Stochastic Gradient DescentTraining Set Costs By Learning Rate.png){width=50%}![](../report/figures/SGD/Lab/Stochastic Gradient DescentComputation Time (ms) By Learning Rate.png){width=50%}
-
-`r kfigr::figr(label = "sgd_cost_time", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Quality and Training Time
-```{r, sgd_best, echo=F, eval=T}
-sgd_report = read.csv(file.path(py$directory, py$sgd_report_filename))
-sgd_best = sgd_report[1,]
-```
-
-Indeed, larger learning rates within our parameter space performed better from both a quality and time perspective. In fact, our best performing learning rate was actually `r sgd_best['alpha']`. It produced a validation set final cost of `r sgd_best['final_mse']`.
-
-Let's evaluate the convergence and fit of this solution.
-
-#### Evaluation
-The `r kfigr::figr(label = "sgd_converge", prefix = TRUE, link = TRUE, type="Figure")` visualization reveals the path of the $\theta$'s to approximate convergence. The oscillation around the minimum is emblematic of high learning rate gradient descent. Approximate convergence was obtained in 7 iterations, presenting a final training set cost $J\approx0.03$.
-```{python sgd_demo, echo=F, eval=T}
-alpha = sgd_report.iloc[0]['alpha']
-precision = sgd_report.iloc[0]['precision']
-improvement = sgd_report.iloc[0]['improvement']
-
-if not cache:
-  sgd = SGDDemo()
-  sgd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, alpha=alpha, precision=precision,
-          maxiter=maxiter, improvement=improvement)
-  sgd.show_search(directory=directory, fps=10)
-  sgd.show_fit(directory=directory, fps=10)
-```
-
-![](../report/figures/SGD/Lab/Stochastic Gradient Descent Search Plot Learning Rate 0.04.gif)
-
-`r kfigr::figr(label = "sgd_converge", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent - Alpha = 1.0
-
-So, how does the solution fit the training data? Great question!
-
-The `r kfigr::figr(label = "sgd_fit", prefix = TRUE, link = TRUE, type="Figure")` visualization illustrates the regression line fit vis-a-vis the 500 observations in our training set.   
-
-![](../report/figures/SGD/Lab/Stochastic Gradient Descent Fit Plot Learning Rate 0.04.gif)
-
-`r kfigr::figr(label = "sgd_fit", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Fit

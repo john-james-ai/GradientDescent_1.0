@@ -71,7 +71,7 @@ print(data.info())
 print(data)
 
 # Plot
-fig, (ax0, ax1) = plt.subplots(nrows=1, ncols=2, figsize=(12,8))
+fig, (ax0, ax1) = plt.subplots(nrows=1, ncols=2, figsize=(12,4))
 sns.set(style="whitegrid", font_scale=1)
 fig.suptitle('Batch Gradient Descent Performance Summary by Learning Rate Schedule')
 

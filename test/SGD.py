@@ -24,7 +24,7 @@ def sgd():
         X, X_val, y, y_val = data.demo()
         theta = np.array([-1,-1])
         learning_rate = 0.01
-        learning_rate_sched = 'e'
+        learning_rate_sched = 'c'
         time_decay = 0.1
         step_decay=0.5
         step_epochs=2
@@ -43,3 +43,4 @@ def sgd():
 gd = sgd()
 print(gd.summary())
 print(gd.detail())
+gd.plot(show=True)

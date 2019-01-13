@@ -351,7 +351,7 @@ class GradientLab:
             plt.close(fig)
         else:
             # Designate plot title
-            title = self._alg + '\n' + self._get_label(y) + '\n' + ' By ' + self._get_label(x)
+            title = self._alg + '\n' + self._get_label(y) + ' By ' + self._get_label(x)
             if z:
                 title = title + ' and ' + self._get_label(z) 
             # Establish plot dimensions and initiate matplotlib objects
@@ -362,7 +362,7 @@ class GradientLab:
             ax = func(ax=ax, data=data, x=x, y=y, z=z, 
                         title=title)            
             # Finalize and save
-            fig.tight_layout(rect=[0,0,1,.85])
+            fig.tight_layout()
             if show:
                 plt.show()
             if directory is not None:

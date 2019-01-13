@@ -1,4 +1,3 @@
-
 # %%
 # =========================================================================== #
 #                             Gradient Search                                 #
@@ -80,6 +79,9 @@ class GradientFit(ABC):
     def _gradient(self, X, e):
         return(X.T.dot(e)/X.shape[0])
 
+    def _gradient_norm(self, g):
+        return(np.sqrt(g.dot(g)))    
+
     def _update(self, theta, learning_rate, gradient):        
         return(theta-(learning_rate * gradient))
 
@@ -118,8 +120,13 @@ class GradientFit(ABC):
         if self._maxed_out(state['iteration']):
             return(True)  
         if state['current'] > state['prior']:
-            return(True)
-        elif abs(state['prior']-state['current']) < self._request['hyper']['precision']:
+            self._iter_no_change += 1
+            if self._iter_no_change >= self._i_s:
+                return(True)
+            else:
+                return(False)
+
+        elif state['prior']-state['current'] < self._request['hyper']['precision']:
             self._iter_no_change += 1
             if self._iter_no_change >= self._i_s:
                 return(True)
@@ -129,13 +136,15 @@ class GradientFit(ABC):
             self._iter_no_change = 0
             return(False)
 
-    def _update_state(self, state, iteration, J, mse):
+    def _update_state(self, state, iteration, J, mse, g):
         state['iteration'] = iteration
         state['prior'] = state['current']
-        if self._request['hyper']['cross_validated']:
-            state['current'] = mse
-        else:      
+        if self._request['hyper']['stop_metric'] == 'j':
             state['current'] = J
+        elif self._request['hyper']['stop_metric'] == 'e':
+            state['current'] = mse
+        elif self._request['hyper']['stop_metric'] == 'g':
+            state['current'] = g            
         return(state)
 
     @abstractmethod
@@ -212,8 +221,9 @@ class BGDFit(GradientFit):
             self._learning_rate_history.append(learning_rate)
 
 
-            # Compute gradient
+            # Compute gradient and its norm 
             g = self._gradient(self._X, e)
+            g_norm = self._gradient_norm(g)
 
             # Update thetas 
             theta = self._update(theta, learning_rate, g)
@@ -222,7 +232,7 @@ class BGDFit(GradientFit):
             learning_rate = self._update_learning_rate(learning_rate, iteration)
 
             # Update state vis-a-vis training set costs and validation set mse 
-            state = self._update_state(state, iteration, J, mse)
+            state = self._update_state(state, iteration, J, mse, g_norm)
 
 
 
@@ -282,7 +292,7 @@ class SGDFit(GradientFit):
         self._y_val = self._request['data']['y_val']
 
         # Initialize State 
-        state = {'prior':1, 'current':5, 'iteration':0}
+        state = {'prior':100, 'current':10, 'iteration':0}
         
         while not self._finished(state):
             epoch += 1            
@@ -302,6 +312,9 @@ class SGDFit(GradientFit):
             # Compute total training set cost with latest theta
             J = self._total_cost(self._X, self._y, theta)
 
+            # Compute the norm of the gradient
+            g_norm = self._gradient_norm(g)
+
             # if cross_validated, compute validation set MSE 
             if self._request['hyper']['cross_validated']: 
                 mse = self._mse(self._X_val, self._y_val, theta)
@@ -314,8 +327,8 @@ class SGDFit(GradientFit):
             self._iterations.append(iteration)
             self._learning_rate_history.append(learning_rate)                
 
-            # Update state to include current iteration, loss and mse (if cross_validated)
-            state = self._update_state(state, iteration, J, mse)
+            # Update state to include current iteration, loss and mse (if cross_validated)            
+            state = self._update_state(state, iteration, J, mse, g_norm)
 
             # Update learning rate
             learning_rate = self._update_learning_rate(learning_rate, epoch)
@@ -411,6 +424,9 @@ class MBGDFit(GradientFit):
             # Compute total training set costs with latest theta
             J = self._total_cost(self._X, self._y, theta)
 
+            # Compute the norm of the gradient
+            g_norm = self._gradient_norm(g)            
+
             # if cross_validated, compute validation set MSE 
             if self._request['hyper']['cross_validated']: 
                 mse = self._mse(self._X_val, self._y_val, theta)  
@@ -424,8 +440,7 @@ class MBGDFit(GradientFit):
             self._learning_rate_history.append(learning_rate)                      
 
             # Update state to include iteration and current loss and mse (if cross_validated)
-            state = self._update_state(state, iteration, J, mse)
+            state = self._update_state(state, iteration, J, mse, g_norm)
             
             # Update learning rate
             learning_rate = self._update_learning_rate(learning_rate, epoch)
-

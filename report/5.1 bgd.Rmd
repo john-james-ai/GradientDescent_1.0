@@ -109,8 +109,6 @@ import datetime
 import math
 import numpy as np
 import pandas as pd
-
-
 class GradientDescent(ABC):
     def __init__(self):
       pass
@@ -147,6 +145,15 @@ Our method simply takes half of the mean squared error as follows:
 ```{python cost_bgd, echo=T, eval=F}
 def _cost(self, e):
         return(1/2 * np.mean(e**2))
+```
+
+#### Total Cost Method
+This convenience method computes total training set costs, given $X$, $y$, and the parameters $\theta$. This will be useful when evaluating objective function improvement in the stochastic and minibatch gradient descent subclasses. 
+```{python total_costs, echo=T, eval=F}
+def _total_cost(self, X, y, theta):
+    h = self._hypothesis(X, theta)
+    e = self._error(h, y)
+    return(self._cost(e))
 ```
 
 #### MSE Method
@@ -186,9 +193,8 @@ def _update(self, theta, learning_rate, gradient):
 #### Update Learning Rate Method
 This method updates the learning rate in accordance with the learning rate schedule.
 ```{python update_learning_rate, echo=T, eval=F}
-def _update_learning_rate(self, learning_rate_init, learning_rate_schedule, learning_rate, 
+def _update_learning_rate(self, learning_rate_init, learning_rate_sched, learning_rate, 
                           time_decay, step_decay, step_epochs, exp_decay, epoch):
-
     if learning_rate_sched == 'c':  # Constant learning rate
         learning_rate_new = learning_rate
     elif learning_rate_sched == 't':  # Time decay learning rate
@@ -207,7 +213,9 @@ This method determines when the algorithm should stop. The algorithm stops if a 
 def _finished(self, state, maxiter, precision, i_s):
     if state['iteration'] == maxiter:
         return(True)        
-    if abs(state['prior']-state['current']) < precision:
+    if state['current'] > state['prior']:
+        return(True)
+    elif abs(state['prior']-state['current']) < precision:
         self._iter_no_change += 1
         if self._iter_no_change >= i_s:
             return(True)
@@ -216,7 +224,6 @@ def _finished(self, state, maxiter, precision, i_s):
     else:
         self._iter_no_change = 0   
         return(False)
-
 ```
 
 Let's also create a convience method that maintains the state of the optimization at each iteration. 
@@ -247,7 +254,6 @@ Once convergence criteria are met, we return our thetas and costs.
 class BGD(GradientDescent):
   def __init__(self):
       pass
-
   def fit(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
           learning_rate_sched = 'c', time_decay=None, step_decay=None,
           step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
@@ -266,30 +272,24 @@ class BGD(GradientDescent):
       while not self._finished(state):
           iteration += 1
           mse = None
-
           # Compute the costs (and validation set error if required)
           h = self._hypothesis(X, theta)
           e = self._error(h, y)
           J = self._cost(e)
           if cross_validated:
               mse = self._mse(X_val, y_val, theta)            
-
           # Compute gradient
           g = self._gradient(X, e)
-
           # Update thetas 
           theta = self._update(theta, learning_rate, g)
-
           # Update learning rate
           learning_rate = self._update_learning_rate(learning_rate_init=learning_rate_init, 
                           learning_rate_schedule=learning_rate_schedule, 
                           learning_rate=learning_rate, time_decay=time_decay, 
                           step_decay=step_decay, step_epochs=step_epochs, 
                           exp_decay=exp_decay, epoch=iteration)
-
           # Update state vis-a-vis training set costs and validation set mse 
           state = self._update_state(state, iteration, J, mse)
-
       d = dict()
       d['theta'] = theta
       d['J'] = J
@@ -348,7 +348,7 @@ y_val = scaler.fit_transform(y_val)
 With that, we are ready to start the tuning process. Let's begin with a learning rate test.
 
 #### Learning Rate Test
-What is a learning rate test and why would we conduct one? As we seek to find an optimal constant learning rate, we need an upper bound on the learning rates which we will evaluate. This upper bound is the maximum learning rate that still improves performance of the objective function. This maximum will also serves as our initial learning rate for our learning rate annealing schedules. 
+What is a learning rate test and why would we conduct one? As we seek to find an optimal constant learning rate, we need an upper bound on the learning rates which we will evaluate. This upper bound is the maximum learning rate that still improves performance of the objective function. This maximum will also serve as our initial learning rate for our learning rate annealing schedules. 
 
 So, let's fix our initial $\theta$'s, precision parameter $\epsilon$, and $i_s$ to their default values. We will evaluate a range of learning rates from 0.01 to 2 incrementing by 0.01.
 
@@ -384,7 +384,7 @@ lab.figure(data=lab.summary(), x='learning_rate', y='duration',
 ```
 ![](../report/figures/BGD/Lab/Batch Gradient Descent - Learning Rate Test - Costs.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient Descent - Learning Rate Test - Time.png){width=50%}
 
-`r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Learning Rate Test 
+`r kfigr::figr(label = "bgd_learning_rate_test_plots", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Learning Rate Test 
 
 Training set costs indicate divergence at a learning rate $\alpha \approx 1.6$. We'll use this as our upper bound for constant learning rates and our initial learning rate for our annealing learning rate schedules.  
 
