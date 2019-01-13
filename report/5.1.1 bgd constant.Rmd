@@ -29,9 +29,7 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
 ```
 
 ##### Constant Learning Rate Analysis
-How does learning rate affect objective function performance and computation times?
-
-The following visually represents training set costs and computation times vis-a-vis our learning rates.
+How does learning rate affect objective function performance and computation times? The following visually represents training set costs and computation times vis-a-vis our learning rates.
 
 ```{python bgd_constant_learning_rate_plots, echo=F, eval=T}
 data = lab.summary()

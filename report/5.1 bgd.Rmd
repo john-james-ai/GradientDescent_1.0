@@ -390,9 +390,17 @@ Training set costs indicate divergence at a learning rate $\alpha \approx 1.6$. 
 
 Next, let's tune learning rate, starting with the constant learning rate schedule. 
 
-```{r sgd, child = '5.1.2 bgd time.Rmd'}
+```{r constant, child = '5.1.1 bgd constant.Rmd'}
 ```
 
+```{r time, child = '5.1.2 bgd time.Rmd'}
+```
+
+```{r step, child = '5.1.3 bgd step.Rmd'}
+```
+
+```{r exp, child = '5.1.4 bgd exp.Rmd'}
+```
 
 ### Batch Gradient Descent Key Takeaways
 We've introduced the batch gradient descent optimization algorithm, implemented a basic batch gradient descent class, tuned a range of hyperparameters, most important of which, the learning rate and we've analyzed the effects of various learning rate schedules on empirical and expected performance. Before we take on Stochastic Gradient Descent, let's briefly summarize the key ideas and takeaways with respect to batch gradient descent. 
@@ -405,6 +413,5 @@ We've introduced the batch gradient descent optimization algorithm, implemented 
     - how the algorithm learns, e.g. learning rates,      
     - when the algorithm stops. stopping conditions balance available computation resources and restrictions with the desire to give the optimization problem ample time to find its optimal solution.
     
-* We spent a fair amount of time tuning and analyzing various learning rates and learning rate schedules. 
 
     

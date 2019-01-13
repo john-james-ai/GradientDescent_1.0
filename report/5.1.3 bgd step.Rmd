@@ -44,6 +44,7 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
                precision=precision, maxiter=maxiter, i_s=i_s)
 ```
 
+##### Step Decay Learning Rate Analysis
 ```{python bgd_step_plots, echo=F, eval=T}
 filename = 'Batch Gradient Descent - Step Decay - Costs.png'
 lab.figure(data=lab.summary(), x='step_decay', y='final_costs', z='step_epochs', 
@@ -83,8 +84,9 @@ report_error <- report %>% arrange(final_mse, duration) %>% select(learning_rate
 
 The four plots in `r kfigr::figr(label = "bgd_step_plots", prefix = TRUE, link = TRUE, type="Figure")`, show the relationship between training set costs, computation time and our step decay parameters. The first row represents the full range of parameter values. We've narrowed the range of Step Decay values on the second row so that we exclude outliers.
 
-Lower training set costs appear to correlate with greater numbers of epochs per step and higher decay rates. Computation times are clearly associated with the number of epochs per step. Step decay rates don't appear to be a factor which influences computation.
+Lower training set costs appear to correlate with greater numbers of epochs per step and higher decay rates. Computation times are clearly associated with the number of epochs per step. Step decay rates don't appear to be a computation time factor.
 
+Which step decay hyperparameters produced the best objective function performance?
 
 `r kfigr::figr(label = "bgd_best_step", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Best Performing Step Decay Parameters
 ```{r bgd_best_step, echo=F, eval=T}
@@ -151,3 +153,13 @@ lab.figure(data=data, x='step_decay', y='final_mse',
 `r kfigr::figr(label = "bgd_step_eval", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Step Decay Learning Rate Cost and Error Evaluation
 
 The above two plots show training set costs (left) and validation set error (right) for our epochs per step parameter, $t_d=20$ and a range of step decay rates $d$. Both plots have similar shapes, and appear to minimize at $d\approx0.9$. In fact, both training set costs and validation set error are minimized precisely at $d=$ `r report_error['step_decay'][1,]`. We can safely infer that the solution generalizes well.
+
+##### Step Decay Learning Rate Key Takeaways
+What have we observed from this experiment? Two main points:     
+
+1. The number of epochs in each step tended to have a greater effect on objective performance costs, than did the step decay parameter. Best performance correlated with higher numbers of epochs per step. 
+2. For any specific number of epochs per step, objective function performance increased with the step factor $d$.
+
+Caviat: These observations are based upon the characteristics of the dataset used in this analysis. Results may vary for other datasets.  
+
+Next, we explore the effects of exponential decay learning rates. 

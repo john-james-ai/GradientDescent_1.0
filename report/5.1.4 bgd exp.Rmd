@@ -25,13 +25,13 @@ Using a gridsearch, we will evaluate a range of values for our exponential decay
 theta = np.array([-1,-1]) 
 learning_rate_sched = 'e'
 learning_rate = [1.6]
-exp_decay = np.arange(0,1,0.01)
+exp_decay = np.arange(0.01,1,0.01)
 precision = [0.001]
 maxiter = [5000]
 i_s=[20]
 ```
 
-In case you are just joining us, the algorithm stops if maxiter iterations is reached, or the objective function has not improved over $i_s$, a.k.a. i_s iterations. Improvement is measured with a tolerance given by our precision parameter, $\epsilon$.  
+In case you are just joining us, the algorithm stops if maxiter iterations is reached, or the objective function has not improved over $i_s$ iterations. Improvement is measured with a tolerance given by our precision parameter, $\epsilon$.  
 
 Ok, let's run the search and evaluate performance. 
 
@@ -43,6 +43,8 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
                precision=precision, maxiter=maxiter, i_s=i_s)
 ```
 
+
+##### Exponential Decay Learning Rate Analysis 
 ```{python bgd_exp_plots, echo=F, eval=T}
 filename = 'Batch Gradient Descent - Exponential Decay Learning Rate - Costs.png'
 lab.figure(data=lab.summary(), x='exp_decay', y='final_costs',
@@ -62,13 +64,18 @@ The following plots reveal the relationship between training set costs, computat
 
 `r kfigr::figr(label = "bgd_exp_plots", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Training Costs and Computation Time by Exponential Decay Rate
 
-Training set cost dropped from its high, observed at $k=0$, to its low at $k=0.01$. From there, increasing values of $k$ were associated with increasing costs. Similarly, computation time dropped rapidly from its high at $k\approx0$; but it generally stabilized after that, showing no real correlation with values of $k$.
+Based upon `r kfigr::figr(label = "bgd_exp_plots", prefix = TRUE, link = TRUE, type="Figure")` (left) objective function costs correlated with the exponential decaying factor. In other words, objective function performance declined with increasing exponential decay factors. 
 
+As indicated in `r kfigr::figr(label = "bgd_exp_plots", prefix = TRUE, link = TRUE, type="Figure")` (left), objective function performance comes at  a cost. The best performing exponential decay factor had a significantly greater computation time.
+
+So, which exponential decay value yielded best objective function performance? 
 
 ```{r bgd_exp_report, echo=F, eval=T}
 report <- read.csv(file.path(py$directory, py$filename))
 report_costs <- report %>% arrange(final_costs, duration) %>% select(learning_rate, exp_decay, final_costs, duration)
 report_error <- report %>% arrange(final_mse, duration) %>% select(learning_rate, exp_decay, final_mse)
+rel_chg_cost <- round(((1 - (report_costs['final_costs'][1,] / report_costs['final_costs'][2,])) * 100),2)
+rel_chg_time <- round(((1 - (report_costs['duration'][2,] / report_costs['duration'][1,] )) * 100),2)
 ```
 
 `r kfigr::figr(label = "bgd_best_exp", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Best Performing Exponential Decay Rates
@@ -77,9 +84,9 @@ knitr::kable(head(report_costs,3), format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
 ```
 
-As indicated in `r kfigr::figr(label = "bgd_best_exp", prefix = TRUE, link = TRUE, type="Table")`, the best performing exponential decay factor was $k=0.01$, yielding a training set cost of $J\approx0.019$ in about 0.05 milliseconds.
+As indicated in `r kfigr::figr(label = "bgd_best_exp", prefix = TRUE, link = TRUE, type="Table")`, the best performing exponential decay factor was $k=$ `r report_costs['exp_decay'][1,]`, yielding a training set cost of $J\approx$ `r round(report_costs['final_costs'][1,],4)` in about `r round(report_costs['duration'][1,],4)` milliseconds. It is also worth noting that the a `r rel_chg_cost` percent sacrifice in objective function performance reduces our computation time by `r rel_chg_time` percent.
 
-Let's see what the solution path reveals about algorithm behavior vis-a-vis decaying factor $k$. 
+Let's see what the solution path reveals about algorithm behavior vis-a-vis our best performing decaying factor $k$. 
 
 ##### Exponential Decay Learning Rate Solution Path
 The optimization path depicted in `r kfigr::figr(label = "bgd_exp_path", prefix = TRUE, link = TRUE, type="Figure")` is not unlike the time based decay learning rate solution path from `r kfigr::figr(label = "bgd_time_path", prefix = TRUE, link = TRUE, type="Figure")`.
@@ -111,7 +118,7 @@ We observe the same large oscillation about the optimum that we observed for the
 Now, let's evaluate the empirical and expected performance of our solution.
 
 ##### Exponential Decay Learning Rate Evaluation
-Here, we ask two questions. What is the empirical quality of our solution and how well does the solution generalize to unseen data. We assess the quality of the empirical performance on the training set by examining how well the solution fits the training data.  Validation set error will be the metric by which we measure expected performance on unseen data. 
+Here, we ask two questions. What is the empirical quality of our solution and how well does the solution generalize to unseen data? We assess the quality of the empirical performance on the training set by examining how well the solution fits the training data.  Validation set error will be the metric by which we measure expected performance on unseen data. 
 
 With repect to empirical performance, `r kfigr::figr(label = "bgd_exp_fit", prefix = TRUE, link = TRUE, type="Figure")` shows a scatter plot of the training data. Juxtaposed upon this, the regression lines given by the $\theta$'s computed each epoch. A good regression line fit indicates a high quality empirical result. 
 
@@ -137,4 +144,10 @@ lab.figure(data=lab.summary(), x='exp_decay', y='final_mse',
 `r kfigr::figr(label = "bgd_exp_eval", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Exponential Decay Learning Rate Cost and Error Evaluation
 
 Above, we have our exponential decay factors plotted vis-a-vis training set costs (left) and validation set error (right). The curves are nearly identical. In fact, both curves are minimized at $k=0.01$. The validation set performance of our solution strongly suggests the generalizability of our solution.   
-On the left, we have our training set costs versus our exponential decay factor, and on the right, we show validation set error vis-a-vis the exponent 
+
+##### Exponential Decay Learning Rate Key Takeaways
+What have we observed in this experiment?  A few points:  
+
+1. For our dataset, objective function performance was inversely correlated with the exponential decay factor, $k$.  
+2. When selecting among several high performing exponential decay factors, it is worth noting their computational effects. As shown in this experiment, we were able to reduce computation time by `r rel_chg_time` percent with just a `r rel_chg_cost` percent reduction in objective function performance. 
+

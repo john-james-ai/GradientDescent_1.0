@@ -41,7 +41,7 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
 ```
 
 ##### Time Decay Learning Rate Analysis
-How does time decay parameter affect objective function performance and computation times? The following visually represents training set costs and computation times vis-a-vis our time decay parameters.
+How does time decay parameter affect objective function performance and computation times? The following visually represents training set costs and computation times vis-a-vis our time decay parameter.
 
 ```{python bgd_time_plots, echo=F, eval=T}
 filename = 'Batch Gradient Descent - Time Decay - Costs by Learning Rate.png'
@@ -66,7 +66,19 @@ report_costs <- report %>% arrange(final_costs, duration) %>% select(learning_ra
 report_error <- report %>% arrange(final_mse, duration) %>% select(learning_rate, time_decay, final_mse)
 ```
 
-`r kfigr::figr(label = "bgd_time_plots", prefix = TRUE, link = TRUE, type="Figure")`, shows the relationship between training set costs, computation time and our time decay parameter, $k$. Our highest costs occur at $k=0$, then drops rapidly to a minimum cost of `r round(report_costs['final_costs'][1,],4)` at a time decay parameter $k=$ `r report_costs['time_decay'][1,]`. Similarly, we observe maximum computation time at time decay parameter, $k=0$, followed by a significant reduction. After $k\approx0.1$, computation times appear to stabalize.
+As indicated in `r kfigr::figr(label = "bgd_time_plots", prefix = TRUE, link = TRUE, type="Figure")`, higher values of the time decay correlate with greater training set costs. Computation times, on the other hand, appear to be inversely correlated with our time decay parameter $k$. By extension, training set costs are inversely correlated with computation time. 
+
+That said, which values of our time decay parameter, $k$, yield best objective function performance? The following table lists the top performing parameter sets.
+
+`r kfigr::figr(label = "bgd_best_time", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Best Performing Time Decay Learning Rates
+```{r bgd_best_time}
+knitr::kable(head(report_costs, 3), format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
+```
+
+As indicated in `r kfigr::figr(label = "bgd_best_time", prefix = TRUE, link = TRUE, type="Table")`, we obtain a minimum cost, $J\approx$ `r round(report_costs['final_costs'][1,],3)` in approximately `r round(report_costs['duration'][1,],3)` milliseconds, with an initial learning rate, $\alpha_0=$ `r report_costs['learning_rate'][1,]` and time decay parameter $k=$ `r report_costs['time_decay'][1,]`.
+
+Next, let's examine the solution path for our best performing hyperparameter set.
 
 ##### Time Decay Learning Rate Solution Path
 The following animation reveals the effect of a time decayed learning rate over 27 iterations, starting with an initial learning rate $\alpha=1.6$. 
@@ -102,7 +114,7 @@ data = lab.detail()
 data = data[data.time_decay==0.01]
 lab.figure(data=data, x='iterations', y='learning_rates', 
            func=lab.lineplot, directory=directory, 
-           filename=filename, width=0.5)
+           filename=filename, width=1)
 last = data['learning_rates'].iloc[-1].item()
 ```
 ![](../report/figures/BGD/Lab/Batch Gradient Descent - Time Decay - Learning Rates by Iteration.png)
@@ -135,8 +147,12 @@ lab.figure(data=lab.summary(), x='time_decay', y='final_mse',
 
 `r kfigr::figr(label = "bgd_time_alpha", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Time Decay Learning Rate Costs and Error
 
-The plots look remarkably similar. In fact, both the minimum training set cost $J=$ `r round(report_costs['final_costs'][1,], 4)` and the minimum validation set error, `r round(report_error['final_mse'][1,], 4)`, occur at a time decay value $k=$ `r report_error['time_decay'][1,]`
+The plots look remarkably similar. In fact, both the minimum training set cost $J=$ `r round(report_costs['final_costs'][1,], 4)` and the minimum validation set error, `r round(report_error['final_mse'][1,], 4)`, occur at a time decay value $k=$ `r report_error['time_decay'][1,]`. That said, we can conclude that the solution generalizes reasonably well to unseen data.
 
-That said, we can conclude that the solution generalizes reasonably well to unseen data.
+##### Time Decay Learning Rate Key Takeways
+What can we take away from this experiment? Two primary points.
 
-Next, we'll explore the step decay learning rate.
+1. Since we are reducing the learning rate with each iteration, we set the initial learning rate $\alpha_0$ to the maximum cost reducing learning rate. This value may be obtained via a learning rate test, as shown in `r kfigr::figr(label = "bgd_constant_alpha_plots_i", prefix = TRUE, link = TRUE, type="Figure")`.    
+2. Best objective function performance tends to favor lower time decay values. Slowly decaying learning rates tend to yield better, more fine-grained gradient approximations with each iteration.    
+
+Next, we'll explore the step decay learning rates.
