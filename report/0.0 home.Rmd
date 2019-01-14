@@ -58,6 +58,7 @@ knitr::knit_hooks$set(inline = function(x) {
 
 ```{r setup, echo=FALSE}
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+pd <- import("pandas")
 ```
 
 ```{python imports}

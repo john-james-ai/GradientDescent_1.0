@@ -56,16 +56,11 @@ constant_detail = lab.detail()
 constant_summary.to_csv(os.path.join(directory, constant_detail_filename))
 ```
 
-```{python sgd_constant_get_gs_python, echo=F, eval=T}
+```{python sgd_constant_get_gs, echo=F, eval=T}
 lab = SGDLab()
-constant_summary = pd.read_csv(os.path.join(directory, constant_summary_filename))
-constant_detail = pd.read_csv(os.path.join(directory, constant_detail_filename))
+data = pd.read_csv(os.path.join(directory, constant_summary_filename))
 ```
 
-```{r sgd_constant_get_gs_r, echo=F, eval=T}
-constant_summary = read.csv(file.path(py$directory, py$constant_summary_filename))
-constant_detail = read.csv(file.path(py$directory, py$constant_detail_filename))
-```
 Next, we'll analyze the effect of learning rate on our optimization problem.  
 
 ##### Learning Rate Analysis
@@ -74,7 +69,7 @@ The aim here is to get a general sense of the effect of learning rate on objecti
 lab = SGDLab()
 data = pd.read_csv(os.path.join(directory, constant_summary_filename))
 filename = 'Stochastic Gradient Descent Costs by Learning Rate.png'
-lab.figure(data=constant_summary, x='learning_rate', y='final_costs',
+lab.figure(data=data, x='learning_rate', y='final_costs',
            func=lab.lineplot, directory=directory, 
            filename=filename, width=1)
         
@@ -86,7 +81,7 @@ lab.figure(data=constant_summary, x='learning_rate', y='final_costs',
 
 A couple of observations stand out. First, there appears to be a positive correlation between objective function cost and learning rate. We also see an increase in varance of the objective function performance with increasing learning rates. This suggests that SGD favors the relative stability of lower learning rates.  
 
-With that, let's drill down a bit and investigate the effect of our stopping criteria on the optimization problem vis-a-vis learning rate. 
+With that, let's drill down a bit and investigate the effect of our stopping criteria on the optimization problem vis-a-vis learning rate. We'll start with our stop metric hyperparameter.
 
 ##### Stop Criteria Analysis
 Our aim here is to evaluate the effects of various early stop hyperparameters on objective function performance. Recall, that we evaluate convergence based upon improvement (or change) in the following stop metrics:  
@@ -100,28 +95,15 @@ Improvement is measured with a tolerance, or precision parameter $\epsilon=$ [0.
 For these parameters, we will evaluate the effect on objective function performance in terms of the correlation between each hyperparameter and objective function costs.
 
 ```{python sgd_constant_stop_criteria_correlation, echo=F, eval=T}
-filename = 'Stochastic Gradient Descent Constant Learning Rate Stop Criteria Parameter Correlations.csv'
+filename = 'Stochastic Gradient Descent Stop Criteria Correlations.png'
 x = ['stop_metric', 'precision', 'i_s']
 y = ['final_costs']
-assoc = lab.associations(data=constant_summary,x=x,y=y, directory=directory, filename=filename)
+associations = lab.associations(data=data,x=x,y=y)
 ```
-`r kfigr::figr(label = "sgd_constant_param_corr", prefix = TRUE, link = TRUE, type="Table")`: Stochastic Gradient Descent Constant Learning Rate Stop Criteria Parameter Correlation with Objective Function Performance
+`r kfigr::figr(label = "sgd_constant_param_corr", prefix = TRUE, link = TRUE, type="Table")`: Stochastic Gradient Descent Parameter Correlation with Objective Function Performance
 ```{r sgd_constant_param_corr, echo=F, eval=T}
-assoc <- read.csv(file.path(py$directory, py$filename))
-assoc['X'] <- NULL
-knitr::kable(assoc, digits = 4, format.args = list(big.mark = ",")) %>%
- kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
-```
-Based upon `r kfigr::figr(label = "sgd_constant_param_corr", prefix = TRUE, link = TRUE, type="Table")`, our stop criteria hyperparameters are not consequential to objective function performance.
-
-Given that which hyperparameters yielded best objective function performance? 
-
-##### Best Performing Constant Learning Rate Hyperparameters
-Alas, we reveal the top 3 performing hyperparameters.
-
-`r kfigr::figr(label = "sgd_constant_best", prefix = TRUE, link = TRUE, type="Table")`: Stochastic Gradient Descent Constant Learning Rate Best Performing Hyperparameters. 
-```{r sgd_constant_best, echo=F, eval=T}
-best_constant <- constant_summary %>% select(experiment, stop_metric_label, learning_rate, precision, i_s, maxiter,  epochs, iterations, duration, final_costs) %>% arrange(final_costs)
-knitr::kable(head(best_constant,3), digits = 4, format.args = list(big.mark = ",")) %>%
+associations <- py$associations
+rownames(associations) <- NULL
+knitr::kable(associations, digits = 4, format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
 ```
