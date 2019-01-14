@@ -7,16 +7,16 @@ formatNumber: function (n) {return ''+n}
 }
 }});</script>
 #### Constant Learning Rates
-Our goal here is to identify the constant learning rate that minimizes our objective function. We will run a gridsearch over the range of learning rates from 0.01 to our learning rate maximum, 2, incrementing by 0.01. The initial $\theta$'s, maxiter, precision parameter $\epsilon$, and $i_s$ will be set at their defaults. 
+Our goal here is to identify the constant learning rate that minimizes our objective function. We will run a gridsearch over the range of learning rates from 0.01 to our learning rate maximum, 2, incrementing by 0.01. Our parameter space will also include each of our stop metrics, and a range of precision and $i_s$ values. 
 ```{python sgd_constant_learning_rate_i, echo=T, eval=T}
 theta = np.array([-1,-1]) 
 learning_rate_sched = ['c']
-learning_rate = np.arange(0.01,1, 0.01)
-precision = [0.001]
+learning_rate = np.arange(0.01,2, 0.01)
+precision = [0.0001, 0.001, 0.01]
+stop_metric = ['j', 'v', 'g']
 maxiter = 5000
-i_s=[1]
+i_s=[1,2,5,10,15,20]
 ```
-The search stops when we observe no improvement in the objective function.
 
 Ok, let's run the search and evaluate performance. 
 
@@ -25,20 +25,25 @@ lab = SGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=None, 
                step_decay=None, step_epochs=None, exp_decay=None,
-               precision=precision, maxiter=maxiter, i_s=i_s)
+               stop_metric=stop_metric, precision=precision, 
+               maxiter=maxiter, i_s=i_s)
 ```
 
 ##### Constant Learning Rate Analysis
-How does learning rate affect objective function performance and computation times? The following visually represents training set costs and computation times vis-a-vis our learning rates.
+How does learning rate affect objective function performance and computation times? Since we are tuning our stopping criteria at the same time, we will examine constant learning rate effects by stopping metric, starting with training costs.
+
+###### Constant Learning Rate Analysis via Training Set Costs
+The following visually represents training set costs and computation times vis-a-vis our learning rates.
 
 ```{python sgd_constant_learning_rate_plots, echo=F, eval=T}
 data = lab.summary()
-filename = 'Stochastic Gradient Descent Costs by Learning Rate.png'
-lab.figure(data=data, x='learning_rate', y='final_costs', 
+plot_data = data.loc[data.stop_metric=='j']
+filename = 'Stochastic Gradient Descent Costs by Learning Rate - Training Set Costs.png'
+lab.figure(data=plot_data, x='learning_rate', y='final_costs', z='precision',
            func=lab.lineplot, directory=directory, 
            filename=filename, width=0.5)             
-filename = 'Stochastic Gradient Descent Time by Learning Rate.png'
-lab.figure(data=data, x='learning_rate', y='duration', 
+filename = 'Stochastic Gradient Descent Time by Learning Rate - Training Set Costs.png'
+lab.figure(data=plot_data, x='learning_rate', y='duration', z='precision',
            func=lab.lineplot, directory=directory, 
            filename=filename, width=0.5)
 ```

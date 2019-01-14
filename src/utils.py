@@ -13,11 +13,11 @@ import pandas as pd
 def save_fig(fig, directory, filename):
     if os.path.exists(directory):
         path = os.path.join(os.path.abspath(directory), filename)
-        fig.savefig(path, facecolor='w')
+        fig.savefig(path, facecolor='w', bbox_inches=None)
     else:
         os.makedirs(directory)
         path = os.path.join(os.path.abspath(directory),filename)
-        fig.savefig(path, facecolor='w')
+        fig.savefig(path, facecolor='w', bbox_inches=None)
 
 def save_gif(ani, directory, filename, fps):
     face_edge_colors = {'facecolor': 'w', 'edgecolor': 'w'}

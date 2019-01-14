@@ -48,14 +48,14 @@ class GradientDemo():
     def fit(self, X, y, theta, X_val=None, y_val=None, n=500, 
             learning_rate_sched='c', learning_rate=0.01, time_decay=None,
             step_decay=None, step_epochs=None, exp_decay=None,
-            maxiter=10000, precision=0.001, i_s=5):
+            maxiter=10000, precision=0.001, stop_metric='j', i_s=5):
 
         # Fit to data
         gd = BGD()
         gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=time_decay, 
                step_decay=step_decay, step_epochs=step_epochs, exp_decay=exp_decay,
-               maxiter=maxiter, precision=precision, i_s=i_s)
+               maxiter=maxiter, precision=precision, stop_metric=stop_metric, i_s=i_s)
 
         # Obtain search history detail
         self._search = gd.detail()
@@ -298,14 +298,14 @@ class SGDDemo(GradientDemo):
     def fit(self, X, y, theta, X_val=None, y_val=None, n=500, 
             learning_rate_sched='c', learning_rate=0.01, time_decay=None,
             step_decay=None, step_epochs=None, exp_decay=None,
-            maxiter=10000, precision=0.001, i_s=5):
+            maxiter=10000, precision=0.001, stop_metric='j', i_s=5):
 
         # Fit to data
         gd = SGD()
         gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=time_decay, 
                step_decay=step_decay, step_epochs=step_epochs, exp_decay=exp_decay,
-               maxiter=maxiter, precision=precision, i_s=i_s)
+               maxiter=maxiter, precision=precision, stop_metric=stop_metric, i_s=i_s)
 
         # Obtain search history detail
         self._search = gd.detail()
@@ -334,15 +334,15 @@ class MBGDDemo(GradientDemo):
     def fit(self, X, y, theta, X_val=None, y_val=None, n=500, batch_size=5,
             learning_rate_sched='c', learning_rate=0.01, time_decay=None,
             step_decay=None, step_epochs=None, exp_decay=None,
-            maxiter=10000, precision=0.001, i_s=5):
+            maxiter=10000, precision=0.001, stop_metric='j', i_s=5):
 
         # Fit to data
-        gd = SGD()
+        gd = MBGD()
         gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, batch_size=batch_size,
                 learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=time_decay, 
                step_decay=step_decay, step_epochs=step_epochs, exp_decay=exp_decay,
-               maxiter=maxiter, precision=precision, i_s=i_s)
+               maxiter=maxiter, precision=precision, stop_metric=stop_metric, i_s=i_s)
 
         # Obtain search history detail
         self._search = gd.detail()

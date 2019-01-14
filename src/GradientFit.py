@@ -141,7 +141,7 @@ class GradientFit(ABC):
         state['prior'] = state['current']
         if self._request['hyper']['stop_metric'] == 'j':
             state['current'] = J
-        elif self._request['hyper']['stop_metric'] == 'e':
+        elif self._request['hyper']['stop_metric'] == 'v':
             state['current'] = mse
         elif self._request['hyper']['stop_metric'] == 'g':
             state['current'] = g            

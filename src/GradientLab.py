@@ -57,11 +57,12 @@ class GradientLab:
 
     def _save_params(self, X, y, X_val, y_val, theta, learning_rate, 
                      learning_rate_sched, time_decay, step_decay,
-                     step_epochs, exp_decay, precision, 
+                     step_epochs, exp_decay, precision, stop_metric,
                      i_s, maxiter, scaler):
 
         self._params = {'X': X, 'y':y, 'X_val': X_val, 'y_val':y_val,
                         'theta':theta, 'learning_rate':learning_rate, 
+                        'stop_metric': stop_metric,
                         'learning_rate_sched': learning_rate_sched,
                         'time_decay': time_decay,
                         'step_decay': step_decay,
@@ -94,6 +95,7 @@ class GradientLab:
         X_val = self._params['X_val']
         y_val = self._params['y_val']
         theta = self._params['theta']
+        stop_metric = self._params['stop_metric']
         learning_rate = self._params['learning_rate']
         learning_rate_sched = self._params['learning_rate_sched']
         time_decay = self._params['time_decay']
@@ -107,76 +109,80 @@ class GradientLab:
 
         # Constant learning rates
         if 'c' in learning_rate_sched:
-            for n in i_s:
-                for p in precision:
-                    for a in learning_rate:                    
-                        gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
-                                learning_rate=a, learning_rate_sched='c',                                 
-                                maxiter=maxiter, precision=p, 
-                                i_s=n, scaler=scaler)
-                        detail = gd.detail()
-                        summary = gd.summary()
-                        summary['experiment'] = experiment
-                        self._detail = pd.concat([self._detail, detail], axis=0)    
-                        self._summary = pd.concat([self._summary, summary], axis=0)    
-                        experiment += 1               
-
-        # Time Decay Learning Rates
-        if 't' in learning_rate_sched:
-            for n in i_s:
-                for p in precision:
-                    for a in learning_rate:
-                        for d in time_decay:                    
+            for s in stop_metric:
+                for n in i_s:
+                    for p in precision:
+                        for a in learning_rate:                    
                             gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
-                                    learning_rate=a, learning_rate_sched='t',
-                                    time_decay=d, maxiter=maxiter, precision=p, 
+                                    learning_rate=a, learning_rate_sched='c',                                 
+                                    maxiter=maxiter, precision=p, stop_metric=s,
                                     i_s=n, scaler=scaler)
                             detail = gd.detail()
                             summary = gd.summary()
                             summary['experiment'] = experiment
                             self._detail = pd.concat([self._detail, detail], axis=0)    
                             self._summary = pd.concat([self._summary, summary], axis=0)    
-                            experiment += 1       
+                            experiment += 1               
 
-        # Step Decay Learning Rates
-        if 's' in learning_rate_sched:
-            for n in i_s:
-                for p in precision:
-                    for a in learning_rate:
-                        for d in step_decay:                    
-                            for e in step_epochs:
+        # Time Decay Learning Rates
+        if 't' in learning_rate_sched:
+            for s in stop_metric:
+                for n in i_s:
+                    for p in precision:
+                        for a in learning_rate:
+                            for d in time_decay:                    
                                 gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
-                                        learning_rate=a, learning_rate_sched='s',
-                                        step_decay=d, step_epochs=e, maxiter=maxiter, precision=p, 
-                                        i_s=n, scaler=scaler)
+                                        learning_rate=a, learning_rate_sched='t',
+                                        time_decay=d, maxiter=maxiter, precision=p, 
+                                        stop_metric=s, i_s=n, scaler=scaler)
                                 detail = gd.detail()
                                 summary = gd.summary()
                                 summary['experiment'] = experiment
                                 self._detail = pd.concat([self._detail, detail], axis=0)    
                                 self._summary = pd.concat([self._summary, summary], axis=0)    
-                                experiment += 1    
+                                experiment += 1       
+
+        # Step Decay Learning Rates
+        if 's' in learning_rate_sched:
+            for s in stop_metric:
+                for n in i_s:
+                    for p in precision:
+                        for a in learning_rate:
+                            for d in step_decay:                    
+                                for e in step_epochs:
+                                    gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
+                                            learning_rate=a, learning_rate_sched='s',
+                                            step_decay=d, step_epochs=e, maxiter=maxiter, precision=p, 
+                                            stop_metric=s, i_s=n, scaler=scaler)
+                                    detail = gd.detail()
+                                    summary = gd.summary()
+                                    summary['experiment'] = experiment
+                                    self._detail = pd.concat([self._detail, detail], axis=0)    
+                                    self._summary = pd.concat([self._summary, summary], axis=0)    
+                                    experiment += 1    
 
         # Exponential Decay Learning Rates
         if 'e' in learning_rate_sched:
-            for n in i_s:
-                for p in precision:
-                    for a in learning_rate:
-                        for d in exp_decay:                    
-                            gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
-                                    learning_rate=a, learning_rate_sched='e',
-                                    exp_decay=d, maxiter=maxiter, precision=p, 
-                                    i_s=n, scaler=scaler)
-                            detail = gd.detail()
-                            summary = gd.summary()
-                            summary['experiment'] = experiment
-                            self._detail = pd.concat([self._detail, detail], axis=0)    
-                            self._summary = pd.concat([self._summary, summary], axis=0)    
-                            experiment += 1                                          
+            for s in stop_metric:
+                for n in i_s:
+                    for p in precision:
+                        for a in learning_rate:
+                            for d in exp_decay:                    
+                                gd.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, 
+                                        learning_rate=a, learning_rate_sched='e',
+                                        exp_decay=d, maxiter=maxiter, precision=p, 
+                                        stop_metric=s, i_s=n, scaler=scaler)
+                                detail = gd.detail()
+                                summary = gd.summary()
+                                summary['experiment'] = experiment
+                                self._detail = pd.concat([self._detail, detail], axis=0)    
+                                self._summary = pd.concat([self._summary, summary], axis=0)    
+                                experiment += 1                                          
 
         
     def gridsearch(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
             learning_rate_sched = 'c', time_decay=None, step_decay=None,
-            step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
+            step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, stop_metric='j',
             i_s=5, scaler='minmax'):
 
         self._save_params(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, 
@@ -185,13 +191,11 @@ class GradientLab:
                          time_decay=time_decay, step_decay=step_decay,
                          step_epochs=step_epochs, exp_decay=exp_decay, 
                          precision=precision, i_s=i_s, 
+                         stop_metric=stop_metric,
                          maxiter=maxiter, scaler=scaler)
 
         bgd = BGD()
         self._runsearch(bgd)
-
-        
-
 
 
     def _get_label(self, x):
@@ -211,7 +215,14 @@ class GradientLab:
                   'i_s': 'i_s ',
                   'batch_size': 'Batch Size',
                   'final_costs': 'Training Set Costs',
-                  'final_mse': 'Validation Set MSE'}
+                  'final_mse': 'Validation Set MSE',
+                  'c': 'Constant Learning Rate',
+                  't': 'Time Decay Learning Rate',
+                  's': 'Step Decay Learning Rate',
+                  'e': 'Exponential Decay Learning Rate',
+                  'j': 'Training Set Costs',
+                  'v': 'Validation Set Error',
+                  'g': 'Gradient Norm'}
         return(labels[x])
 
     def report(self,  n=None, sort='v', directory=None, filename=None):
@@ -219,9 +230,10 @@ class GradientLab:
             raise Exception('Nothing to report')
         else:
             vars = ['experiment', 'alg', 'learning_rate',
-                    'learning_rate_sched', 'time_decay',
-                    'step_decay', 'step_epochs', 'exp_decay',
-                    'precision', 'i_s', 'maxiter', 
+                    'learning_rate_sched', 'learning_rate_sched_label',
+                    'stop_metric', 'stop_metric_label',
+                    'time_decay', 'step_decay', 'step_epochs', 'exp_decay',
+                    'precision', 'i_s', 'maxiter', 'stop_metric',
                     'epochs', 'iterations','duration',
                     'final_costs', 'final_mse']
             df = self._summary
@@ -334,11 +346,13 @@ class GradientLab:
                           title=group_title + ' : ' + str(plot_name))
                 i += 1
             
-            # Finalize and save plot
+            # Format Suptitle
             suptitle = self._alg + '\n' + self._get_label(y) + '\n' + ' By ' + self._get_label(x)
             if z:
                 suptitle = suptitle + ' and ' + self._get_label(z) 
             fig.suptitle(suptitle)
+            
+            # Finalize, show and save
             fig.tight_layout()
             if show:
                 plt.show()
@@ -361,6 +375,7 @@ class GradientLab:
             # Render plot    
             ax = func(ax=ax, data=data, x=x, y=y, z=z, 
                         title=title)            
+
             # Finalize and save
             fig.tight_layout()
             if show:
@@ -375,11 +390,6 @@ class GradientLab:
          
         return(fig)                
             
-
-
-
-
-
 
 # --------------------------------------------------------------------------- #
 #                              BGD Lab Class                                  #   

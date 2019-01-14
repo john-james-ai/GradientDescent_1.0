@@ -45,7 +45,7 @@ Saddle Point. Digital Image. Nicoguaro https://commons.wikimedia.org/wiki/File:S
 `r kfigr::figr(label = "saddle_point", prefix = TRUE, link = TRUE, type="Figure")`
 Consider the saddle point in   `r kfigr::figr(label = "saddle_point", prefix = TRUE, link = TRUE, type="Figure")`. The key observation is that the saddle point is actually very unstable. If you were to nudge the red dot slightly in any direction, it is likely to fall off the saddle point. Stochastic gradient descent's inherent noise is the nudge that pushes the red dot off the zero gradient saddle point. 
 
-> What are the challenges of stochastic gradient descent
+> What are the challenges of stochastic gradient descent?
 
 ### Challenges of Stochastic Gradient Descent
 
@@ -53,12 +53,20 @@ The most challenging aspect of stochastic gradient descent is selection of the l
 
 A practitioner may designate a constant learning rate, a learning rate schedule (annealing), or an adaptive learning rate. A constant learning rate, the default in the Keras SGD optimizer, requires experimentation with a range of learning rates in order to achieve suitable performance. Learning rate schedules, such as time-based decay, step decay, and exponential decay, adjust the learning rate according to the number of iterations or epochs. The hyperperameters for the learning rate schedule must be defined a-priori. Another challenge is that the learning rate applies to all parameters during the parameter update. Adaptive learning rate methods such as Adagrad, Adadelta, RMSProp, and Adam are gradient descent optimization algorithms have performed well vis-a-vis learning rate schedule and constant learning rate methods. They will be discussed later in this series. 
 
-Another challenge is that SGD is sequential in nature and doesn't take advantage of vectorized code optimizations. Hence classic SGD can be computationally inefficient.
+Finally, SGD is sequential in nature and doesn't take advantage of vectorized code optimizations. Hence classic SGD can be computationally inefficient.
+
+> When to use stochastic gradient descent?
+
+In short, stochastic gradient descent is a sensible choice for large scale learning problems when computation time is the bottleneck. On large datasets (> 500k observations), SGD is less memory intensive and it often converges faster than batch gradient descent because it performs updates more frequently. Moreover, SGD can achieve better expected risk because more training examples are processed during the available computation time [@Bottou].
+
+SGD is also appropriate for nonlinear networks with multiple local minima and other applications in which the noisy gradient is an advantage for the optimization problem. 
+
+Lastly, SGD is well suited in online settings where the function being modeled is changing over time. This is quite common in industrial settings in which equipment wear and tear can cause the data distribution to change gradually over time [@LeCunBOM12].
 
 In the following sections, we will implement a basic stochastic gradient descent class, perform hyperparameter tuning using a gridsearch, then evaluate algorithm behavior for select hyperparameter sets. 
 
 ### Implementation
-The pseudocode for the SGD algorithm looks like this. 
+The basic pseudocode for the SGD algorithm looks like this. 
 ```{r eval=F, echo=T, tidy=F}
 randomly initialize parameters theta, 
 set learning rate, maximum interations, and precision
@@ -75,7 +83,6 @@ return(thetas)
 Before we get into the weeds, let's align on a few design considerations. 
 
 #### Design Considerations
-
 Our SGD class will inherit the following methods from the GradientDescent abstract base class created in [enter link to BGD]    
 
 * hypothesis - computes the hypothesis for a given observation or a full data set,   
@@ -97,14 +104,12 @@ SGD will also inherit support for the following learning rate schedules from the
 * step decay learning rates, and    
 * exponential decay learning rates.   
 
-With respect to stopping criteria, we would want to stop the algorithm when one or more of the following conditions are met:    
+With respect to stopping criteria, we adopted an objective function performance based early stopping criteria for batch gradient descent. Since SGD creates noisy gradients that don't necessarily improve objection function performance quite the way that batch methods do, we will expand our stopping criteria to include: 
 
-* The number of epochs has reached a preset maximum,     
-* Convergence hasn't improved in $i_s$ consecutive epochs.
+1. **Validation Set Performance**: A proportion of the training set is designated as a validation set. On each iteration, validation set error is computed and the algorithm stops if validation error has not improved, within a precision $\epsilon$, over $i_s$ epochs.
+2. **Gradient Checking**: The norm of the gradient is computed each epoch. The algorithm stops if the magnitude of the gradient has not changed, within a precision $\epsilon$,  over $i_s$ epochs.
 
-Convergence is checked once per epoch. The algorithm stops if there has been no improvement (within a precision, $\epsilon$) in the training set costs over $i_s$ consecutive epochs. 
-
-We code now!
+Those are the essential considerations.  Let's get coding!
 
 #### GradientDescent Abstract Base Class
 Our implementation will be a subclass of our GradientDescent base class below. 
@@ -185,13 +190,18 @@ class GradientDescent(ABC):
 ```
 
 #### Stochastic Gradient Descent Fit Method
-The SGD class will have a concrete implementation of the fit method to implement the algorithm described in `r kfigr::figr(label = "sgd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`.
+The SGD class will have a concrete implementation of the fit method to implement the algorithm described in `r kfigr::figr(label = "sgd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`. Note that we've added a new parameter, 'stop_metric', which indicates the metric used for early stopping.  Valid values include:    
+
+* 'j': training set costs (default),     
+* 'v': validation set error, and    
+* 'g': gradient norm. 
+
 
 ```{python sgd_fit, echo=T, eval=F}
 def fit(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
         learning_rate_sched = 'c', time_decay=None, step_decay=None,
         step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
-        i_s=5, scaler='minmax'):
+        stop_metric='j', i_s=5, scaler='minmax'):
 
     # Initialize search variables
     iteration = 0
@@ -226,16 +236,34 @@ def fit(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01,
         if cross_validated: 
             mse = self._mse(X_val, y_val, theta)
             self._mse_history.append(mse)
+            
+        # Compute norm of the gradient
+        g_norm = np.sqrt(g.dot(g))
 
         # Update state to include current iteration, loss and mse (if cross_validated)
-        state = self._update_state(state, iteration, J, mse)
+        state = self._update_state(state, iteration, J, mse, g_norm)
 
         # Update learning rate
         learning_rate = self._update_learning_rate(learning_rate, epoch)
     return(theta)
 ```
 
-The shuffle method referenced below is defined as follows:
+We will need to change our state update method in the GradientDescent class as follows:
+```{python state_update, echo=T, eval=F}
+def _update_state(self, state, iteration, J, mse, g):
+    state['iteration'] = iteration
+    state['prior'] = state['current']
+    if self._request['hyper']['stop_metric'] == 'j':
+        state['current'] = J
+    elif self._request['hyper']['stop_metric'] == 'v':
+        state['current'] = mse
+    elif self._request['hyper']['stop_metric'] == 'g':
+        state['current'] = g            
+    return(state)
+```
+
+
+Finally, our shuffle method:
 ```{python shuffle, echo=T, eval=F}
 def _shuffle(self, X, y):
     y_var = y.name
@@ -246,9 +274,10 @@ def _shuffle(self, X, y):
     return(X, y)
 ```
 
+
 That's it, for the most part. The complete class definitions are available at https://github.com/DecisionScients/GradientDescent.
 
-Next, we'll learn how to tune the hyperparameters for stochastic gradient descent.
+Next, we'll explore hyperparamter tuning strategies for stochastic gradient descent.
 
 ### Tuning Stochastic Gradient Descent
 Our hyperparameters for stochastic gradient descent are:  
@@ -269,13 +298,14 @@ Our hyperparameters for stochastic gradient descent are:
         * exp_decay: the amount of exponential decay to apply to the learning rate on each iteration.     
 
 * **stopping condition hyperparameters**:
+    - stop metric: Indicates metric evaluated for early stopping. Valid values are 'j', 'v', and 'g' for training set costs, validation set error, and gradient norm respectively,  
     - precision parameter $\epsilon$ by which we evaluate whether a quantum, e.g. training set costs, has changed,   
-    - $i_s$, the algorithm stops when the number of consecutive epochs of no improvement equals $i_s$.
+    - $i_s$, the algorithm stops when the number of consecutive epochs of no change in the stop metric equals $i_s$.
 
-Like batch gradient descent, stochastic gradient descent is most essential hyperparameter is learning rate. We will therefore use a gridsearch strategy to create candidate functions $f_θ(x)$ for a range of learning rate schedules and learning rates. The initial $\theta$’s, our precision parameter $\epsilon$, maxiter, and the $i_s$ parameter will be set to default values and adjusted as needed.
+As with batch gradient descent, learning rate is the most consequential of the hyperparameters. We will use a gridsearch strategy to create candidate functions $f_θ(x)$ for a range of learning rate schedules and learning rates. We will also examine the effects of various early stopping criteria. The initial $\theta$’s will be set to the same  default values used for BGD.
 
 #### The Data
-We will use the same data from the prior section. Our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples make up the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
+We will use the same data used for the batch gradient descent section.  In case you are just joining us, our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples make up the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
 
 A small function was created to randomly sample the training data and split it into the appropriate training and validation sets.
 ```{python sgd_data, echo=T, eval=T}

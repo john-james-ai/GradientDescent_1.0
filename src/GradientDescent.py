@@ -184,19 +184,22 @@ class GradientDescent:
             mse = pd.DataFrame(gd.get_mse(), columns=['mse'])               
             self._detail = pd.concat([self._detail, mse], axis=1)
         self._detail['alg'] = self._alg
-        self._detail['learning_rate_sched'] = self._get_label(learning_rate_sched)
+        self._detail['learning_rate_sched'] = learning_rate_sched
+        self._detail['learning_rate_sched_label'] = self._get_label(learning_rate_sched)
         self._detail['learning_rate'] = learning_rate
         self._detail['time_decay'] = time_decay
         self._detail['step_decay'] = step_decay
         self._detail['step_epochs'] = step_epochs
         self._detail['exp_decay'] = exp_decay
         self._detail['precision'] = precision    
-        self._detail['stop_metric'] = self._get_label(stop_metric)
+        self._detail['stop_metric'] = stop_metric
+        self._detail['stop_metric_label'] = self._get_label(stop_metric)
         self._detail['i_s'] = self._request['hyper']['i_s']
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
-                                    'learning_rate_sched': self._get_label(learning_rate_sched),
+                                    'learning_rate_sched': learning_rate_sched,
+                                    'learning_rate_sched_label': self._get_label(learning_rate_sched),
                                     'learning_rate': learning_rate,
                                     'time_decay': time_decay,
                                     'step_decay': step_decay,
@@ -204,7 +207,8 @@ class GradientDescent:
                                     'exp_decay': exp_decay,
                                     'precision': precision,
                                     'maxiter': maxiter,
-                                    'stop_metric': self._get_label(stop_metric),
+                                    'stop_metric': stop_metric,
+                                    'stop_metric_label': self._get_label(stop_metric),
                                     'i_s': i_s,
                                     'start':start,
                                     'end':end,
@@ -249,13 +253,14 @@ class GradientDescent:
 
             # -----------------------  Cost bar plot  ------------------------ #
             # Data
-            x = ['Initial Cost', 'Final Costs', 'Initial Cost', 'Final Costs',]
+            x = ['Initial', 'Initial', 'Final', 'Final',]
             y = [self._summary['initial_costs'].values.tolist(),
-                 self._summary['final_costs'].values.tolist(),
                  self._summary['initial_mse'].values.tolist(),
+                 self._summary['final_costs'].values.tolist(),
                  self._summary['final_mse'].values.tolist()]
-            z = ['Training Set', 'Training Set', 'Validation Set', 'Validation Set']
+            z = ['Training Set Costs', 'Validation Set Error', 'Training Set Costs', 'Validation Set Error']
             y = [item for sublist in y for item in sublist]
+           
             # Main plot
             ax0 = fig.add_subplot(gs[0,0])
             ax0 = sns.barplot(x,y, hue=z)  
@@ -265,20 +270,19 @@ class GradientDescent:
             ax0.xaxis.label.set_color('k')
             ax0.yaxis.label.set_color('k')        
             # Axes labels
-            ax0.set_ylabel('Cost')            
+            ax0.set_ylabel('Cost/Error')            
             # Values above bars
             rects = ax0.patches
             for rect, label in zip(rects, y):
-                height = rect.get_height()
-                ax0.text(rect.get_x() + rect.get_width() / 2, height + .03, str(round(label,3)),
-                        ha='center', va='bottom')                
-            ax0.set_title('Initial and Final Costs', color='k', pad=15)
+                ax0.text(rect.get_x() + rect.get_width() / 2, rect.get_height() + .03, str(round(rect.get_height(),3)),
+                        ha='center', va='bottom')         
+            ax0.set_title('Initial and Final Costs and Error', color='k', pad=15)
             
             # -----------------------  Cost line plot ------------------------ #
             df_train = pd.DataFrame({'Iteration': self._detail['iterations'],
                                      'Costs': self._detail['cost'],
                                      'Dataset': 'Train'})
- 
+
             ax1 = fig.add_subplot(gs[0,1])
             ax1 = sns.lineplot(x='Iteration', y='Costs', data=df_train)
             ax1.set_facecolor('w')
@@ -307,7 +311,7 @@ class GradientDescent:
                 height = rect.get_height()
                 ax0.text(rect.get_x() + rect.get_width() / 2, height + .03, str(round(label,3)),
                         ha='center', va='bottom')                
-            ax0.set_title('Initial and Final Costs', color='k', pad=15)
+            ax0.set_title('Initial and Final Costs and Error', color='k')
 
             # Cost Line Plot
             x = self._detail['iterations']
@@ -321,14 +325,13 @@ class GradientDescent:
             ax1.set_xlabel('Iterations')
             ax1.set_ylabel('Cost')
             title = lr_title()
-            ax1.set_title(title, color='k', pad=15)
+            ax1.set_title(title, color='k')
 
         suptitle = self._alg + '\n' + 'Stop Metric: ' + self._get_label(self._request['hyper']['stop_metric']) + '\n' + \
                    'Learning Rate Schedule: ' + self._get_label(self._request['hyper']['learning_rate_sched']) + '\n' + \
-                   r'$\alpha_0$' + " = " + str(self._request['hyper']['learning_rate']) + ' ' +\
+                   r'$\alpha_0$' + " = " + str(round(self._request['hyper']['learning_rate'],3)) + ' ' +\
                    r'$\epsilon$' + " = " + str(round(self._request['hyper']['precision'],5)) 
-        fig.suptitle(suptitle)            
- 
+        fig.suptitle(suptitle)   
         fig.tight_layout(rect=[0,0,1,.9])
         if show:
             plt.show()
@@ -416,20 +419,23 @@ class SGD(GradientDescent):
             mse = pd.DataFrame(gd.get_mse(), columns=['mse'])               
             self._detail = pd.concat([self._detail, mse], axis=1)
         self._detail['alg'] = self._alg
-        self._detail['learning_rate_sched'] = self._get_label(learning_rate_sched)
+        self._detail['learning_rate_sched'] = learning_rate_sched
+        self._detail['learning_rate_sched_label'] = self._get_label(learning_rate_sched)
         self._detail['learning_rate'] = learning_rate
         self._detail['time_decay'] = time_decay
         self._detail['step_decay'] = step_decay
         self._detail['step_epochs'] = step_epochs
         self._detail['exp_decay'] = exp_decay
         self._detail['precision'] = precision    
-        self._detail['stop_metric'] = self._get_label(stop_metric)
+        self._detail['stop_metric'] = stop_metric
+        self._detail['stop_metric_label'] = self._get_label(stop_metric)
         self._detail['i_s'] = self._request['hyper']['i_s']
 
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
-                                    'learning_rate_sched': self._get_label(learning_rate_sched),
+                                    'learning_rate_sched': learning_rate_sched,
+                                    'learning_rate_sched_label': self._get_label(learning_rate_sched),
                                     'learning_rate': learning_rate,
                                     'time_decay': time_decay,
                                     'step_decay': step_decay,
@@ -437,7 +443,8 @@ class SGD(GradientDescent):
                                     'exp_decay': exp_decay,                                    
                                     'precision': precision,
                                     'maxiter': maxiter,
-                                    'stop_metric': self._get_label(stop_metric),
+                                    'stop_metric': stop_metric,
+                                    'stop_metric_label': self._get_label(stop_metric),
                                     'i_s': i_s,
                                     'start':start,
                                     'end':end,
@@ -514,7 +521,8 @@ class MBGD(GradientDescent):
             mse = pd.DataFrame(gd.get_mse(), columns=['mse'])               
             self._detail = pd.concat([self._detail, mse], axis=1)
         self._detail['alg'] = self._alg
-        self._detail['learning_rate_sched'] = self._get_label(learning_rate_sched)
+        self._detail['learning_rate_sched'] = learning_rate_sched
+        self._detail['learning_rate_sched_label'] = self._get_label(learning_rate_sched)
         self._detail['learning_rate'] = learning_rate
         self._detail['time_decay'] = time_decay
         self._detail['step_decay'] = step_decay
@@ -522,12 +530,14 @@ class MBGD(GradientDescent):
         self._detail['exp_decay'] = exp_decay
         self._detail['precision'] = precision    
         self._detail['i_s'] = self._request['hyper']['i_s']
-        self._detail['stop_metric'] = self._get_label(stop_metric)
+        self._detail['stop_metric'] = stop_metric
+        self._detail['stop_metric_label'] = self._get_label(stop_metric)
         self._detail['batch_size'] = batch_size
         
         # Package summary results
         self._summary = pd.DataFrame({'alg': gd.get_alg(),
-                                    'learning_rate_sched': self._get_label(learning_rate_sched),
+                                    'learning_rate_sched': learning_rate_sched,
+                                    'learning_rate_sched_label': self._get_label(learning_rate_sched),
                                     'learning_rate': learning_rate,
                                     'time_decay': time_decay,
                                     'step_decay': step_decay,
@@ -537,7 +547,8 @@ class MBGD(GradientDescent):
                                     'batch_size': batch_size,
                                     'maxiter': maxiter,
                                     'i_s': i_s,
-                                    'stop_metric': self._get_label(stop_metric),
+                                    'stop_metric': stop_metric,
+                                    'stop_metric_label': self._get_label(stop_metric),
                                     'start':start,
                                     'end':end,
                                     'duration':end-start,
