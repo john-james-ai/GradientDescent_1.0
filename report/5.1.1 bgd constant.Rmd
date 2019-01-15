@@ -19,8 +19,7 @@ i_s=[5]
 The search stops when we observe 5 consecutive iterations of no improvement in the objective function.
 
 Ok, let's run the search and evaluate performance. 
-
-```{python bgd_constant_learning_rate_gs, echo=T, eval=T}
+```{python bgd_constant_learning_rate_gs_echo, echo=T, eval=F}
 lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=None, 
@@ -28,44 +27,73 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
                precision=precision, maxiter=maxiter, i_s=i_s)
 ```
 
+```{python bgd_constant_learning_rate_gs_filenames, echo=F, eval=T}
+bgd_constant_summary_filename = 'Batch Gradient Descent Constant Learning Rate Summary.csv'
+bgd_constant_detail_filename  = 'Batch Gradient Descent Constant Learning Rate Detail.csv'
+bgd_constant_report_filename = 'Batch Gradient Descent Constant Learning Rate Report.csv'
+```
+
+
+```{python bgd_constant_learning_rate_gs, echo=F, eval=T, cache=F}
+lab = BGDLab()   
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
+               learning_rate_sched=learning_rate_sched, time_decay=None, 
+               step_decay=None, step_epochs=None, exp_decay=None,
+               precision=precision, maxiter=maxiter, i_s=i_s)
+               
+bgd_constant_summary = lab.summary(directory=directory, filename=bgd_constant_summary_filename)
+bgd_constant_detail = lab.detail(directory=directory, filename=bgd_constant_detail_filename)
+bgd_constant_report = lab.report(directory=directory, filename=bgd_constant_report_filename)
+
+```
+
+```{r bgd_constant_learning_rate_gs_r, echo=F, eval=T}
+bgd_constant_summary = read.csv(file.path(py$directory, py$bgd_constant_summary_filename))
+bgd_constant_detail  = read.csv(file.path(py$directory, py$bgd_constant_detail_filename))
+bgd_constant_report = read.csv(file.path(py$directory, py$bgd_constant_report_filename))
+```
+
+```{python bgd_constant_learning_rate_gs_python, echo=F, eval=T}
+bgd_constant_summary = pd.read_csv(os.path.join(directory, bgd_constant_summary_filename))
+bgd_constant_detail = pd.read_csv(os.path.join(directory, bgd_constant_detail_filename))
+bgd_constant_report = pd.read_csv(os.path.join(directory, bgd_constant_report_filename))
+```
+
+
 ##### Constant Learning Rate Analysis
 How does learning rate affect objective function performance and computation times? The following visually represents training set costs and computation times vis-a-vis our learning rates.
 
 ```{python bgd_constant_learning_rate_plots, echo=F, eval=T}
-data = lab.summary()
+viz = GradientVisual()
+data = bgd_constant_summary
 
 filename = 'Batch Gradient Descent Costs by Learning Rate.png'
-lab.figure(data=data, x='learning_rate', y='final_costs', 
-           func=lab.lineplot, directory=directory, 
+viz.figure(alg=alg, data=data, x='learning_rate', y='final_costs', 
+           func=viz.lineplot, directory=directory, 
            filename=filename, width=0.5)             
 filename = 'Batch Gradient Descent Time by Learning Rate.png'
-lab.figure(data=data, x='learning_rate', y='duration', 
-           func=lab.lineplot, directory=directory, 
+viz.figure(alg=alg, data=data, x='learning_rate', y='duration', 
+           func=viz.lineplot, directory=directory, 
            filename=filename, width=0.5)         
-filename='Batch Gradient Descent Constant Learning I Rate Report.csv'
-lab.report(directory=directory, filename=filename)           
 ```
 
 ![](../report/figures/BGD/Lab/Batch Gradient Descent Costs by Learning Rate.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient Descent Time by Learning Rate.png){width=50%}
 
 `r kfigr::figr(label = "bgd_constant_learning_rate_plots", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Training Costs and Computation Time by Constant Learning Rate
 
-```{r bgd_constant_learning_rate_i_report}
-constant_learning_rate_report <- read.csv(file.path(py$directory, py$filename))
-```
 
-Training set costs drop significantly from learning rate $\alpha=0.01$ to about $\alpha=$ `r constant_learning_rate_report['learning_rate'][1,]`. At about $\alpha=1.4$, costs rise rather rapidly. To get a better sense of the minimum, let's restrict learning rate rate to $0.4 < \alpha < 1.4$. 
+Training set costs drop significantly from learning rate $\alpha=0.01$ to about $\alpha=$ `r bgd_constant_report['learning_rate'][1,]`. At about $\alpha=1.4$, costs rise rather rapidly. To get a better sense of the minimum, let's restrict learning rate rate to $0.4 < \alpha < 1.4$. 
 
 ```{python bgd_constant_learning_rate_plots_zoom, echo=F, eval=T}
 data2 = data.loc[(data['learning_rate']>0.4) & (data['learning_rate']<1.4)]
 
 filename = 'Batch Gradient Descent Costs by Learning Rate (Zoom).png'
-lab.figure(data=data2, x='learning_rate', y='final_costs', 
-           func=lab.lineplot, directory=directory, 
+viz.figure(alg=alg, data=data2, x='learning_rate', y='final_costs', 
+           func=viz.lineplot, directory=directory, 
            filename=filename, width=0.5)             
 filename = 'Batch Gradient Descent Time by Learning Rate (Zoom).png'
-lab.figure(data=data2, x='learning_rate', y='duration', 
-           func=lab.lineplot, directory=directory, 
+viz.figure(alg=alg, data=data2, x='learning_rate', y='duration', 
+           func=viz.lineplot, directory=directory, 
            filename=filename, width=0.5)         
 ```
 
@@ -73,61 +101,60 @@ lab.figure(data=data2, x='learning_rate', y='duration',
 
 `r kfigr::figr(label = "bgd_constant_learning_rate_plots_zoom", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Training Costs and Computation Time by Constant Learning Rate 0.4 to 1.4
 
-From `r kfigr::figr(label = "bgd_constant_learning_rate_plots_zoom", prefix = TRUE, link = TRUE, type="Figure")`, we have a better sense of objective function performance vis-a-vis learning rates. Costs fall almost linearly from $\alpha=0.4$ to a minimum cost $J\approx$ `r round(constant_learning_rate_report['final_costs'][1,],4)` at $\alpha=$ `r constant_learning_rate_report['learning_rate'][1,]`. Higher learning rates are associated with higher costs.  Computation times at $0.4 < \alpha < 1.4$ are, on the other hand, irratic and generally uncorrelated with learning rate. 
-
-```{python bgd_constant_learning_rate_gs_report, echo=F, eval=T}
-filename = 'Batch Gradient Descent Constant Learning Rate Gridsearch Report.csv'
-bgd_constant_learning_rate_report = lab.report(directory=directory, filename=filename)
-```
+From `r kfigr::figr(label = "bgd_constant_learning_rate_plots_zoom", prefix = TRUE, link = TRUE, type="Figure")`, we have a better sense of objective function performance vis-a-vis learning rates. Costs fall almost linearly from $\alpha=0.4$ to a minimum cost $J\approx$ `r round(bgd_constant_report['final_costs'][1,],4)` at $\alpha=$ `r bgd_constant_report['learning_rate'][1,]`. Higher learning rates are associated with higher costs.  Computation times at $0.4 < \alpha < 1.4$ are, on the other hand, irratic and generally uncorrelated with learning rate. 
 
 That said, what are our best performing learning rates? The following table lists the top performing parameter sets. 
 
-`r kfigr::figr(label = "bgd_best_constant_learning_rates", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Constant Learning Rate Best Performing Parameter Sets
+`r kfigr::figr(label = "bgd_best_bgd_constant_learning_rates", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Constant Learning Rate Best Performing Parameter Sets
 ```{r bgd_constant_learning_rate_gs_report_tbl}
-constant_learning_rate_report <- read.csv(file.path(py$directory, py$filename))
-best_constant_learning_rates <- constant_learning_rate_report %>% select(learning_rate, precision, maxiter, i_s, final_costs, duration) 
-knitr::kable(head(best_constant_learning_rates, 3), format.args = list(big.mark = ",")) %>%
+best_bgd_constant_learning_rates <- bgd_constant_report %>% select(learning_rate, precision, iterations, maxiter, i_s, final_costs, duration) 
+knitr::kable(head(best_bgd_constant_learning_rates, 3), format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
 ```
 
-As indicated in `r kfigr::figr(label = "bgd_best_constant_learning_rates", prefix = TRUE, link = TRUE, type="Table")`, we obtain a minimum cost of $J\approx$ `r  round(best_constant_learning_rates['final_costs'][1,],4)` with learning rate $\alpha=$ `r best_constant_learning_rates['learning_rate'][1,]` within about  `r  round(best_constant_learning_rates['duration'][1,],4)` milliseconds.
+As indicated in `r kfigr::figr(label = "bgd_best_bgd_constant_learning_rates", prefix = TRUE, link = TRUE, type="Table")`, we obtain a minimum cost of $J\approx$ `r  round(best_bgd_constant_learning_rates['final_costs'][1,],4)` with learning rate $\alpha=$ `r best_bgd_constant_learning_rates['learning_rate'][1,]` within about  `r  round(best_bgd_constant_learning_rates['duration'][1,],4)` milliseconds.
 
 ##### Constant Learning Rate Solution Path
 Animating the solution path vividly illuminates algorithm behavior w.r.t. the hyperparameters, enhances our intuition, and reveals insights into algorithm performance. Since we have just one predictor and a bias term, we can inspect the solution path in 3D. 
 
-Using our best performing learning rate of $\alpha=$ `r best_constant_learning_rates['learning_rate'][1,]` from `r kfigr::figr(label = "bgd_best_constant_learning_rates", prefix = TRUE, link = TRUE, type="Table")`, our solution path takes 7 iterations and resolves at a cost of $J\approx0.03$
+Using our best performing learning rate of $\alpha=$ `r best_bgd_constant_learning_rates['learning_rate'][1,]` from `r kfigr::figr(label = "bgd_best_bgd_constant_learning_rates", prefix = TRUE, link = TRUE, type="Table")`, our solution path takes `r  best_bgd_constant_learning_rates['iterations'][1,]` iterations and resolves at a cost of $J\approx$ `r  round(best_bgd_constant_learning_rates['final_costs'][1,],4)`
 
-```{python bgd_constant_learning_rate_solution, echo=F, eval=T, cache=T}
+```{python bgd_constant_learning_rate_solution_filenames, echo=F, eval=T}
+bgd_constant_search_demo_filename = 'Batch Gradient Descent Constant Learning Rate Search Path.gif'
+bgd_constant_fit_demo_filename = 'Batch Gradient Descent Constant Learning Rate Regression Fit.gif'
+```
+
+```{python bgd_constant_learning_rate_solution, echo=F, eval=T, cache=F}
 theta = np.array([-1,-1]) 
 learning_rate_sched = 'c'
-learning_rate = bgd_constant_learning_rate_report['learning_rate'].iloc[0]
-precision = bgd_constant_learning_rate_report['precision'].iloc[0]
-maxiter = bgd_constant_learning_rate_report['maxiter'].iloc[0]
-i_s=bgd_constant_learning_rate_report['i_s'].iloc[0]
+learning_rate = bgd_constant_report['learning_rate'].iloc[0]
+precision = bgd_constant_report['precision'].iloc[0]
+maxiter = bgd_constant_report['maxiter'].iloc[0]
+i_s=bgd_constant_report['i_s'].iloc[0]
 
-constant_lr_demo = BGDDemo()
-constant_lr_demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, 
+bgd_constant_lr_demo = BGDDemo()
+bgd_constant_lr_demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, 
          learning_rate_sched=learning_rate_sched,
          precision=precision, maxiter=maxiter, 
          i_s=i_s)
 
-constant_lr_demo.show_search(directory=directory, fps=1)
-constant_lr_demo.show_fit(directory=directory, fps=1)
+bgd_constant_lr_demo.show_search(directory=directory, filename=bgd_constant_search_demo_filename, fps=1)
+bgd_constant_lr_demo.show_fit(directory=directory, filename=bgd_constant_fit_demo_filename, fps=1)
 ```
-![](../report/figures/BGD/Lab/Batch Gradient Descent Search Plot Learning Rate 1.24.gif)
+![](../report/figures/BGD/Lab/Batch Gradient Descent Constant Learning Rate Search Path.gif)
 
-`r kfigr::figr(label = "bgd_constant_learning_rate_convergence", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Solution Path for Learning Rate 1.24
+`r kfigr::figr(label = "bgd_constant_learning_rate_convergence", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Solution Path
 
-This solution path is characteristic of those involving large learning rates. It oscillates sharply and chaotically around the minimum with diminishing magnitude as the norm of the gradient approaches zero. The approximate convergence criteria is met within 7 epochs, yielding a training set cost of $J\approx0.03$. 
+This solution path is characteristic of those involving large learning rates. It oscillates sharply and chaotically around the minimum with diminishing magnitude as the norm of the gradient approaches zero.  
 
 ##### Constant Learning Rate Evaluation
-Our solution has yielded a training set cost of `r round(best_constant_learning_rates['final_costs'][1,],4)`. Is that the best we can do? Is the solution likely to generalize well to unseen data?  Let's take each question, one-by-one.
+Our solution has yielded a training set cost of `r round(best_bgd_constant_learning_rates['final_costs'][1,],4)`. Is that the best we can do? Is the solution likely to generalize well to unseen data?  Let's take each question, one-by-one.
 
 `r kfigr::figr(label = "bgd_constant_learning_rate_fit", prefix = TRUE, link = TRUE, type="Figure")` shows a scatterplot of our training set observations. The regression lines, given by the parameters $\theta$ at each iteration, are juxtaposed to reveal fit to the data. The empirical quality of the solution is manifest in the fit of the final regression line to the data. So, how have we done?
 
-![](../report/figures/BGD/Lab/Batch Gradient Descent Fit Plot Learning Rate 1.24.gif)
+![](../report/figures/BGD/Lab/Batch Gradient Descent Constant Learning Rate Regression Fit.gif)
 
-`r kfigr::figr(label = "bgd_constant_learning_rate_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Constant Learning Rate = 1.24 Fit
+`r kfigr::figr(label = "bgd_constant_learning_rate_fit", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Constant Learning Rate Fit
 
 The regression line makes early and rapid advances toward a solution; yet, the final regression line reveals a suboptimal fit.  What's happening here?
 
@@ -145,7 +172,7 @@ i_s=[5,10,20]
 ```
 
 Ok, let's run our gridsearch.
-```{python bgd_constant_learning_rate_gs_ii, echo=T, eval=T}
+```{python bgd_constant_learning_rate_gs_ii_echo, echo=T, eval=F}
 lab = BGDLab()
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=None, 
@@ -153,116 +180,144 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
                precision=precision, maxiter=maxiter, i_s=i_s)
 ```
 
-```{python bgd_constant_learning_rate_gs_report_ii, echo=F, eval=T}
-filename = 'Batch Gradient Descent Constant Learning Rate Gridsearch Report II.csv'
-bgd_constant_learning_rate_report = lab.report(directory=directory, filename=filename)
+```{python bgd_constant_learning_rate_gs_filenames_ii, echo=F, eval=T}
+bgd_constant_summary_ii_filename = 'Batch Gradient Descent Constant Learning Rate II Summary.csv'
+bgd_constant_detail_ii_filename  = 'Batch Gradient Descent Constant Learning Rate II Detail.csv'
+bgd_constant_report_ii_filename = 'Batch Gradient Descent Constant Learning Rate II Report.csv'
 ```
 
+
+```{python bgd_constant_learning_rate_gs_ii, echo=F, eval=T, cache=F}
+lab = BGDLab()
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
+               learning_rate_sched=learning_rate_sched, time_decay=None, 
+               step_decay=None, step_epochs=None, exp_decay=None,
+               precision=precision, maxiter=maxiter, i_s=i_s)
+               
+bgd_constant_summary_ii = lab.summary(directory=directory, filename=bgd_constant_summary_ii_filename)
+bgd_constant_detail_ii = lab.detail(directory=directory, filename=bgd_constant_detail_ii_filename)
+bgd_constant_report_ii = lab.report(directory=directory, filename=bgd_constant_report_ii_filename)
+
+```
+
+```{r bgd_constant_learning_rate_gs_ii_r, echo=F, eval=T}
+bgd_constant_summary_ii = read.csv(file.path(py$directory, py$bgd_constant_summary_ii_filename))
+bgd_constant_detail_ii  = read.csv(file.path(py$directory, py$bgd_constant_detail_ii_filename))
+bgd_constant_report_ii = read.csv(file.path(py$directory, py$bgd_constant_report_ii_filename))
+```
+
+```{python bgd_constant_learning_rate_gs_ii_python, echo=F, eval=T}
+bgd_constant_summary_ii = pd.read_csv(os.path.join(directory, bgd_constant_summary_ii_filename))
+bgd_constant_detail_ii = pd.read_csv(os.path.join(directory, bgd_constant_detail_ii_filename))
+bgd_constant_report_ii = pd.read_csv(os.path.join(directory, bgd_constant_report_ii_filename))
+```
 Let's visualize training set costs and computation times, controlling for our $i_s$ parameter.
 ```{python bgd_constant_learning_rate_plots_ii, echo=F, eval=T}
 filename = 'Batch Gradient Descent - GS II - Costs by Learning Rate.png'
-lab.figure(data=lab.summary(), x='learning_rate', y='final_costs', z='i_s',
-           func=lab.lineplot, directory=directory, 
+viz.figure(alg=alg, data=bgd_constant_summary_ii, 
+           x='learning_rate', y='final_costs', z='i_s',
+           func=viz.lineplot, directory=directory, 
            filename=filename, width=0.5)  
 filename = 'Batch Gradient Descent - GS II - Time by Learning Rate.png'
-lab.figure(data=lab.summary(), x='learning_rate', y='duration', z='i_s',
-           func=lab.lineplot, directory=directory, 
-           filename=filename, width=0.5)             
-filename = 'Batch Gradient Descent - GS II - Report.png'
-constant_learning_rate_ii_report = lab.report(sort='t', directory=directory, filename=filename)           
+viz.figure(alg=alg, data=bgd_constant_summary_ii, 
+           x='learning_rate', y='duration', z='i_s',
+           func=viz.lineplot, directory=directory, 
+           filename=filename, width=0.5)                      
 ```
 
 ![](../report/figures/BGD/Lab/Batch Gradient Descent - GS II - Costs by Learning Rate.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient Descent - GS II - Time by Learning Rate.png){width=50%}
 
 `r kfigr::figr(label = "bgd_constant_learning_rate_plots_ii", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Costs and Computation Times by Constant Learning Rate II
 
-It would appear that our $i_s$ parameter has a dramatic effect on both training set costs and computation times. At $i_s=5$, we notice a dramatic increase in costs at learning rates above 1.2. As we increase $i_s$ to 10, and then 20, we observe continued reduction in objective function costs up to $alpha=1.4$. Naturally, lower computation times were associated with lower values of the $i_s$. Yet, any correlation with learning rate appears to be slight. 
+It would appear that our $i_s$ parameter has a dramatic effect on both training set costs and computation times. At $i_s=5$, we notice a dramatic increase in costs at learning rates above 1.2. As we increase $i_s$ to 10, and then 20, we observe continued reduction in objective function costs up to $\alpha=1.4$. Naturally, lower computation times were associated with lower values of the $i_s$. Yet, any correlation with learning rate appears to be slight. 
 
 The following table lists the top performing parameter sets. 
 
-`r kfigr::figr(label = "bgd_best_constant_learning_rates_ii", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Constant Learning Rate Best Performing Parameter Sets II
+`r kfigr::figr(label = "bgd_best_bgd_constant_learning_rates_ii", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Constant Learning Rate Best Performing Parameter Sets II
 ```{r bgd_constant_learning_rate_gs_report_tbl_ii}
-constant_learning_rate_report <- read.csv(file.path(py$directory, py$filename))
-best_constant_learning_rates <- constant_learning_rate_report %>% select(learning_rate, precision, maxiter, i_s, final_costs, duration) 
-knitr::kable(head(best_constant_learning_rates, 3), format.args = list(big.mark = ",")) %>%
+best_bgd_constant_learning_rates <- bgd_constant_report_ii %>% select(learning_rate, precision, maxiter, iterations, i_s, final_costs, duration) 
+knitr::kable(head(best_bgd_constant_learning_rates, 3), format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
 ```
 
-This time we resolve to a minimum cost $J=$ `r round(best_constant_learning_rates['final_costs'][1,],4)` with learning rate $\alpha=$ `r best_constant_learning_rates['learning_rate'][1,]`, down from the prior best cost of $J\approx0.03$.
+This time we resolve to a minimum cost $J=$ `r round(best_bgd_constant_learning_rates['final_costs'][1,],3)` with learning rate $\alpha=$ `r best_bgd_constant_learning_rates['learning_rate'][1,]`, down from the prior best cost of $J\approx0.03$.
 
 
 Let's see how our solution path is shaped by our new parameters. 
 
 ##### Constant Learning Rate II Solution Path
-Raising our learning rate to 1.39, and our $i_s$ parameter to 20 increased the number of iterations from 7 to 23, resolving to a cost of $J\approx0.02$, down from $J\approx0.03$ at learning rate $\alpha=1.24$.
-
 ```{python bgd_constant_learning_rate_ii_params, echo=F, eval=T}
 theta = np.array([-1,-1])  
-learning_rate_sched = constant_learning_rate_ii_report['learning_rate_sched'].iloc[0]
-learning_rate = constant_learning_rate_ii_report['learning_rate'].iloc[0]
-time_decay = constant_learning_rate_ii_report['time_decay'].iloc[0]
-step_decay = constant_learning_rate_ii_report['step_decay'].iloc[0]
-step_epochs = constant_learning_rate_ii_report['step_epochs'].iloc[0]
-exp_decay = constant_learning_rate_ii_report['exp_decay'].iloc[0]
-precision = constant_learning_rate_ii_report['precision'].iloc[0]
-maxiter = constant_learning_rate_ii_report['maxiter'].iloc[0]
-stop_metric = constant_learning_rate_ii_report['stop_metric'].iloc[0]
-i_s=constant_learning_rate_ii_report['i_s'].iloc[0]
+learning_rate_sched = bgd_constant_report_ii['learning_rate_sched'].iloc[0]
+learning_rate = bgd_constant_report_ii['learning_rate'].iloc[0]
+time_decay = bgd_constant_report_ii['time_decay'].iloc[0]
+step_decay = bgd_constant_report_ii['step_decay'].iloc[0]
+step_epochs = bgd_constant_report_ii['step_epochs'].iloc[0]
+exp_decay = bgd_constant_report_ii['exp_decay'].iloc[0]
+precision = bgd_constant_report_ii['precision'].iloc[0]
+maxiter = bgd_constant_report_ii['maxiter'].iloc[0]
+stop_metric = bgd_constant_report_ii['stop_metric'].iloc[0]
+i_s=bgd_constant_report_ii['i_s'].iloc[0]
 
 ```
 
-```{python bgd_constant_learning_rate_path_ii, echo=F, eval=T, cache=T}
-constant_lr_demo = BGDDemo()
-constant_lr_demo.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, n=500, 
+```{python bgd_constant_learning_rate_solution_ii_filenames, echo=F, eval=T}
+bgd_constant_search_ii_demo_filename = 'Batch Gradient Descent Constant Learning Rate II Search Path.gif'
+bgd_constant_fit_ii_demo_filename = 'Batch Gradient Descent Constant Learning Rate II Regression Fit.gif'
+```
+
+```{python bgd_constant_learning_rate_path_ii, echo=F, eval=T, cache=F}
+bgd_constant_lr_demo = BGDDemo()  
+bgd_constant_lr_demo.fit(X=X, y=y, theta=theta, X_val=X_val, y_val=y_val, n=500, 
             learning_rate_sched=learning_rate_sched, 
             learning_rate=learning_rate, time_decay=time_decay,
             step_decay=step_decay, step_epochs=step_epochs, 
             exp_decay=exp_decay, maxiter=maxiter, precision=precision,
             stop_metric=stop_metric, i_s=i_s)
 
-constant_lr_demo.show_search(directory=directory, fps=1)
-constant_lr_demo.show_fit(directory=directory, fps=1)
+bgd_constant_lr_demo.show_search(directory=directory, filename=bgd_constant_search_ii_demo_filename, fps=1)
+bgd_constant_lr_demo.show_fit(directory=directory, filename=bgd_constant_fit_ii_demo_filename, fps=1)
 ```
-![](../report/figures/BGD/Lab/Batch Gradient Descent Search Plot Learning Rate 1.39.gif)
+![](../report/figures/BGD/Lab/Batch Gradient Descent Constant Learning Rate II Search Path.gif)
 
-`r kfigr::figr(label = "bgd_constant_learning_rate_convergence_ii", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Constant Learning Rate = 1.39 Convergence
+`r kfigr::figr(label = "bgd_constant_learning_rate_convergence_ii", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Constant Learning Rate II
 
 This solution path is characterized by the same sharp oscillations observed for $\alpha=1.24$; however, it differs from that in `r kfigr::figr(label = "bgd_constant_learning_rate_convergence", prefix = TRUE, link = TRUE, type="Figure")` in one notable respect. We observe a three fold increase in optimization time, most of which spent optimizing in the direction of the slope parameter $\theta_1$. 
 
 ##### Constant Learning Rate II Evaluation
 As before, we ask ourselves if the objective function performance is the best we can do. We also want to know how the solution might generalize to unseen data. First, let's evaluate empirical performance on our objective function in terms of regression line fit to our training data.
 
-![](../report/figures/BGD/Lab/Batch Gradient Descent Fit Plot Learning Rate 1.39.gif)
+![](../report/figures/BGD/Lab/Batch Gradient Descent Constant Learning Rate II Regression Fit.gif)
 
-`r kfigr::figr(label = "bgd_constant_learning_rate_fit_ii", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Constant Learning = 1.39 Rate Fit
+`r kfigr::figr(label = "bgd_constant_learning_rate_fit_ii", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Constant Learning II Fit
 
 The fit to the data has markedly improved. Creating a more restrictive stopping condition allowed us to raise our learning rate, which introduced additional noise into the gradient. The stopping criteria, combined with noisy gradient, allowed the algorithm to obviate early stopping due to the vanishing gradient. Based upon this visual inspection, we can be reasonably comfortable with the quality of our optimization solution on the objective function.
 
 To our second question, does our solution generalize well to unseen data? If it did, we would expect the best performing parameter set on the objective function to be among the best performing parameter sets on the validation set. Let's contrast training and validation set performance visually.
 ```{python bgd_constant_learning_rate_ii_plots, echo=F, eval=T}
-data = lab.summary()
-data = data.loc[data.i_s==constant_learning_rate_ii_report['i_s'].iloc[0]]
+data = bgd_constant_summary_ii
+data = data.loc[data.i_s==bgd_constant_report_ii['i_s'].iloc[0]]
 filename = 'Batch Gradient Descent Constant Learning Rate II Costs by Learning Rate.png'
-lab.figure(data=data, x='learning_rate', y='final_costs',
-           func=lab.lineplot, directory=directory, 
+viz.figure(alg=alg, data=data, x='learning_rate', y='final_costs',
+           func=viz.lineplot, directory=directory, 
            filename=filename, width=0.5)  
 filename = 'Batch Gradient Descent Constant Learning Rate II Error by Learning Rate.png'
-lab.figure(data=data, x='learning_rate', y='final_mse',
-           func=lab.lineplot, directory=directory, 
+viz.figure(alg=alg, data=data, x='learning_rate', y='final_mse',
+           func=viz.lineplot, directory=directory, 
            filename=filename, width=0.5)             
 ```
 ![](../report/figures/BGD/Lab/Batch Gradient Descent Constant Learning Rate II Costs by Learning Rate.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient Descent Constant Learning Rate II Error by Learning Rate.png){width=50%}
 
 `r kfigr::figr(label = "bgd_constant_learning_rate_ii_error", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Constant Learning Rate II Training Set Costs and Validation Set Error by Learning Rate
 
-The curves look quite similar. In fact, it turns out that the best performing learning rate on the training set also produced the minimum error of `r round(constant_learning_rate_report['final_mse'][1,],4)` on the validation set. Based upon this analysis, it does appear that our solution generalizes well. 
+The curves look quite similar. In fact, it turns out that the best performing learning rate on the training set also produced the minimum error of `r round(bgd_constant_report['final_mse'][1,],4)` on the validation set. Based upon this analysis, it does appear that our solution generalizes well. 
 
 ##### Constant Learning Rate II Summary
-To summarize, our optimal solution was obtained in about `r round(best_constant_learning_rates['duration'][1,],3)` milliseconds with parameter set:
+To summarize, our optimal solution was obtained in about `r round(best_bgd_constant_learning_rates['duration'][1,],3)` milliseconds with parameter set:
 
 `r kfigr::figr(label = "bgd_constant_summary_params", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Constant Learning Rate Solution Hyperparameters
 ```{r bgd_constant_summary_params}
-params <- best_constant_learning_rates %>% select(learning_rate, precision, maxiter, i_s) 
+params <- best_bgd_constant_learning_rates %>% select(learning_rate, precision, maxiter, i_s) 
 knitr::kable(t(params[1,]), format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
 ```

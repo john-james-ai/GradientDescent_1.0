@@ -15,9 +15,12 @@ formatNumber: function (n) {return ''+n}
 ```
 ```{python GradientLab, code=readLines('../src/GradientLab.py'), message=FALSE, warning=FALSE}
 ```
+```{python GradientVisual, code=readLines('../src/GradientVisual.py'), message=FALSE, warning=FALSE}
+```
 
 ```{python bgd_defaults, echo=F, eval=T}
 directory = "./report/figures/BGD/Lab"
+alg='Batch Gradient Descent'
 ```
 
 ## Batch Gradient Descent 
@@ -363,7 +366,7 @@ i_s=[5]
 We will stop the algorithm when we observe 5 consecutive iterations with no improvement in the objective function computed on the training set. 
 
 With that we can run our gridsearch on our learning rates to determine the maximum learning rate that improves objective function performance. A class,  BGDLab (available at https://github.com/DecisionScients/GradientDescent), was created to perform our gridsearch. Let's instantiate the class, run the gridsearch and obtain some diagnostic information. 
-```{python bgd_learning_rate_test, echo=T, eval=T, cache=T}
+```{python bgd_learning_rate_test_echo, echo=T, eval=F}
 lab = BGDLab()  
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=None, 
@@ -371,28 +374,50 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
                precision=precision, maxiter=maxiter, i_s=i_s)
 ```
 
+```{python bgd_learning_rate_test_filenames, echo=F, eval=T}
+alpha_test_summary_filename = 'Batch Gradient Descent Learning Rate Test Summary.csv'               
+alpha_test_detail_filename = 'Batch Gradient Descent Learning Rate Test Detail.csv'
+```
+
+
+```{python bgd_learning_rate_test, echo=F, eval=T, cache=T}
+lab = BGDLab()       
+lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
+               learning_rate_sched=learning_rate_sched, time_decay=None, 
+               step_decay=None, step_epochs=None, exp_decay=None,
+               precision=precision, maxiter=maxiter, i_s=i_s)
+               
+alpha_test_summary = lab.summary(directory=directory, filename=alpha_test_summary_filename)
+alpha_test_detail = lab.detail(directory=directory, filename=alpha_test_detail_filename)
+```
+
+```{python bgd_learning_rate_test_results, echo=F, eval=T}
+alpha_test_summary = pd.read_csv(os.path.join(directory, alpha_test_summary_filename))
+alpha_test_detail = pd.read_csv(os.path.join(directory, alpha_test_detail_filename))
+```
+
 Now, let's evaluate our training set costs and computation time vis-a-vis learning rate. 
-```{python bgd_learning_rate_test_plot, echo=F, eval=T, cache=T}
+```{python bgd_learning_rate_test_plot, echo=F, eval=T, cache=F}
+viz = GradientVisual() 
 filename = 'Batch Gradient Descent - Learning Rate Test - Costs.png'
-lab.figure(data=lab.summary(), x='learning_rate', y='final_costs', 
-           func=lab.lineplot, directory=directory, 
+viz.figure(alg=alg, data=alpha_test_summary, x='learning_rate', y='final_costs', 
+           func=viz.lineplot, directory=directory, 
            filename=filename, width=0.5)  
 filename = 'Batch Gradient Descent - Learning Rate Test - Time.png'
-lab.figure(data=lab.summary(), x='learning_rate', y='duration', 
-           func=lab.lineplot, directory=directory, 
+viz.figure(alg=alg, data=alpha_test_summary, x='learning_rate', y='duration', 
+           func=viz.lineplot, directory=directory, 
            filename=filename, width=0.5)           
 ```
 ![](../report/figures/BGD/Lab/Batch Gradient Descent - Learning Rate Test - Costs.png){width=50%}![](../report/figures/BGD/Lab/Batch Gradient Descent - Learning Rate Test - Time.png){width=50%}
 
 `r kfigr::figr(label = "bgd_learning_rate_test_plots", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Learning Rate Test 
 
-Training set costs indicate divergence at a learning rate $\alpha \approx 1.6$. We'll use this as our upper bound for constant learning rates and our initial learning rate for our annealing learning rate schedules.  
+Training set costs indicate divergence at a learning rate $\alpha \approx 1.6$. We also see a spike in computation time at that point as well. We'll use this as our upper bound for constant learning rates and our initial learning rate for our annealing learning rate schedules.  
 
 Next, let's tune learning rate, starting with the constant learning rate schedule. 
 
-```{r constant, child = '5.1.4 bgd exp.Rmd'}
+```{r sgd, child = '5.1.3 bgd step.Rmd'}
 ```
-
 
 
 ### Batch Gradient Descent Key Takeaways

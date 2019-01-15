@@ -112,16 +112,22 @@ assoc['X'] <- NULL
 knitr::kable(assoc, digits = 4, format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
 ```
-Based upon `r kfigr::figr(label = "sgd_constant_param_corr", prefix = TRUE, link = TRUE, type="Table")`, our stop criteria hyperparameters are not consequential to objective function performance.
+Based upon `r kfigr::figr(label = "sgd_constant_param_corr", prefix = TRUE, link = TRUE, type="Table")`, our stop criteria any association between our stop criteria and objective function performance is weak at best. 
 
-Given that which hyperparameters yielded best objective function performance? 
+Given that which hyperparameters yielded best objective function performance? Great question.
 
 ##### Best Performing Constant Learning Rate Hyperparameters
 Alas, we reveal the top 3 performing hyperparameters.
 
 `r kfigr::figr(label = "sgd_constant_best", prefix = TRUE, link = TRUE, type="Table")`: Stochastic Gradient Descent Constant Learning Rate Best Performing Hyperparameters. 
 ```{r sgd_constant_best, echo=F, eval=T}
-best_constant <- constant_summary %>% select(experiment, stop_metric_label, learning_rate, precision, i_s, maxiter,  epochs, iterations, duration, final_costs) %>% arrange(final_costs)
+best_constant <- constant_summary %>% select(experiment, stop_metric_label, learning_rate, precision, i_s, maxiter,  epochs, iterations, duration, final_costs) %>% arrange(final_costs, duration)
 knitr::kable(head(best_constant,3), digits = 4, format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
 ```
+
+According to `r kfigr::figr(label = "sgd_constant_best", prefix = TRUE, link = TRUE, type="Table")`, we obtained a final objective function cost $J=$ `r round(best_constant['final_costs'][1,],4)` in `r best_constant['epochs'][1,]`, totalling `r round(best_constant['duration'][1,],4)` milliseconds, with a learning rate $\alpha=$ `r round(best_constant['learning_rate'][1,],2)`. The algorithm stopped when the change in `r tolower(best_constant['stop_metric_label'][1,])` dropped below `r best_constant['precision'][1,]` for `r best_constant['i_s'][1,]` consecutive epochs.
+
+##### Solution Analysis
+Let's examine our solution a bit more closely. 
+

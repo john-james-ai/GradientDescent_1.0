@@ -159,7 +159,7 @@ step_decay_demo.show_fit(directory=directory, filename=bgd_step_decay_fit_demo_f
 
 `r kfigr::figr(label = "bgd_step_path", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Step Decay Learning Rate Solution Path
 
-The effects of the high initial learning rate and the large epochs per step parameter are visibly extant in `r kfigr::figr(label = "bgd_step_path", prefix = TRUE, link = TRUE, type="Figure")`. For the first 20 epochs, the solution dramatically oscillates around an optimum with seemingly little improvement. At epoch 21, the learning rate is decayed by a factor of 0.88, which puts the optimization on the path to convergence. The gradient is reduced at a faster rate, convergence accelerates, and the algorithm settles at a cost $J\approx$ `r round(bgd_step_decay_report_costs['final_costs'][1,],3)` in `r bgd_step_decay_report_costs['iterations'][1,]` epochs. 
+The effects of the high initial learning rate and the large epochs per step parameter are visibly extant in `r kfigr::figr(label = "bgd_step_path", prefix = TRUE, link = TRUE, type="Figure")`. For the first 20 epochs, the solution dramatically oscillates around an optimum with seemingly little improvement. At epoch 21, the learning rate is decayed by a factor of 0.88, which puts the optimization on the path to convergence. The gradient is reduced at a faster rate, convergence accelerates, and the algorithm settles at a cost $J\approx$ `r round(bgd_step_decay_report_costs['final_costs'][1,],3)`in `r bgd_step_decay_report_costs['iterations'][1,]` epochs. 
 
 ##### Step Decay Learning Rate Evaluation
 In this section, we ask two questions.  Is the solution that indeed optimal, and does it generalize well? To the former, we examine the solution's fit to the test data. For the latter question, we evaluate the validation set error of the solution.
@@ -193,7 +193,7 @@ bgd_step_decay_eval_train <- bgd_step_decay_report %>% arrange(final_costs, dura
 bgd_step_decay_eval_val <- bgd_step_decay_report %>% arrange(final_mse, duration) %>% select(learning_rate, step_decay, step_epochs, precision, i_s,  duration, iterations, final_costs, final_mse)
 ```
 
-The above two plots show training set costs (left) and validation set error (right) for our step decay learning rate parameters. Both plots have very similar shapes and appear to minimize at or near the same step decay value. 
+The above two plots show training set costs (left) and validation set error (right) for our step decay learning rate parameters. Both plots have very similar shapes and appear to minimize at or near the same step decay value. As it turns out, the best performing value for the step decay hyparameter (`r bgd_step_decay_eval_train['step_decay'][1,]`) minimizes validation set error at `r round(bgd_step_decay_eval_train['final_mse'][1,],4)`. The best performing parameter sets from the training and error perspectives are listed below. 
 
 `r kfigr::figr(label = "bgd_step_eval_ii_tables", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Step Decay Learning Rate Best Empirical and Expected Results
 ```{r bgd_step_eval_ii_tables, echo=F, eval=T}
@@ -203,14 +203,14 @@ knitr::kable(head(bgd_step_decay_eval_val,3), format.args = list(big.mark = ",")
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
 ```
 
-The top table in `r kfigr::figr(label = "bgd_step_eval_ii_tables", prefix = TRUE, link = TRUE, type="Table")` shows the top 3 performing hyperparameter sets obtained from training. The bottom table lists the same, but by validation set error. Both hyperparameter sets minimize the validation set error to `r round(bgd_step_decay_eval_train['final_mse'][1,],4)`. Therefore, it would be sensible to infer that our solution generalizes well to unseen data. 
+Therefore, it would be sensible to infer that our solution generalizes well to unseen data. 
 
 ##### Step Decay Learning Rate Solution Summary
 To summarize, we obtained an optimal solution of $J\approx$ `r round(bgd_step_decay_report_costs['final_costs'][1,], 4)`, within about `r round(bgd_step_decay_report_costs['duration'][1,],3)` milliseconds with the following parameters:
 
 `r kfigr::figr(label = "bgd_step_decay_summary_params", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Step Decay Learning Rate Solution Hyperparameters
 ```{r bgd_step_decay_summary_params}
-params <- bgd_step_decay_report_costs %>% select(learning_rate, step_decay, step_epochs, precision, i_s) 
+params <- bgd_step_decay_report %>% select(learning_rate, step_decay, step_epochs, precision, maxiter, i_s) 
 knitr::kable(t(params[1,]), format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
 ```
@@ -233,7 +233,7 @@ Ok, let's wrap up this section.
 ##### Step Decay Learning Rate Key Takeaways
 What have we observed from this experiment? Two main points:     
 
-1. The number of epochs in each step tended to have a greater effect on objective performance costs, than did the step decay parameter. Best performance generally correlated with higher numbers of epochs per step. 
+1. The number of epochs in each step tended to have a greater effect on objective performance costs, than did the step decay parameter. Best performance correlated with higher numbers of epochs per step. 
 2. For any specific number of epochs per step, objective function performance increased with the step factor $d$.
 
 Caviat: These observations are based upon the characteristics of the dataset used in this analysis. Results may vary for other datasets.  
