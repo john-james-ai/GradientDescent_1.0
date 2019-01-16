@@ -34,7 +34,7 @@ import seaborn as sns
 src = "c:\\Users\\John\\Documents\\Data Science\\Libraries\\GradientDescent\\src"
 sys.path.append(src)
 import data
-from GradientDescent import BGD, SGD
+from GradientDescent import BGD, SGD, MBGD
 from utils import save_gif 
 
 class GradientDemo():

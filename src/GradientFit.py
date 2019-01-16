@@ -20,12 +20,20 @@ class GradientFit(ABC):
     def __init__(self):
         self._alg = "Batch Gradient Descent"
         self._request = dict()   
-        self._learning_rate_history = []
-        self._J_history = []     
-        self._mse_history = [] 
-        self._theta_history = [] 
-        self._iterations = []    
-        self._epochs = []        
+
+        self._learning_rate_detail_history = []
+        self._J_detail_history = []             
+        self._theta_detail_history = [] 
+        self._iterations_detail_history = []    
+        self._epochs_detail_history = []
+
+        self._learning_rate_eval_history = []
+        self._J_eval_history = []             
+        self._mse_eval_history = []     
+        self._theta_eval_history = [] 
+        self._iterations_eval_history = []    
+        self._epochs_eval_history = []
+            
         self._X = None           
         self._y = None
         self._X_val = None
@@ -33,29 +41,133 @@ class GradientFit(ABC):
         self._i_s = 5
         self._iter_no_change = 0
 
-    def get_alg(self):
-        return(self._alg)
+        self._summary = pd.DataFrame()
+        self._detail = pd.DataFrame()
+        self._eval = pd.DataFrame()
 
-    def get_data(self):
-        return(self._X, self._y)
+        self._start = None
+        self._end =None        
 
-    def get_epochs(self):
-        return(self._epochs)
+    def _get_label(self, x):
+        labels = {'learning_rate': 'Learning Rate',
+                  'learning_rates': 'Learning Rates',
+                  'learning_rate_sched': 'Learning Rate Schedule',
+                  'stop_metric': 'Stop Metric',
+                  'i_s': 'Iterations No Change',
+                  'batch_size': 'Batch Size',
+                  'time_decay': 'Time Decay',
+                  'step_decay': 'Step Decay',
+                  'step_epochs': 'Epochs per Step',
+                  'exp_decay': 'Exponential Decay',
+                  'precision': 'Precision',
+                  'theta': "Theta",
+                  'duration': 'Computation Time (ms)',
+                  'iterations': 'Iterations',
+                  'cost': 'Training Set Costs',
+                  'mse': 'Validation Set MSE',                  
+                  'final_costs': 'Training Set Costs',
+                  'final_mse': 'Validation Set MSE',
+                  'c': 'Constant Learning Rate',
+                  't': 'Time Decay Learning Rate',
+                  's': 'Step Decay Learning Rate',
+                  'e': 'Exponential Decay Learning Rate',
+                  'j': 'Training Set Costs',
+                  'v': 'Validation Set Error',
+                  'g': 'Gradient Norm'}
+        return(labels.get(x,x))        
 
-    def get_iterations(self):
-        return(self._iterations)
+    def detail(self):
+        self._detail = pd.DataFrame({
+                        'alg': self._alg,
+                        'learning_rate_sched': self._request['hyper']['learning_rate_sched'],
+                        'learning_rate_sched_label': self._get_label(self._request['hyper']['learning_rate_sched']),
+                        'learning_rate': self._request['hyper']['learning_rate'],
+                        'batch_size': self._request['hyper']['batch_size'],
+                        'stop_metric': self._request['hyper']['stop_metric'],
+                        'stop_metric_label': self._get_label(self._request['hyper']['stop_metric']),
+                        'precision': self._request['hyper']['precision'],
+                        'maxiter': self._request['hyper']['maxiter'],
+                        'i_s': self._request['hyper']['i_s'],
+                        'time_decay': self._request['hyper']['time_decay'],
+                        'step_decay': self._request['hyper']['step_decay'],
+                        'step_epochs': self._request['hyper']['step_epochs'],
+                        'exp_decay': self._request['hyper']['exp_decay'],
+                        'epochs': self._epochs_detail_history,
+                        'iterations': self._iterations_detail_history,
+                        'learning_rates': self._learning_rate_detail_history,
+                        'cost': self._J_detail_history})
+        thetas = self._todf(self._theta_detail_history, stub='theta_')
+        self._detail = pd.concat([self._detail, thetas], axis=1)
+        return(self._detail)
 
-    def get_thetas(self):
-        return(self._theta_history)
+    def eval(self):
+        self._eval = pd.DataFrame({
+                        'alg': self._alg,
+                        'learning_rate_sched': self._request['hyper']['learning_rate_sched'],
+                        'learning_rate_sched_label': self._get_label(self._request['hyper']['learning_rate_sched']),
+                        'learning_rate': self._request['hyper']['learning_rate'],
+                        'batch_size': self._request['hyper']['batch_size'],
+                        'stop_metric': self._request['hyper']['stop_metric'],
+                        'stop_metric_label': self._get_label(self._request['hyper']['stop_metric']),
+                        'precision': self._request['hyper']['precision'],
+                        'maxiter': self._request['hyper']['maxiter'],
+                        'i_s': self._request['hyper']['i_s'],
+                        'time_decay': self._request['hyper']['time_decay'],
+                        'step_decay': self._request['hyper']['step_decay'],
+                        'step_epochs': self._request['hyper']['step_epochs'],
+                        'exp_decay': self._request['hyper']['exp_decay'],
+                        'epochs': self._epochs_eval_history,
+                        'iterations': self._iterations_eval_history,
+                        'learning_rates': self._learning_rate_eval_history,
+                        'cost': self._J_eval_history})
+        thetas = self._todf(self._theta_eval_history, stub='theta_')
+        self._eval = pd.concat([self._eval, thetas], axis=1)
+        if self._request['hyper']['cross_validated']:
+            self._eval['mse'] = self._mse_eval_history
+        return(self._eval)            
 
-    def get_learning_rates(self):
-        return(self._learning_rate_history)
+    def summary(self):
+        self._summary = pd.DataFrame({'alg': self._alg,
+                                    'learning_rate_sched': self._request['hyper']['learning_rate_sched'],
+                                    'learning_rate_sched_label': self._get_label(self._request['hyper']['learning_rate_sched']),
+                                    'learning_rate': self._request['hyper']['learning_rate'],
+                                    'batch_size': self._request['hyper']['batch_size'],
+                                    'stop_metric': self._request['hyper']['stop_metric'],
+                                    'stop_metric_label': self._get_label(self._request['hyper']['stop_metric']),
+                                    'precision': self._request['hyper']['precision'],
+                                    'maxiter': self._request['hyper']['maxiter'],
+                                    'i_s': self._request['hyper']['i_s'],
+                                    'time_decay': self._request['hyper']['time_decay'],
+                                    'step_decay': self._request['hyper']['step_decay'],
+                                    'step_epochs': self._request['hyper']['step_epochs'],
+                                    'exp_decay': self._request['hyper']['exp_decay'],
+                                    'start':self._start,
+                                    'end':self._end,
+                                    'duration':(self._end-self._start).total_seconds(),
+                                    'epochs': self._epochs_detail_history[-1],
+                                    'iterations': self._iterations_detail_history[-1],
+                                    'initial_costs': self._J_detail_history[0],
+                                    'final_costs': self._J_detail_history[-1]},
+                                    index=[0])
 
-    def get_costs(self):
-        return(self._J_history)
+        if self._request['hyper']['cross_validated']:
+            self._summary['initial_mse'] = self._mse_eval_history[0]
+            self._summary['final_mse'] = self._mse_eval_history[-1]
+        else:
+            self._summary['initial_mse'] = None
+            self._summary['final_mse'] = None
+        return(self._summary)
 
-    def get_mse(self):
-        return(self._mse_history)
+
+    def _todf(self, x, stub):
+        n = len(x[0])
+        df = pd.DataFrame()
+        for i in range(n):
+            colname = stub + str(i)
+            vec = [item[i] for item in x]
+            df_vec = pd.DataFrame(vec, columns=[colname])
+            df = pd.concat([df, df_vec], axis=1)
+        return(df)         
 
     def _hypothesis(self, X, theta):
         return(X.dot(theta))
@@ -157,33 +269,56 @@ class GradientFit(ABC):
 class BGDFit(GradientFit):
     '''Batch Gradient Descent'''
 
-    def __init__(self)->None:
-        self._alg = "Batch Gradient Descent"   
+    def __init__(self):
+        self._alg = "Batch Gradient Descent"
         self._request = dict()   
-        self._learning_rate_history = []
-        self._J_history = []     
-        self._mse_history = [] 
-        self._theta_history = [] 
-        self._iterations = []    
-        self._epochs = []        
+
+        self._learning_rate_detail_history = []
+        self._J_detail_history = []             
+        self._theta_detail_history = [] 
+        self._iterations_detail_history = []    
+        self._epochs_detail_history = []
+
+        self._learning_rate_eval_history = []
+        self._J_eval_history = []             
+        self._mse_eval_history = []     
+        self._theta_eval_history = [] 
+        self._iterations_eval_history = []    
+        self._epochs_eval_history = []
+            
         self._X = None           
         self._y = None
         self._X_val = None
         self._y_val = None
         self._i_s = 5
-        self._iter_no_change = 0 
+        self._iter_no_change = 0
+
+        self._summary = pd.DataFrame()
+        self._detail = pd.DataFrame()
+        self._eval = pd.DataFrame()
+
+        self._start = None
+        self._end =None      
+
 
     def fit(self, request):
 
         self._request = request
+        self._start = datetime.datetime.now()
 
         # Initialize lists
-        self._learning_rate_history = []
-        self._J_history = []
-        self._mse_history = []
-        self._theta_history = []
-        self._iterations = []
-        self._epochs = []
+        self._learning_rate_detail_history = []
+        self._J_detail_history = []             
+        self._theta_detail_history = [] 
+        self._iterations_detail_history = []    
+        self._epochs_detail_history = []
+
+        self._learning_rate_eval_history = []
+        self._J_eval_history = []             
+        self._mse_eval_history = []     
+        self._theta_eval_history = [] 
+        self._iterations_eval_history = []    
+        self._epochs_eval_history = []
 
         # Initialize search variables
         iteration = 0
@@ -213,13 +348,18 @@ class BGDFit(GradientFit):
                 mse = self._mse(self._X_val, self._y_val, theta)            
 
             # Save iterations, costs and thetas in history 
-            self._theta_history.append(theta.tolist())
-            self._J_history.append(J)            
-            self._iterations.append(iteration)
-            self._epochs.append(iteration)
-            self._mse_history.append(mse)
-            self._learning_rate_history.append(learning_rate)
+            self._learning_rate_detail_history.append(learning_rate)
+            self._J_detail_history.append(J)            
+            self._theta_detail_history.append(theta.tolist())            
+            self._iterations_detail_history.append(iteration)
+            self._epochs_detail_history.append(iteration)
 
+            self._learning_rate_eval_history.append(learning_rate)
+            self._J_eval_history.append(J)            
+            self._theta_eval_history.append(theta.tolist())      
+            self._mse_eval_history.append(mse)      
+            self._iterations_eval_history.append(iteration)
+            self._epochs_eval_history.append(iteration)
 
             # Compute gradient and its norm 
             g = self._gradient(self._X, e)
@@ -233,6 +373,7 @@ class BGDFit(GradientFit):
 
             # Update state vis-a-vis training set costs and validation set mse 
             state = self._update_state(state, iteration, J, mse, g_norm)
+        self._end = datetime.datetime.now()
 
 
 
@@ -244,17 +385,33 @@ class SGDFit(GradientFit):
     def __init__(self)->None:
         self._alg = "Stochastic Gradient Descent"
         self._request = dict()
-        self._J_history = []
-        self._mse_history = []
-        self._theta_history = []
-        self._iterations = []
-        self._epochs = []
-        self._X = None
+
+        self._learning_rate_detail_history = []
+        self._J_detail_history = []             
+        self._theta_detail_history = [] 
+        self._iterations_detail_history = []    
+        self._epochs_detail_history = []
+
+        self._learning_rate_eval_history = []
+        self._J_eval_history = []             
+        self._mse_eval_history = []     
+        self._theta_eval_history = [] 
+        self._iterations_eval_history = []    
+        self._epochs_eval_history = []
+            
+        self._X = None           
         self._y = None
         self._X_val = None
         self._y_val = None
+        self._i_s = 5
         self._iter_no_change = 0
-        self._i_s = 5        
+
+        self._summary = pd.DataFrame()
+        self._detail = pd.DataFrame()
+        self._eval = pd.DataFrame()
+
+        self._start = None
+        self._end =None           
 
 
     def _shuffle(self, X, y):
@@ -268,14 +425,21 @@ class SGDFit(GradientFit):
     def fit(self, request):
 
         self._request = request
+        self._start = datetime.datetime.now()
 
         # Initialize lists
-        self._learning_rate_history = []
-        self._J_history = []
-        self._mse_history = []
-        self._theta_history = []
-        self._iterations = []
-        self._epochs = []
+        self._learning_rate_detail_history = []
+        self._J_detail_history = []             
+        self._theta_detail_history = [] 
+        self._iterations_detail_history = []    
+        self._epochs_detail_history = []
+
+        self._learning_rate_eval_history = []
+        self._J_eval_history = []             
+        self._mse_eval_history = []     
+        self._theta_eval_history = [] 
+        self._iterations_eval_history = []    
+        self._epochs_eval_history = []
 
         # Initialize search variables
         iteration = 0
@@ -307,6 +471,14 @@ class SGDFit(GradientFit):
                 e = self._error(h, y_i)
                 J = self._cost(e)                         
                 g = self._gradient(x_i, e)
+
+                # Save iterations, costs and thetas in history 
+                self._learning_rate_detail_history.append(learning_rate)
+                self._J_detail_history.append(J)            
+                self._theta_detail_history.append(theta.tolist())            
+                self._iterations_detail_history.append(iteration)
+                self._epochs_detail_history.append(iteration)
+
                 theta = self._update(theta, learning_rate, g)
             
             # Compute total training set cost with latest theta
@@ -318,20 +490,22 @@ class SGDFit(GradientFit):
             # if cross_validated, compute validation set MSE 
             if self._request['hyper']['cross_validated']: 
                 mse = self._mse(self._X_val, self._y_val, theta)
-                self._mse_history.append(mse)
 
             # Save metrics in history
-            self._J_history.append(J)
-            self._theta_history.append(theta.tolist())            
-            self._epochs.append(epoch)
-            self._iterations.append(iteration)
-            self._learning_rate_history.append(learning_rate)                
+            self._J_eval_history.append(J)
+            self._theta_eval_history.append(theta.tolist())            
+            self._epochs_eval_history.append(epoch)
+            self._iterations_eval_history.append(iteration)
+            self._learning_rate_eval_history.append(learning_rate)   
+            self._mse_eval_history.append(mse)             
 
             # Update state to include current iteration, loss and mse (if cross_validated)            
             state = self._update_state(state, iteration, J, mse, g_norm)
 
             # Update learning rate
             learning_rate = self._update_learning_rate(learning_rate, epoch)
+
+        self._end = datetime.datetime.now()
 
 
 
@@ -343,15 +517,33 @@ class MBGDFit(GradientFit):
     def __init__(self):
         self._alg = "Mini-Batch Gradient Descent"
         self._request = dict()
-        self._J_history = []
-        self._mse_history = []
-        self._theta_history = []
-        self._iterations = []
-        self._epochs = []
-        self._X = None
+
+        self._learning_rate_detail_history = []
+        self._J_detail_history = []             
+        self._theta_detail_history = [] 
+        self._iterations_detail_history = []    
+        self._epochs_detail_history = []
+
+        self._learning_rate_eval_history = []
+        self._J_eval_history = []             
+        self._mse_eval_history = []     
+        self._theta_eval_history = [] 
+        self._iterations_eval_history = []    
+        self._epochs_eval_history = []
+            
+        self._X = None           
         self._y = None
         self._X_val = None
         self._y_val = None
+        self._i_s = 5
+        self._iter_no_change = 0
+
+        self._summary = pd.DataFrame()
+        self._detail = pd.DataFrame()
+        self._eval = pd.DataFrame()
+
+        self._start = None
+        self._end =None    
 
 
     def _shuffle(self, X, y, random_state):
@@ -381,6 +573,7 @@ class MBGDFit(GradientFit):
     def fit(self, request):
 
         self._request = request
+        self._start = datetime.datetime.now()
 
         # Initialize search variables
         iteration = 0
@@ -390,12 +583,20 @@ class MBGDFit(GradientFit):
 
         self._i_s = self._request['hyper']['i_s']
         self._iter_no_change = 0
-        self._learning_rate_history = []        
-        self._J_history = []
-        self._mse_history = []
-        self._theta_history = []
-        self._iterations = []
-        self._epochs = []        
+
+        # Initialize history variables
+        self._learning_rate_detail_history = []
+        self._J_detail_history = []             
+        self._theta_detail_history = [] 
+        self._iterations_detail_history = []    
+        self._epochs_detail_history = []
+
+        self._learning_rate_eval_history = []
+        self._J_eval_history = []             
+        self._mse_eval_history = []     
+        self._theta_eval_history = [] 
+        self._iterations_eval_history = []    
+        self._epochs_eval_history = []
 
         # Extract data
         self._X = self._request['data']['X']
@@ -419,6 +620,14 @@ class MBGDFit(GradientFit):
                 e = self._error(h, y_i.values)
                 J = self._cost(e)
                 g = self._gradient(x_i.values, e)
+
+                # Udpate detail log
+                self._learning_rate_detail_history.append(learning_rate)
+                self._J_detail_history.append(J)
+                self._theta_detail_history.append(theta.tolist())
+                self._iterations_detail_history.append(iteration)
+                self._epochs_detail_history.append(epoch)
+
                 theta = self._update(theta, learning_rate, g)
 
             # Compute total training set costs with latest theta
@@ -430,17 +639,19 @@ class MBGDFit(GradientFit):
             # if cross_validated, compute validation set MSE 
             if self._request['hyper']['cross_validated']: 
                 mse = self._mse(self._X_val, self._y_val, theta)  
-                self._mse_history.append(mse)    
+                self._mse_eval_history.append(mse)    
 
             # Save metrics in history
-            self._J_history.append(J)
-            self._theta_history.append(theta.tolist())
-            self._epochs.append(epoch)
-            self._iterations.append(iteration)
-            self._learning_rate_history.append(learning_rate)                      
+            self._J_eval_history.append(J)
+            self._theta_eval_history.append(theta.tolist())
+            self._epochs_eval_history.append(epoch)
+            self._iterations_eval_history.append(iteration)
+            self._learning_rate_eval_history.append(learning_rate)                      
 
             # Update state to include iteration and current loss and mse (if cross_validated)
             state = self._update_state(state, iteration, J, mse, g_norm)
             
             # Update learning rate
             learning_rate = self._update_learning_rate(learning_rate, epoch)
+        
+        self._end = datetime.datetime.now()

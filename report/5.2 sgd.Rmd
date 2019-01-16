@@ -15,9 +15,13 @@ formatNumber: function (n) {return ''+n}
 ```
 ```{python GradientLab, code=readLines('../src/GradientLab.py'), message=FALSE, warning=FALSE}
 ```
+```{python GradientVisual, code=readLines('../src/GradientVisual.py'), message=FALSE, warning=FALSE}
+```
+
 
 ```{python sgd_defaults, echo=F, eval=T}
 directory = "./report/figures/SGD/Lab"
+alg = "Stochastic Gradient Descent"
 ```
 ## Stochastic Gradient Descent 
 Stochastic gradient descent (SGD), in constrast to batch gradient descent, performs a parameter update for *each* training example $x^{(i)}$ and label $y^{(i)}$:

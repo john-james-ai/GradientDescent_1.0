@@ -210,7 +210,7 @@ To summarize, we obtained an optimal solution of $J\approx$ `r round(bgd_step_de
 
 `r kfigr::figr(label = "bgd_step_decay_summary_params", prefix = TRUE, link = TRUE, type="Table")`: Batch Gradient Descent Step Decay Learning Rate Solution Hyperparameters
 ```{r bgd_step_decay_summary_params}
-params <- bgd_step_decay_report_costs %>% select(learning_rate, step_decay, step_epochs, precision, i_s) 
+params <- bgd_step_decay_report_costs %>% select(learning_rate, step_decay, step_epochs, precision, maxiter, i_s) 
 knitr::kable(t(params[1,]), format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
 ```
@@ -231,11 +231,8 @@ bgd.plot(directory, filename, show=False)
 Ok, let's wrap up this section.
 
 ##### Step Decay Learning Rate Key Takeaways
-What have we observed from this experiment? Two main points:     
+What have we observed from this experiment? Well, the number of epochs in each step tended to have a greater effect on objective function performance, than did the step decay factor. Best performance correlated with higher numbers of epochs per step. One just needs to ensure that the number of epochs per step doesn't exceed the early stopping convergence criteria.
 
-1. The number of epochs in each step tended to have a greater effect on objective performance costs, than did the step decay parameter. Best performance generally correlated with higher numbers of epochs per step. 
-2. For any specific number of epochs per step, objective function performance increased with the step factor $d$.
-
-Caviat: These observations are based upon the characteristics of the dataset used in this analysis. Results may vary for other datasets.  
+Properly setting the step decay hyperparameters requires experimentation as the choice of decay rates and epochs per step is largely a function of the size of the dataset, the contours of the objective function and available computational resources and time.
 
 Next, we explore the effects of exponential decay learning rates. 

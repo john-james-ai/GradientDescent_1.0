@@ -73,7 +73,9 @@ class GradientLab:
                         'i_s': i_s,
                         'maxiter':maxiter,
                         'scaler':scaler}
-    def summary(self, directory=None, filename=None):
+
+
+    def summary(self, nbest=0, directory=None, filename=None):
         if self._summary is None:
             raise Exception("No summary to report")
         else:
@@ -81,9 +83,12 @@ class GradientLab:
                 if filename is None:
                     filename = self._alg + ' Lab Summary.csv'
                 save_csv(self._summary, directory, filename) 
+            if nbest:
+                s = self._summary.sort_values(by=['final_costs', 'duration'])
+                return(s.head(nbest))
             return(self._summary)
 
-    def detail(self, directory=None, filename=None):
+    def detail(self, nbest=0, directory=None, filename=None):
         if self._detail is None:
             raise Exception("No detail to report")
         else:
@@ -91,6 +96,11 @@ class GradientLab:
                 if filename is None:
                     filename = self._alg + ' Lab Detail.csv'
                 save_csv(self._detail, directory, filename)             
+            if nbest:
+                s = self.summary(nbest=nbest)
+                d = self._detail
+                d = d.loc[d['experiment'].isin(s['experiment'])]
+                return(d)
             return(self._detail)        
 
     def _runsearch(self, gd):
@@ -127,6 +137,7 @@ class GradientLab:
                                     maxiter=maxiter, precision=p, stop_metric=s,
                                     i_s=n, scaler=scaler)
                             detail = gd.detail()
+                            detail['experiment'] = experiment
                             summary = gd.summary()
                             summary['experiment'] = experiment
                             self._detail = pd.concat([self._detail, detail], axis=0)    
@@ -145,6 +156,7 @@ class GradientLab:
                                         time_decay=d, maxiter=maxiter, precision=p, 
                                         stop_metric=s, i_s=n, scaler=scaler)
                                 detail = gd.detail()
+                                detail['experiment'] = experiment
                                 summary = gd.summary()
                                 summary['experiment'] = experiment
                                 self._detail = pd.concat([self._detail, detail], axis=0)    
@@ -164,6 +176,7 @@ class GradientLab:
                                             step_decay=d, step_epochs=e, maxiter=maxiter, precision=p, 
                                             stop_metric=s, i_s=n, scaler=scaler)
                                     detail = gd.detail()
+                                    detail['experiment'] = experiment
                                     summary = gd.summary()
                                     summary['experiment'] = experiment
                                     self._detail = pd.concat([self._detail, detail], axis=0)    
@@ -182,6 +195,7 @@ class GradientLab:
                                         exp_decay=d, maxiter=maxiter, precision=p, 
                                         stop_metric=s, i_s=n, scaler=scaler)
                                 detail = gd.detail()
+                                detail['experiment'] = experiment
                                 summary = gd.summary()
                                 summary['experiment'] = experiment
                                 self._detail = pd.concat([self._detail, detail], axis=0)    
