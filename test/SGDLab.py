@@ -43,7 +43,9 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
 #%%%           
 dfs = lab.summary()
 dfd = lab.detail(nbest=1)
+thetas = lab.get_coef()
 print(dfd)
+print(thetas)
 # lab.figure(data=dfd, x='iterations', y='cost', z='learning_rate',
 #            func=lab.lineplot, directory=directory, show=True)
 # report = lab.report(directory=directory, filename='Stochastic Gradient Descent Report.csv')

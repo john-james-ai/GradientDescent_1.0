@@ -22,16 +22,16 @@ X, X_val, y, y_val = data.demo(n=500)
 
 # Parameters
 theta = np.array([-1,-1]) 
-learning_rate = [0.1, 0.5, 1.6]
-stop_metric=['j', 'v', 'g']
-precision = [0.01, 0.1]
-maxiter = [5000]
-learning_rate_sched = ['c','t', 's', 'e']
-time_decay = [0.01, 0.05, 0.1]
+learning_rate = [1.6]
+stop_metric=['j']
+precision = [0.001]
+maxiter = 5000
+learning_rate_sched = ['t']
+time_decay = np.arange(0.01,1,0.01)
 step_decay = [0.1, 0.01, 0.001]
 step_epochs = [2,5, 10]
 exp_decay = [0.1, 0.01, 0.001]
-i_s=[2,5]
+i_s=[10]
 directory = "./test/figures/BGD/Lab/"
 
 #%%
@@ -46,12 +46,4 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
 dfs = lab.summary()
 dfd = lab.detail()
 
-# Perform association tests
-scores = lab.associations(dfs)
-print(scores)
-
-# print(dfd.head())
-lab.figure(data=scores, x='Parameter', y='Correlation',
-           func=lab.barplot, directory=directory, show=True)
-# report = lab.report(directory=directory)
-# print(report)
+print(dfd)

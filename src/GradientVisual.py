@@ -25,12 +25,10 @@ from matplotlib import cm
 from matplotlib import animation, rc
 from matplotlib import colors as mcolors
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
-from matplotlib import rcParams
 from mpl_toolkits.mplot3d import axes3d, Axes3D
 import numpy as np
 from numpy import array, newaxis
 import pandas as pd
-from scipy.stats.stats import pearsonr, spearmanr
 import seaborn as sns
 from textwrap import wrap
 import warnings
@@ -49,8 +47,8 @@ class GradientVisual:
     Base class for gradient descent plots
     '''
 
-    def __init__(self):
-        pass
+    def __init__(self, model, directory):
+        self._model = model
 
     def _get_label(self, x):
         labels = {'learning_rate': 'Learning Rate',
@@ -145,7 +143,60 @@ class GradientVisual:
         ax.set_title(title, color='k')
         return(ax) 
 
-    def figure(self, alg, data, x, y, z=None, groupby=None, func=None, cols=2,
+
+    def plotfit(self, X,y, model, directory=None, filename=None, 
+                show=False, height=1, width=1, subtitle=None, scaler='minmax'):
+
+        # Scale X and y data
+        if scaler is not None:
+            X, y = model.prep_data(X, y, scaler, bias=False)
+        X = X.iloc[:,0]
+        x_line = np.linspace(0,1,100).reshape(-1,1)
+               
+        # Get Model data
+        coef = model.coef()
+        intercept = model.intercept()
+        # Format plot data
+        y_line = intercept + x_line.dot(coef)    
+        df = pd.DataFrame({"x": X, "y":y}, index=[0] )
+
+        # Obtain and initialize matplotlib figure
+        fig_width = math.floor(12*width)
+        fig_height = math.floor(4*height)
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))            
+        sns.set(style="whitegrid", font_scale=1)
+ 
+        # Render plots        
+        ax = sns.scatterplot(x=X, y=y, ax=ax)                                  # scatterplot
+        ax = sns.regplot(x='x', y='y', data=df, color='b')                     # True regression line 
+        x = sns.lineplot(x=x_line[:,0], y=y_line, ax=ax, color='r')            # Estimated regression line
+
+        # Title and aesthetics        
+        alg = model.alg()
+        title = alg + '\n' + 'Validation Set Fit'
+        if subtitle is not None:
+            title = alg + '\n' + subtitle + '\n' + 'Validation Set Fit'
+        ax.set_facecolor('w')
+        ax.tick_params(colors='k')
+        ax.xaxis.label.set_color('k')
+        ax.yaxis.label.set_color('k')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_title(title, color='k')
+        
+        # Finalize and save
+        fig.tight_layout()
+        if show:
+            plt.show()
+        if directory is not None:
+            if filename is None:
+                filename = title.replace('\n', '')
+                filename = filename.replace('  ', ' ')
+                filename = filename.replace(':', '') + '.png'
+            save_fig(fig, directory, filename)
+        plt.close(fig) 
+
+    def figure(self, data, x, y, z=None, groupby=None, func=None, cols=2,
                directory=None, filename=None, show=False, height=1, width=1):
 
         sns.set(style="whitegrid", font_scale=1)                

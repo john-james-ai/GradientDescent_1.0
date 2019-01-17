@@ -6,30 +6,29 @@ autoNumber: "all",
 formatNumber: function (n) {return ''+n}
 }
 }});</script>
-#### Constant Learning Rates
-Our aim here is to understand the relationship between learning rate and objective function performance, examine the effect of various early stop criteria on the optimization problem, and determine which hyperparameters minimize empirical (training set costs) and expected (validation set error) risk.
+#### Stochastic Gradient Descent Constant Learning Rates
+Our aim here is to understand the relationship between constant learning rates and objective function performance. Our hyperparameter space below includes a range of learning rates from 0.01 to 2.
 
-Once we've specified our hyperparameters, we will execute an exhaustive gridsearch to reveal SGD algorithm behavior within our hyperparameter space. 
-
-##### Hyperparameter Space
-Our hyperparameter space specified below spans a range of learning rates and early stop parameters. 
 ```{python sgd_constant_learning_rate_i, echo=T, eval=T}
 theta = np.array([-1,-1]) 
 learning_rate_sched = ['c']       
 learning_rate = np.arange(0.01,2, 0.01)
-precision = [0.001, 0.01, 0.1]
-stop_metric = ['j', 'v', 'g']
-maxiter = 5000
-i_s=[1,2,5,10]
+precision = [0.01]
+stop_metric = ['v']
+maxiter = 10000
+i_s=[5]
 ```
+
+We stop the algorithm at a maximum of 5000 iterations or when validation set error has not improved in $i_s=5$ consecutive epochs. If we observe underfitting or overfitting on the training data, we may need to make adjustments. 
 
 With that, we are ready to perform our gridsearch.
 
-##### Constant Learning Rate Gridsearch
+##### Stochastic Gradient Descent Constant Learning Rate Gridsearch
 
 ```{python sgd_constant_learning_rate_filenames, echo=F, eval=T}
 sgd_constant_summary_filename = "Stochastic Gradient Descent - Constant Learning Rate Summary.csv"               
 sgd_constant_detail_filename = "Stochastic Gradient Descent - Constant Learning Rate Detail.csv"
+sgd_constant_eval_filename = "Stochastic Gradient Descent - Constant Learning Rate Eval.csv"
 sgd_constant_report_filename = "Stochastic Gradient Descent - Constant Learning Rate Report.csv"
 ```
 
@@ -43,7 +42,7 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
 ```
 
 
-```{python sgd_constant_learning_rate_gs, echo=F, eval=T, cache=T}
+```{python sgd_constant_learning_rate_gs, echo=F, eval=T, cache=F}
 lab = SGDLab()  
 lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
                learning_rate_sched=learning_rate_sched, time_decay=None, 
@@ -53,24 +52,20 @@ lab.gridsearch(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=le
                
 sgd_constant_summary = lab.summary(directory=directory, filename=sgd_constant_summary_filename)
 sgd_constant_detail = lab.detail(directory=directory, filename=sgd_constant_detail_filename)
+sgd_constant_eval = lab.eval(directory=directory, filename=sgd_constant_eval_filename)
 sgd_constant_report = lab.report(directory=directory, filename=sgd_constant_report_filename)
-```
-
-```{python sgd_constant_get_gs_python, echo=F, eval=T}
-sgd_constant_summary = pd.read_csv(os.path.join(directory, sgd_constant_summary_filename))
-sgd_constant_detail = pd.read_csv(os.path.join(directory, sgd_constant_detail_filename))
-sgd_constant_report = pd.read_csv(os.path.join(directory, sgd_constant_report_filename))
 ```
 
 ```{r sgd_constant_get_gs_r, echo=F, eval=T}
 sgd_constant_summary = read.csv(file.path(py$directory, py$sgd_constant_summary_filename))
 sgd_constant_detail = read.csv(file.path(py$directory, py$sgd_constant_detail_filename))
+sgd_constant_eval = read.csv(file.path(py$directory, py$sgd_constant_eval_filename))
 sgd_constant_report = read.csv(file.path(py$directory, py$sgd_constant_report_filename))
 ```
-Next, we'll analyze the effect of learning rate on our optimization problem.  
 
-##### Learning Rate Analysis
-The aim here is to get a general sense of the effect of learning rate on objective function performance. 
+##### Stochastic Gradient Descent Constant Learning Rate Analysis
+`r kfigr::figr(label = "sgd_constant_alpha", prefix = TRUE, link = TRUE, type="Figure")` reveals the effect of learning rate on objective function performance. 
+
 ```{python sgd_constant_alpha, echo=F, eval=T}
 viz = GradientVisual()
 filename = 'Stochastic Gradient Descent Costs by Learning Rate.png'
@@ -86,125 +81,93 @@ viz.figure(alg=alg, data=sgd_constant_summary, x='learning_rate', y='final_costs
 
 A couple of observations stand out. First, there appears to be a positive correlation between objective function cost and learning rate. We also see an increase in varance of the objective function performance with increasing learning rates. This suggests that SGD favors the relative stability of lower learning rates.  
 
-With that, let's shift gears for a moment to investigate the effect of our stopping criteria on the optimization problem vis-a-vis learning rate. 
-
-##### Stop Criteria Analysis
-Our aim here is to evaluate the effects of various early stop hyperparameters on objective function performance. Recall, that we evaluate convergence based upon improvement (or change) in the following stop metrics:  
-
-* 'j' = training set costs,    
-* 'v' = validation set error, and    
-* 'g' = magnitude of the gradient.
-
-Improvement is measured with a tolerance, or precision parameter $\epsilon=$ [0.001,0.01, 0.1]. The algorithm stops if there is no improvement or change in the stop metric for $i_s=$ [1,2,5,10] consecutive iterations.
-
-Our approach will be to evaluate the correlation between our stop condition hyperparameters and objective function performance.  If there is a signficant correlation, we'll include the stop condition hyperpameters in our tuning scheme.  Otherwise, we will establish some default values and adjust as necessary.
-
-```{python sgd_constant_stop_criteria_correlation, echo=F, eval=T}
-lab = SGDLab()
-filename = 'Stochastic Gradient Descent Constant Learning Rate Stop Criteria Parameter Correlations.csv'
-x = ['stop_metric', 'precision', 'i_s']
-y = ['final_costs']
-assoc = lab.associations(data=sgd_constant_summary,x=x,y=y, directory=directory, filename=filename)
-```
-`r kfigr::figr(label = "sgd_constant_param_corr", prefix = TRUE, link = TRUE, type="Table")`: Stochastic Gradient Descent Constant Learning Rate Stop Criteria Parameter Correlation with Objective Function Performance
-```{r sgd_constant_param_corr, echo=F, eval=T}
-assoc <- read.csv(file.path(py$directory, py$filename))
-assoc['X'] <- NULL
-knitr::kable(assoc, digits = 4, format.args = list(big.mark = ",")) %>%
- kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
-```
-Based upon `r kfigr::figr(label = "sgd_constant_param_corr", prefix = TRUE, link = TRUE, type="Table")`, any association between our stop criteria and objective function performance is weak at best. No need to boil the ocean, we'll establish some default values and adjust.
-
-Given that which hyperparameters yielded best objective function performance? Great question.
-
-##### Best Performing Constant Learning Rate Hyperparameters
-Alas, we reveal the top 3 performing hyperparameters sets.
-
-`r kfigr::figr(label = "sgd_constant_best", prefix = TRUE, link = TRUE, type="Table")`: Stochastic Gradient Descent Constant Learning Rate Best Performing Hyperparameters. 
-```{r sgd_constant_best, echo=F, eval=T}
-best_constant <- sgd_constant_report %>% select(experiment, stop_metric_label, learning_rate, precision, i_s, maxiter,  epochs, iterations, duration, final_costs) %>% arrange(final_costs, duration)
-knitr::kable(head(best_constant,3), digits = 4, format.args = list(big.mark = ",")) %>%
- kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
-```
-
-```{r sgd_constant_summary, echo=F, eval=T}
-if (best_constant['i_s'][1,] ==1) {
-  close <- paste('The algorithm stopped when the change in', 
-                 tolower(best_constant['stop_metric_label'][1,]),
-                 'dropped below', best_constant['precision'][1,], 
-                 collapse = ' ')
-} else {
-  close <- paste('The algorithm stopped when the change in', 
-                 tolower(best_constant['stop_metric_label'][1,]),
-                 'dropped below', best_constant['precision'][1,], 
-                 'for', best_constant['i_s'][1,], 'consecutive epochs',
-                 collapse = ' ')
-}
-```
-According to `r kfigr::figr(label = "sgd_constant_best", prefix = TRUE, link = TRUE, type="Table")`, we obtained a final objective function cost $J=$ `r round(best_constant['final_costs'][1,],4)`, with a learning rate $\alpha=$ `r round(best_constant['learning_rate'][1,],2)`, in `r best_constant['epochs'][1,]` epochs, in about `r round(best_constant['duration'][1,],4)` milliseconds. `r close`.
-
-##### Stochastic Gradient Descent Constant Learning Rate Solution Learning Curve 
-Let's examine the learning curve as the algorithm approached approximate convergence.
+Let's examine the learning curves as the algorithm approached approximate convergence. 
 
 ```{python sgd_constant_best_curve, echo=F, eval=T}
 # Get Best Experiment
 sgd_constant_report = sgd_constant_report.sort_values(by=['final_costs', 'duration'])
 experiment = sgd_constant_report['experiment'].iloc[0]
 
-sgd_constant_best = sgd_constant_detail.loc[sgd_constant_detail['experiment']==experiment]
-sgd_constant_best = sgd_constant_best.sort_values(by=['epochs', 'iterations'])
+# Get Detail 
+sgd_constant_best_detail = sgd_constant_detail.loc[sgd_constant_detail['experiment']==experiment]
+sgd_constant_best_detail = sgd_constant_best_detail.sort_values(by=['epochs', 'iterations'])
 
-filename = 'Stochastic Gradient Descent Learning Curve.png'
-viz.figure(alg=alg, data=sgd_constant_best, x='iterations', y='cost',
+# Get Evaluation 
+sgd_constant_best_eval = sgd_constant_eval.loc[sgd_constant_eval['experiment']==experiment]
+sgd_constant_best_eval = sgd_constant_best_eval.sort_values(by=['epochs', 'iterations'])
+
+sgd_constant_best_detail_filename = 'Stochastic Gradient Descent Learning Curve Detail.png'
+sgd_constant_best_eval_filename = 'Stochastic Gradient Descent Learning Curve Smooth.png'
+
+viz.figure(alg=alg, data=sgd_constant_best_detail, x='iterations', y='cost',
            func=viz.lineplot, directory=directory, 
-           filename=filename, width=1)
+           filename=sgd_constant_best_detail_filename, width=0.5)
+viz.figure(alg=alg, data=sgd_constant_best_eval, x='iterations', y='cost',
+           func=viz.lineplot, directory=directory, 
+           filename=sgd_constant_best_eval_filename, width=0.5)           
         
 ```
 
-![](../report/figures/SGD/Lab/Stochastic Gradient Descent Learning Curve.png)
+![](../report/figures/SGD/Lab/Stochastic Gradient Descent Learning Curve Detail.png){width=50%}![](../report/figures/SGD/Lab/Stochastic Gradient Descent Learning Curve Smooth.png){width=50%}
 
-`r kfigr::figr(label = "sgd_constant_best_curve", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Solution Learning Curve 
+`r kfigr::figr(label = "sgd_constant_best_curve", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Solution Learning Curves 
 
-We've smoothed out the learning curve by taken measurements of objective function costs once per epoch. The gradually decreasing trajectory of the curve suggests an appropriate learning rate for this dataset. 
+The learning curve on the left of `r kfigr::figr(label = "sgd_constant_best_curve", prefix = TRUE, link = TRUE, type="Figure")` is measured at each iteration. On the right, we have the learning curve measured at each epoch. This gives us a better indication of the convergence path, than does the iteration-based learning curve.
 
-Now, let's examine the solution path towards convergence.
+Here, the effect of the stochastic updates is extant. Consider the progress towards convergence achieved in the first epoch. SGD makes substantially greater progress per epoch than does batch gradient descent. That's not all.  SGD achieved convergence at a cost of `r round(best_constant['final_costs'][1,],4)` in `r best_constant['epochs'][1,]` epochs. Our experiments have shown batch gradient descent to take upwards of 27 epochs to converge.
+
+Which learning rate resulted in best objective function performance? The best three performing learning rates are listed in `r kfigr::figr(label = "sgd_constant_best", prefix = TRUE, link = TRUE, type="Table")`.
+
+`r kfigr::figr(label = "sgd_constant_best", prefix = TRUE, link = TRUE, type="Table")`: Stochastic Gradient Descent Constant Learning Rate Best Performing Hyperparameters. 
+```{r sgd_constant_best, echo=F, eval=T}
+best_constant <- sgd_constant_report %>% select(experiment, learning_rate, precision, i_s, maxiter,  epochs, iterations, duration, final_costs) %>% arrange(final_costs, duration)
+knitr::kable(head(best_constant,3), digits = 5, format.args = list(big.mark = ",")) %>%
+ kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = T, position = "center")
+```
+
+We obtained a final objective function cost $J\approx$ `r round(best_constant['final_costs'][1,],4)` (numerical precision issues), with a learning rate $\alpha=$ `r round(best_constant['learning_rate'][1,],2)`, in `r best_constant['epochs'][1,]` epochs, totalling about `r round(best_constant['duration'][1,],4)` milliseconds. It's worth pointing out; however, that the top three learning rates performed almost identically. In fact, `r kfigr::figr(label = "sgd_constant_alpha", prefix = TRUE, link = TRUE, type="Figure")` indicates that there are learning rates across the spectrum that produced practically equivalent results. 
 
 ##### Stochastic Gradient Descent Constant Learning Rate Solution Path 
-```{python sgd_constant_learning_rate_params, echo=F, eval=T}
-theta = np.array([-1,-1])  
-learning_rate_sched = sgd_constant_report['learning_rate_sched'].iloc[0]
-learning_rate = sgd_constant_report['learning_rate'].iloc[0]
-precision = sgd_constant_report['precision'].iloc[0]
-maxiter = sgd_constant_report['maxiter'].iloc[0]
-stop_metric = sgd_constant_report['stop_metric'].iloc[0]
-i_s = sgd_constant_report['i_s'].iloc[0]
+The solution path below amplifies `r kfigr::figr(label = "sgd_constant_best_curve", prefix = TRUE, link = TRUE, type="Figure")`.
+```{python sgd_constant_learning_rate_solution, echo=F, eval=T, cache=F}
 
+sgd_constant_best_summary = sgd_constant_summary.loc[sgd_constant_summary['experiment']==experiment]
+
+sgd_constant_search_filename = 'Stochastic Gradient Descent Constant Learning Rate Search Path.gif'
+sgd_constant_fit_filename = 'Stochastic Gradient Descent Constant Learning Rate Regression Fit.gif'
+
+sgd = SGD()
+X_scaled, y_scaled = sgd.prep_data(X,y)
+viz = GradientVisual()
+viz.show_search(alg, X_scaled, y_scaled, sgd_constant_best_eval, sgd_constant_best_summary, 
+               directory=directory, filename=sgd_constant_search_filename, fps=1)
+viz.show_fit(alg, X_scaled, y_scaled, sgd_constant_best_eval, sgd_constant_best_summary, 
+               directory=directory, filename=sgd_constant_fit_filename,fps=1)               
 ```
 
-```{python bgd_constant_learning_rate_solution_filenames, echo=F, eval=T}
-sgd_constant_search_demo_filename = 'Stochastic Gradient Descent Constant Learning Rate Search Path.gif'
-sgd_constant_fit_demo_filename = 'Stochastic Gradient Descent Constant Learning Rate Regression Fit.gif'
-```
-
-```{python sgd_constant_learning_rate_convergence, echo=F, eval=T, cache=F}
-gd = SGD()
-X, X_val, y, y_val = data.demo(n=500)
-X, y = gd.prep_data(X,y)
-summary = sgd_constant_summary.loc[sgd_constant_summary['experiment']==experiment]
-detail = sgd_constant_detail.loc[sgd_constant_detail['experiment']==experiment]
-
-summary = summary.loc[:, ~summary.columns.str.contains('^Unnamed')]
-detail = detail.loc[:, ~detail.columns.str.contains('^Unnamed')]
-
-#viz = GradientVisual()
-#viz.show_search(alg=alg, X=X,y=y, detail=detail, summary=summary, directory=directory,   
-#                filename=sgd_constant_search_demo_filename, fps=1)
-#viz.show_fit(alg=alg, X=X,y=y, detail=detail, summary=summary, directory=directory,   
-#                filename=sgd_constant_fit_demo_filename, fps=1)
-```
 ![](../report/figures/SGD/Lab/Stochastic Gradient Descent Constant Learning Rate Search Path.gif)
 
 `r kfigr::figr(label = "sgd_constant_learning_rate_convergence", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Constant Learning Rate Solution Path
 
+We observe rapid and significant progress towards convergence in the first epoch, then a sharp turn in the direction of positive slope ($\theta_1$). The majority of the optimization time was spent in the $\theta_1$ dimension.
+
+How does the solution fit the data?  With zero cost, we should assume pretty well.  Let's see.
+
 ![](../report/figures/SGD/Lab/Stochastic Gradient Descent Constant Learning Rate Regression Fit.gif)
 `r kfigr::figr(label = "sgd_constant_learning_rate_fit", prefix = TRUE, link = TRUE, type="Figure")`: Stochastic Gradient Descent Constant Learning Rate Solution Fit
+
+As already stated, the first epoch put us in a good neighborhood with respect to the optimal solution. A bit of fine tuning rendered a reasonably good fit to the data. 
+
+How does the solution generalize?  Let's see.
+
+##### Stochasetic Gradient Descent Constant Learning Rate Evaluation
+
+
+```{python sgd_constant_eval, echo=F, eval=T}
+viz = GradientVisual()
+filename = 'Stochastic Gradient Descent Constant Learning Rate Evaluation.png'
+viz.figure(alg=alg, data=sgd_constant_summary.head(5), x='learning_rate', y='final_costs',
+           func=viz.barplot, directory=directory, 
+           filename=filename, width=1)
+        
+```

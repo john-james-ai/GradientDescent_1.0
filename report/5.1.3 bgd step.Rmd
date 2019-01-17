@@ -28,7 +28,7 @@ learning_rate = [1.6]
 step_decay = np.arange(0,1,0.01)
 step_epochs = np.arange(5,25,5)
 precision = [0.001]
-maxiter = [5000]
+maxiter = 5000
 i_s=[10]
 ```
 
@@ -67,12 +67,6 @@ bgd_step_decay_detail <- read.csv(file.path(py$directory, py$bgd_step_decay_deta
 bgd_step_decay_report <- read.csv(file.path(py$directory, py$bgd_step_decay_report_filename))
 ```
 
-```{python bgd_step_gs_results_python, echo=F, eval=T}
-bgd_step_decay_summary = pd.read_csv(os.path.join(directory, bgd_step_decay_summary_filename))
-bgd_step_decay_detail  = pd.read_csv(os.path.join(directory, bgd_step_decay_detail_filename))
-bgd_step_decay_report  = pd.read_csv(os.path.join(directory, bgd_step_decay_report_filename))
-
-```
 
 ##### Step Decay Learning Rate Analysis
 ```{python bgd_step_plots, echo=F, eval=T}
@@ -107,8 +101,8 @@ viz.figure(alg=alg, data=data, x='step_decay', y='duration', z='step_epochs',
 `r kfigr::figr(label = "bgd_step_plots", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Training Costs and Computation Time by Step Decay Parameters
 
 ```{r bgd_step_report, echo=F, eval=T}
-bgd_step_decay_report_costs <- bgd_step_decay_report %>% arrange(final_costs, duration) %>% select(learning_rate, step_decay, step_epochs, precision, i_s,  duration, iterations, final_costs)
-bgd_step_decay_report_error <- bgd_step_decay_report %>% arrange(final_mse, duration) %>% select(learning_rate, step_decay, step_epochs, precision, i_s,  duration, iterations, final_mse)
+bgd_step_decay_report_costs <- bgd_step_decay_report %>% arrange(final_costs, duration) %>% select(learning_rate, step_decay, step_epochs, precision, i_s,  maxiter, duration, iterations, final_costs)
+bgd_step_decay_report_error <- bgd_step_decay_report %>% arrange(final_mse, duration) %>% select(learning_rate, step_decay, step_epochs, precision, i_s,  maxiter, duration, iterations, final_mse)
 ```
 
 The four plots in `r kfigr::figr(label = "bgd_step_plots", prefix = TRUE, link = TRUE, type="Figure")`, show the relationship between training set costs, computation time and our step decay parameters. The first row represents the full range of parameter values. We've narrowed the range of step decay values on the second row so that we exclude outliers.
@@ -128,33 +122,24 @@ The above table summarizes the three best step decay parameter settings. We'll a
 ##### Step Decay Learning Rate Solution Path
 The following animation reveals the effect of our step decay learning rate over `r bgd_step_decay_report_costs['iterations'][1,]` iterations, starting with an initial learning rate $\alpha=$ `r bgd_step_decay_report_costs['learning_rate'][1,]`. 
 
-```{python bgd_step_final_params, echo=F, eval=T}
-theta = np.array([-1,-1]) 
-learning_rate_sched = 's'
-learning_rate = bgd_step_decay_report['learning_rate'].iloc[0]
-step_decay = bgd_step_decay_report['step_decay'].iloc[0]
-step_epochs = bgd_step_decay_report['step_epochs'].iloc[0]
-precision = bgd_step_decay_report['precision'].iloc[0]
-maxiter = bgd_step_decay_report['maxiter'].iloc[0]
-i_s = bgd_step_decay_report['i_s'].iloc[0]
-```
+```{python bgd_step_decay_learning_rate_path, echo=F, eval=T, cache=F}
+bgd_step_decay_best = bgd_step_decay_report.nsmallest(1, ['final_costs', 'duration'])
+experiment = bgd_step_decay_best['experiment'].iloc[0]
+bgd_step_decay_best_summary = bgd_step_decay_summary.loc[bgd_step_decay_summary['experiment'] == experiment]
+bgd_step_decay_best_detail = bgd_step_decay_detail.loc[bgd_step_decay_detail['experiment'] == experiment]
 
-```{python bgd_step_decay_demo_filenames, echo=F, eval=T}
-bgd_step_decay_path_demo_filename = 'Batch Gradient Descent - Step Decay Convergence.gif'
-bgd_step_decay_fit_demo_filename = 'Batch Gradient Descent - Step Decay Fit.gif'
-```
+bgd_step_decay_search_filename = 'Batch Gradient Descent - Step Decay Convergence.gif'
+bgd_step_decay_fit_filename = 'Batch Gradient Descent - Step Decay Fit.gif'
 
+bgd = BGD()
+X_scaled, y_scaled = bgd.prep_data(X,y)
+viz = GradientVisual()
+viz.show_search(alg, X_scaled, y_scaled, bgd_step_decay_best_detail, bgd_step_decay_best_summary, 
+               directory=directory, filename=bgd_step_decay_search_filename, fps=1) 
+viz.show_fit(alg, X_scaled, y_scaled, bgd_step_decay_best_detail, bgd_step_decay_best_summary, 
+               directory=directory, filename=bgd_step_decay_fit_filename, fps=1)   
+```               
 
-```{python bgd_step_path, echo=F, eval=T, cache=F}
-step_decay_demo = BGDDemo() 
-step_decay_demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, 
-         learning_rate_sched=learning_rate_sched, step_decay=step_decay,
-         step_epochs=step_epochs, precision=precision, maxiter=maxiter, 
-         i_s=i_s)
-         
-step_decay_demo.show_search(directory=directory, filename=bgd_step_decay_path_demo_filename, fps=1)
-step_decay_demo.show_fit(directory=directory, filename=bgd_step_decay_fit_demo_filename, fps=1)
-```
 ![](../report/figures/BGD/Lab/Batch Gradient Descent - Step Decay Convergence.gif)
 
 `r kfigr::figr(label = "bgd_step_path", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Step Decay Learning Rate Solution Path
@@ -215,18 +200,6 @@ knitr::kable(t(params[1,]), format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
 ```
 
-The optimal results, in terms of training set costs and validation set error are:
-```{python bgd_step_decay_summary_results, echo=F, eval=T}
-bgd = BGD()
-bgd.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
-            learning_rate_sched=learning_rate_sched, step_decay=step_decay, 
-            step_epochs=step_epochs, maxiter=maxiter, precision=precision, i_s=i_s)
-filename = "Batch Gradient Descent Step Decay Learning Rate Solution Results.png"            
-bgd.plot(directory, filename, show=False)            
-```
-
-![](../report/figures/BGD/Lab/Batch Gradient Descent Step Decay Learning Rate Solution Results.png)
-`r kfigr::figr(label = "bgd_step_decay_summary_results", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Step Decay Learning Rate Optimal Solution Results 
 
 Ok, let's wrap up this section.
 

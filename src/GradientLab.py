@@ -74,7 +74,14 @@ class GradientLab:
                         'maxiter':maxiter,
                         'scaler':scaler}
 
-
+    def get_coef(self):
+        if self._summary is None:
+            raise Exception("No coefficients to report")
+        else:
+            best = self.summary(nbest=1)
+            theta_cols = [col for col in best.columns if 'theta' in col]
+            return(best[theta_cols])
+            
     def summary(self, nbest=0, directory=None, filename=None):
         if self._summary is None:
             raise Exception("No summary to report")
@@ -87,6 +94,21 @@ class GradientLab:
                 s = self._summary.sort_values(by=['final_costs', 'duration'])
                 return(s.head(nbest))
             return(self._summary)
+
+    def eval(self, nbest=0, directory=None, filename=None):
+        if self._eval is None:
+            raise Exception("No eval to report")
+        else:
+            if directory is not None:
+                if filename is None:
+                    filename = self._alg + ' Lab Evaluation.csv'
+                save_csv(self._eval, directory, filename)             
+            if nbest:
+                s = self.summary(nbest=nbest)
+                d = self._eval
+                d = d.loc[d['experiment'].isin(s['experiment'])]
+                return(d)
+            return(self._eval)                
 
     def detail(self, nbest=0, directory=None, filename=None):
         if self._detail is None:
@@ -106,6 +128,7 @@ class GradientLab:
     def _runsearch(self, gd):
         experiment = 1
         self._summary = pd.DataFrame()
+        self._eval = pd.DataFrame()
         self._detail = pd.DataFrame()
         
         # Extract parameters
@@ -138,9 +161,12 @@ class GradientLab:
                                     i_s=n, scaler=scaler)
                             detail = gd.detail()
                             detail['experiment'] = experiment
+                            eval = gd.eval()
+                            eval['experiment'] = experiment                            
                             summary = gd.summary()
                             summary['experiment'] = experiment
                             self._detail = pd.concat([self._detail, detail], axis=0)    
+                            self._eval = pd.concat([self._eval, eval], axis=0)    
                             self._summary = pd.concat([self._summary, summary], axis=0)    
                             experiment += 1               
 
@@ -157,10 +183,13 @@ class GradientLab:
                                         stop_metric=s, i_s=n, scaler=scaler)
                                 detail = gd.detail()
                                 detail['experiment'] = experiment
+                                eval = gd.eval()
+                                eval['experiment'] = experiment                            
                                 summary = gd.summary()
                                 summary['experiment'] = experiment
                                 self._detail = pd.concat([self._detail, detail], axis=0)    
-                                self._summary = pd.concat([self._summary, summary], axis=0)    
+                                self._eval = pd.concat([self._eval, eval], axis=0)    
+                                self._summary = pd.concat([self._summary, summary], axis=0)      
                                 experiment += 1       
 
         # Step Decay Learning Rates
@@ -177,10 +206,13 @@ class GradientLab:
                                             stop_metric=s, i_s=n, scaler=scaler)
                                     detail = gd.detail()
                                     detail['experiment'] = experiment
+                                    eval = gd.eval()
+                                    eval['experiment'] = experiment                            
                                     summary = gd.summary()
                                     summary['experiment'] = experiment
                                     self._detail = pd.concat([self._detail, detail], axis=0)    
-                                    self._summary = pd.concat([self._summary, summary], axis=0)    
+                                    self._eval = pd.concat([self._eval, eval], axis=0)    
+                                    self._summary = pd.concat([self._summary, summary], axis=0)      
                                     experiment += 1    
 
         # Exponential Decay Learning Rates
@@ -196,10 +228,13 @@ class GradientLab:
                                         stop_metric=s, i_s=n, scaler=scaler)
                                 detail = gd.detail()
                                 detail['experiment'] = experiment
+                                eval = gd.eval()
+                                eval['experiment'] = experiment                            
                                 summary = gd.summary()
                                 summary['experiment'] = experiment
                                 self._detail = pd.concat([self._detail, detail], axis=0)    
-                                self._summary = pd.concat([self._summary, summary], axis=0)    
+                                self._eval = pd.concat([self._eval, eval], axis=0)    
+                                self._summary = pd.concat([self._summary, summary], axis=0)      
                                 experiment += 1                                          
 
         
@@ -220,67 +255,12 @@ class GradientLab:
         bgd = BGD()
         self._runsearch(bgd)
 
-    def _pearson(self, x, y):
-        r, p = pearsonr(x,y)
-        return(r, p)
-
-    def _spearman(self, x, y):
-        r, p = spearmanr(x,y)
-        return(r, p)
-
     def _get_params(self):
         x = ['learning_rate', 'learning_rate_sched', 'stop_metric', 
              'i_s', 'maxiter', 'time_decay', 'step_decay', 'step_epochs',
              'exp_decay', 'precision']
         return(x)
 
-    def _get_tests(self,x):
-        tests = {'learning_rate': 'p',
-                'learning_rate_sched': 's',
-                'stop_metric': 's',
-                'i_s': 's',
-                'batch_size': 's',
-                'time_decay': 'p',
-                'step_decay': 'p',
-                'step_epochs': 's',
-                'exp_decay': 'p',
-                'precision': 's'}
-        return(tests.get(x,'s'))
-
-    def associations(self, data, x=None, y='final_costs', directory=None, filename=None):
-        if x is None:
-            x = self._get_params()
-
-        labels = [ self._get_label(p) for p in x]     
-        tests = [ self._get_tests(p) for p in x]
-        corr = []
-        pval = []
-        
-        for param, test in zip(x, tests):
-
-            df = data[data[param].notnull()]
-
-            if test == 'p':
-                r, p = self._pearson(df[param], df[y])
-            else:
-                r, p = self._spearman(df[param], df[y])
-            corr.append(np.abs(r))
-            pval.append(p)
-
-        scores = pd.DataFrame({'Parameter': labels, 'Correlation': corr, 'p-Value': pval})
-        scores['Strength'] = np.where(scores["Correlation"] < .1, 'Extremely Weak Correlation',
-                                         np.where(scores["Correlation"] < .30, 'Small Correlation',
-                                                  np.where(scores["Correlation"] < .5, 'Moderate Correlation',
-                                                           'Strong Correlation')))
-        scores = scores.sort_values(by=['Correlation'], ascending=False)
-        scores = scores.dropna()
-
-        if directory:
-            if filename is None:
-                filename = self._alg + ' Parameter Correlations.csv'
-            save_csv(scores, directory, filename)    
-
-        return(scores)    
 
     def _get_label(self, x):
         labels = {'learning_rate': 'Learning Rate',

@@ -35,15 +35,5 @@ gd.fit(X=X, y=y, theta=theta,X_val=X_val, y_val=y_val, learning_rate=learning_ra
         learning_rate_sched=learning_rate_sched, time_decay=time_decay, step_decay=step_decay,
         step_epochs=step_epochs, exp_decay=exp_decay,
         maxiter=maxiter, precision=precision, i_s=i_s, stop_metric=stop_metric)
-
 viz = GradientVisual()
-summary = gd.summary()
-detail = gd.detail()
-eval = gd.eval()
-
-# Line Plot
-viz.figure(alg=alg, data=detail, x='iterations', y='cost',
-           func=viz.lineplot, width=1, show=True)
-X, y = gd.prep_data(X, y)
-viz.show_search(alg, X, y, detail, summary, directory=directory)     
-viz.show_fit(alg, X, y, detail, summary, directory=directory)           
+summary = viz.plotfit(X_val, y_val, gd, show=True)

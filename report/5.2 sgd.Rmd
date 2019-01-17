@@ -28,7 +28,7 @@ Stochastic gradient descent (SGD), in constrast to batch gradient descent, perfo
 
 $$\theta_j := \theta_j-\alpha \nabla_\theta J(\theta, x^{(i)};y^{(i)}).$$
 
-> What are the advantages of stochastic gradient descent?
+> What are the advantages and challenges of stochastic gradient descent?
 
 ### Advantages of Stochastic Gradient Descent
 The primary advantages of stochastic gradient descent are time complexity for large data sets, and convergence in certain non-convex machine learning models.
@@ -48,8 +48,6 @@ Saddle Point. Digital Image. Nicoguaro https://commons.wikimedia.org/wiki/File:S
 
 `r kfigr::figr(label = "saddle_point", prefix = TRUE, link = TRUE, type="Figure")`
 Consider the saddle point in   `r kfigr::figr(label = "saddle_point", prefix = TRUE, link = TRUE, type="Figure")`. The key observation is that the saddle point is actually very unstable. If you were to nudge the red dot slightly in any direction, it is likely to fall off the saddle point. Stochastic gradient descent's inherent noise is the nudge that pushes the red dot off the zero gradient saddle point. 
-
-> What are the challenges of stochastic gradient descent?
 
 ### Challenges of Stochastic Gradient Descent
 
@@ -108,10 +106,7 @@ SGD will also inherit support for the following learning rate schedules from the
 * step decay learning rates, and    
 * exponential decay learning rates.   
 
-With respect to stopping criteria, we adopted an objective function performance based early stopping criteria for batch gradient descent. Since SGD creates noisy gradients that don't necessarily improve objection function performance quite the way that batch methods do, we will expand our stopping criteria to include: 
-
-1. **Validation Set Performance**: A proportion of the training set is designated as a validation set. On each iteration, validation set error is computed and the algorithm stops if validation error has not improved, within a precision $\epsilon$, over $i_s$ epochs.
-2. **Gradient Checking**: The norm of the gradient is computed each epoch. The algorithm stops if the magnitude of the gradient has not changed, within a precision $\epsilon$,  over $i_s$ epochs.
+With batch gradient descent, we adopted a stopping criteria based upon the improvement in objective function performance. Since SGD creates noisy gradients that don't necessarily improve objection function performance quite the way that batch methods do, we will evaluate convergence based upon improvement in validation set error. On each iteration, validation set error is computed and the algorithm stops if it has not improved, within a precision $\epsilon$, over $i_s$ consecutive epochs.
 
 Those are the essential considerations.  Let's get coding!
 
@@ -194,18 +189,14 @@ class GradientDescent(ABC):
 ```
 
 #### Stochastic Gradient Descent Fit Method
-The SGD class will have a concrete implementation of the fit method to implement the algorithm described in `r kfigr::figr(label = "sgd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`. Note that we've added a new parameter, 'stop_metric', which indicates the metric used for early stopping.  Valid values include:    
-
-* 'j': training set costs (default),     
-* 'v': validation set error, and    
-* 'g': gradient norm. 
+The SGD class will have a concrete implementation of the fit method to implement the algorithm described in `r kfigr::figr(label = "sgd_algorithm", prefix = TRUE, link = TRUE, type="Figure")`. Note that we've added a new parameter, 'stop_metric', which indicates that we will be using validation set error as our early stopping metric.  
 
 
 ```{python sgd_fit, echo=T, eval=F}
 def fit(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01, 
         learning_rate_sched = 'c', time_decay=None, step_decay=None,
         step_epochs=None, exp_decay=None, maxiter=0, precision=0.001, 
-        stop_metric='j', i_s=5, scaler='minmax'):
+        stop_metric='v', i_s=5, scaler='minmax'):
 
     # Initialize search variables
     iteration = 0
@@ -252,7 +243,7 @@ def fit(self, X, y, theta, X_val=None, y_val=None, learning_rate=0.01,
     return(theta)
 ```
 
-We will need to change our state update method in the GradientDescent class as follows:
+We've updated our state update method to accommodate validation set error. Note that we've also included a check for the norm of the gradient. This is another early stopping criteria that we will investigate later. 
 ```{python state_update, echo=T, eval=F}
 def _update_state(self, state, iteration, J, mse, g):
     state['iteration'] = iteration
@@ -281,33 +272,6 @@ def _shuffle(self, X, y):
 
 That's it, for the most part. The complete class definitions are available at https://github.com/DecisionScients/GradientDescent.
 
-Next, we'll explore hyperparamter tuning strategies for stochastic gradient descent.
-
-### Tuning Stochastic Gradient Descent
-Our hyperparameters for stochastic gradient descent are:  
-
-* **Initial condition hyperparameters**:    
-    - initial weight parameters $\theta$     
-* **learning rate hyperparameters**:    
-    - learning rate $\alpha$, this will be the initial learning rate for learning rate schedules    
-    - learning rate schedule, which can be:      
-        * 'c' for constant learning rate,    
-        * 't' for time decay learning rates,      
-        * 's' for step decay learning rates, and      
-        * 'e' for exponential decay learning rates
-    - other learning rate hyperparameters such as:     
-        * time_decay: the parameter that determines the amount the learning rate decays on each iteration,     
-        * step_decay: the parameter that determines the amount the learning rate decays on each step,     
-        * step_epochs: the parameter that specifies the number of epochs in each step,     
-        * exp_decay: the amount of exponential decay to apply to the learning rate on each iteration.     
-
-* **stopping condition hyperparameters**:
-    - stop metric: Indicates metric evaluated for early stopping. Valid values are 'j', 'v', and 'g' for training set costs, validation set error, and gradient norm respectively,  
-    - precision parameter $\epsilon$ by which we evaluate whether a quantum, e.g. training set costs, has changed,   
-    - $i_s$, the algorithm stops when the number of consecutive epochs of no change in the stop metric equals $i_s$.
-
-As with batch gradient descent, learning rate is the most consequential of the hyperparameters. We will use a gridsearch strategy to create candidate functions $f_θ(x)$ for a range of learning rate schedules and learning rates. We will also examine the effects of various early stopping criteria. The initial $\theta$’s will be set to the same  default values used for BGD.
-
 #### The Data
 We will use the same data used for the batch gradient descent section.  In case you are just joining us, our training and validation sets were randomly selected from our Ames Housing Project Training Set.  The training set is comprised of random sample of 500 observations. The remaining 960 samples make up the validation set. Our single predictor of sale price will be living area. Restricting our experiment to a single predictor will allow us to more easily visualize the algorithm's behavior. 
 
@@ -326,7 +290,24 @@ y = scaler.fit_transform(y)
 y_val = scaler.fit_transform(y_val)
 ```
 
-With that, let's tune our hyperparameters, starting with the constant learning rate schedule.
+Next, we'll explore hyperparamter tuning strategies for stochastic gradient descent.
+
+### Tuning Stochastic Gradient Descent
+Our hyperparameters for stochastic gradient descent include an initial guess at the parameters $\theta$ and the learning rate hyperparameters:  
+
+* learning rate $\alpha$, this will be the initial learning rate for learning rate schedules    
+* learning rate schedule, which can be:      
+    - 'c' for constant learning rate,    
+    - 't' for time decay learning rates,      
+    - 's' for step decay learning rates, and      
+    - 'e' for exponential decay learning rates
+* other learning rate hyperparameters such as:     
+    - time_decay: the parameter that determines the amount the learning rate decays on each iteration,     
+    - step_decay: the parameter that determines the amount the learning rate decays on each step,     
+    - step_epochs: the parameter that specifies the number of epochs in each step,     
+    - exp_decay: the amount of exponential decay to apply to the learning rate on each iteration. 
+
+With that, let's examine the effect of constant learning rates on SGD performance. 
 
 ```{r sgd_constant, child = '5.2.1 sgd constant.Rmd'}
 ```

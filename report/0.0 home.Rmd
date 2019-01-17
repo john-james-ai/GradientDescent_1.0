@@ -84,7 +84,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
 ```
 
-```{r sgd, child = '5.1 bgd.Rmd'}
+```{r sgd, child = '5.2 sgd.Rmd'}
 ```
 
 

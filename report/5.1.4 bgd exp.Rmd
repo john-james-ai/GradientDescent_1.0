@@ -27,7 +27,7 @@ learning_rate_sched = 'e'
 learning_rate = [1.6]
 exp_decay = np.arange(0.01,1,0.01)
 precision = [0.001]
-maxiter = [5000]
+maxiter = 5000
 i_s=[10]
 ```
 
@@ -66,13 +66,6 @@ bgd_exp_decay_report = lab.report(directory=directory, filename=bgd_exp_decay_re
 bgd_exp_decay_summary <- read.csv(file.path(py$directory, py$bgd_exp_decay_summary_filename))
 bgd_exp_decay_detail <- read.csv(file.path(py$directory, py$bgd_exp_decay_detail_filename))
 bgd_exp_decay_report <- read.csv(file.path(py$directory, py$bgd_exp_decay_report_filename))
-```
-
-```{python bgd_exp_gs_results_python, echo=F, eval=T}
-bgd_exp_decay_summary = pd.read_csv(os.path.join(directory, bgd_exp_decay_summary_filename))
-bgd_exp_decay_detail  = pd.read_csv(os.path.join(directory, bgd_exp_decay_detail_filename))
-bgd_exp_decay_report  = pd.read_csv(os.path.join(directory, bgd_exp_decay_report_filename))
-
 ```
 
 
@@ -121,30 +114,22 @@ Let's see what the solution path reveals about algorithm behavior vis-a-vis our 
 ##### Exponential Decay Learning Rate Solution Path
 The optimization path depicted in `r kfigr::figr(label = "bgd_exp_path", prefix = TRUE, link = TRUE, type="Figure")` is not unlike the time based decay learning rate solution path from `r kfigr::figr(label = "bgd_time_path", prefix = TRUE, link = TRUE, type="Figure")`.
 
-```{python bgd_exp_final_params, echo=F, eval=T}
-theta = np.array([-1,-1]) 
-learning_rate_sched = 'e'
-learning_rate = bgd_exp_decay_report['learning_rate'].iloc[0]
-exp_decay = bgd_exp_decay_report['exp_decay'].iloc[0]
-precision = bgd_exp_decay_report['precision'].iloc[0]
-maxiter = bgd_exp_decay_report['maxiter'].iloc[0]
-i_s=bgd_exp_decay_report['i_s'].iloc[0]
-```
+```{python bgd_exp_decay_learning_rate_path, echo=F, eval=T, cache=F}
+bgd_exp_decay_best = bgd_exp_decay_report.nsmallest(1, ['final_costs', 'duration'])
+experiment = bgd_exp_decay_best['experiment'].iloc[0]
+bgd_exp_decay_best_summary = bgd_exp_decay_summary.loc[bgd_exp_decay_summary['experiment'] == experiment]
+bgd_exp_decay_best_detail = bgd_exp_decay_detail.loc[bgd_exp_decay_detail['experiment'] == experiment]
 
-```{python bgd_exp_path_filenames, echo=F, eval=T, cache=F}
 bgd_exp_decay_search_filename = 'Batch Gradient Descent - Exp Decay Convergence.gif'
 bgd_exp_decay_fit_filename = 'Batch Gradient Descent - Exp Decay Fit.gif'
-```
 
-```{python bgd_exp_path, echo=F, eval=T, cache=T}
-exp_decay_demo = BGDDemo()
-exp_decay_demo.fit(X=X,y=y, theta=theta, learning_rate=learning_rate, 
-         learning_rate_sched=learning_rate_sched, exp_decay=exp_decay,
-         precision=precision, maxiter=maxiter, 
-         i_s=i_s)
-         
-exp_decay_demo.show_search(directory=directory, filename=bgd_exp_decay_search_filename, fps=1)
-exp_decay_demo.show_fit(directory=directory, filename=bgd_exp_decay_fit_filename, fps=1)
+bgd = BGD()
+X_scaled, y_scaled = bgd.prep_data(X,y)
+viz = GradientVisual()
+viz.show_search(alg, X_scaled, y_scaled, bgd_exp_decay_best_detail, bgd_exp_decay_best_summary, 
+               directory=directory, filename=bgd_exp_decay_search_filename, fps=1) 
+viz.show_fit(alg, X_scaled, y_scaled, bgd_exp_decay_best_detail, bgd_exp_decay_best_summary, 
+               directory=directory, filename=bgd_exp_decay_fit_filename, fps=1)   
 ```
 ![](../report/figures/BGD/Lab/Batch Gradient Descent - Exp Decay Convergence.gif)
 
@@ -192,18 +177,6 @@ knitr::kable(t(params[1,]), format.args = list(big.mark = ",")) %>%
  kableExtra::kable_styling(bootstrap_options = c("hover", "condensed", "responsive"), full_width = F, position = "center")
 ```
 
-The optimal results, in terms of training set costs and validation set error are:
-```{python bgd_exp_decay_summary_results, echo=F, eval=T}
-bgd = BGD()
-bgd.fit(X=X, y=y, X_val=X_val, y_val=y_val, theta=theta, learning_rate=learning_rate, 
-            learning_rate_sched=learning_rate_sched, exp_decay=exp_decay, 
-            maxiter=maxiter, precision=precision, i_s=i_s)
-filename = "Batch Gradient Descent Exponential Decay Learning Rate Solution Results.png"            
-bgd.plot(directory, filename, show=False)            
-```
-
-![](../report/figures/BGD/Lab/Batch Gradient Descent Exponential Decay Learning Rate Solution Results.png)
-`r kfigr::figr(label = "bgd_exp_decay_summary_results", prefix = TRUE, link = TRUE, type="Figure")`: Batch Gradient Descent Exponential Decay Learning Rate Optimal Solution Results 
 
 Ok, let's wrap up this section.
 
