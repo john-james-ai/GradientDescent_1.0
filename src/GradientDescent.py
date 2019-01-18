@@ -18,26 +18,24 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 class GradientDescent(ABC):
     '''Abstract base class for Gradient Descent'''
 
-    def __init__(self, theta=None, X_val=None, y_val=None, learning_rate=0.01,
-                 learning_rate_sched='c', batch_size=10, time_decay=None, 
-                 step_decay=None, step_epochs=None,  exp_decay=None, maxiter=0, 
-                 precision=0.001, i_s=5, stop_metric='j' ):
+    def __init__(self):
 
         self._alg = "Abstract Gradient Descent"
 
         # Parameters
-        self._theta = theta
-        self._learning_rate = learning_rate
-        self._learning_rate_sched = learning_rate_sched
-        self._precision = precision
-        self._batch_size = batch_size
-        self._time_decay = time_decay
-        self._step_decay = step_decay
-        self._step_epochs = step_epochs
-        self._exp_decay = exp_decay
-        self._maxiter = maxiter
-        self._i_s = i_s
-        self._stop_metric = stop_metric
+        self._theta = None
+        self._learning_rate = None
+        self._learning_rate_sched = None
+        self._precision = None
+        self._batch_size = None
+        self._time_decay = None
+        self._step_decay = None
+        self._step_epochs = None
+        self._exp_decay = None
+        self._maxiter = None
+        self._i_s = None
+        self._stop_metric = None
+
         
         self._learning_rate_detail_history = []
         self._J_detail_history = []             
@@ -326,7 +324,7 @@ class GradientDescent(ABC):
             else:
                 return(False)
 
-        elif state['prior']-state['current'] < self._request['hyper']['precision']:
+        elif state['prior']-state['current'] < self._precision:
             self._iter_no_change += 1
             if self._iter_no_change >= self._i_s:
                 return(True)
@@ -365,7 +363,7 @@ class GradientDescent(ABC):
 
 
     @abstractmethod
-    def fit(self, request):
+    def fit(self, X, y, **params):
         pass
 
 # --------------------------------------------------------------------------- #
@@ -421,18 +419,15 @@ class BGD(GradientDescent):
         self._end =None      
 
 
-    def fit(self,  X, y, theta, X_val=None, y_val=None, learning_rate=0.01,
-            learning_rate_sched='c', time_decay=None, step_decay=None, 
-            step_epochs=None,  exp_decay=None, maxiter=0, precision=0.001, 
-            i_s=5, stop_metric='j'):
+    def fit(self,  X, y, **params): 
 
         self._start = datetime.datetime.now()
 
         # Store Data
         self._X = X
         self._y = y
-        self._X_val = X_val
-        self._y_val = y_val
+        self._X_val = params.get('X_val', None)
+        self._y_val = params.get('y_val', None)
 
         # Initialize lists
         self._learning_rate_detail_history = []
@@ -449,17 +444,17 @@ class BGD(GradientDescent):
         self._epochs_eval_history = []
 
         # Parameters
-        self._theta = theta
-        self._learning_rate = learning_rate
-        self._learning_rate_sched = learning_rate_sched
-        self._time_decay = time_decay
-        self._step_decay = step_decay
-        self._step_epochs = step_epochs
-        self._exp_decay = exp_decay
-        self._maxiter = maxiter
-        self._precision = precision
-        self._i_s = i_s
-        self._stop_metric = stop_metric
+        self._theta = params['theta']
+        self._learning_rate = params.get('learning_rate', .01)
+        self._learning_rate_sched = params.get('learning_rate_sched', 'c')
+        self._time_decay = params.get('time_decay', 0)
+        self._step_decay = params.get('step_decay',0)
+        self._step_epochs = params.get('step_epochs',10)
+        self._exp_decay = params.get('exp_decay',0)
+        self._maxiter = params.get('maxiter',5000)
+        self._precision = params.get('precision', 0.001)
+        self._i_s = params.get('i_s',5)
+        self._stop_metric = params.get('stop_metric','j')
 
         # Initialize counters
         iteration = 0
@@ -468,6 +463,8 @@ class BGD(GradientDescent):
         J = None
         g_norm = None
         mse = None       
+        theta = self._theta
+        learning_rate = self._learning_rate
         state = {'prior':100, 'current':10, 'iteration':0}
         
         while not self._finished(state):
@@ -477,7 +474,7 @@ class BGD(GradientDescent):
             h = self._hypothesis(self._X, theta)
             e = self._error(h, self._y)
             J = self._cost(e)
-            if self._request['hyper']['cross_validated']:
+            if self._X_val is not None:
                 mse = self._mse(self._X_val, self._y_val, theta)            
 
             # Save iterations, costs and thetas in history 
@@ -498,277 +495,5 @@ class BGD(GradientDescent):
             state = self._update_state(state, iteration, J, mse, g_norm)
 
         self._end = datetime.datetime.now()
+        return(theta)
 
-
-
-# --------------------------------------------------------------------------- #
-#                     Stochastic Gradient Descent Search                      #
-# --------------------------------------------------------------------------- #            
-class SGD(GradientDescent):
-
-    def __init__(self, theta=None, X_val=None, y_val=None, learning_rate=0.01,
-                 learning_rate_sched='c', batch_size=10, time_decay=None, 
-                 step_decay=None, step_epochs=None,  exp_decay=None, maxiter=0, 
-                 precision=0.001, i_s=5, stop_metric='j' ):
-
-        self._alg = "Stochastic Gradient Descent"
-
-        self._learning_rate_detail_history = []
-        self._J_detail_history = []             
-        self._theta_detail_history = [] 
-        self._iterations_detail_history = []    
-        self._epochs_detail_history = []
-
-        self._learning_rate_eval_history = []
-        self._J_eval_history = []             
-        self._mse_eval_history = []     
-        self._theta_eval_history = [] 
-        self._iterations_eval_history = []    
-        self._epochs_eval_history = []
-            
-        self._X = None           
-        self._y = None
-        self._X_val = None
-        self._y_val = None
-        self._i_s = 5
-        self._iter_no_change = 0
-
-        self._summary = pd.DataFrame()
-        self._detail = pd.DataFrame()
-        self._eval = pd.DataFrame()
-
-        self._start = None
-        self._end =None           
-
-
-    def _shuffle(self, X, y):
-        y_var = y.name
-        df = pd.concat([X,y], axis=1)
-        df = df.sample(frac=1, replace=False, axis=0)
-        X = df.drop(labels = y_var, axis=1)
-        y = df[y_var]
-        return(X, y)
-
-    def fit(self, request):
-
-        self._request = request
-        self._start = datetime.datetime.now()
-
-        # Initialize lists
-        self._learning_rate_detail_history = []
-        self._J_detail_history = []             
-        self._theta_detail_history = [] 
-        self._iterations_detail_history = []    
-        self._epochs_detail_history = []
-
-        self._learning_rate_eval_history = []
-        self._J_eval_history = []             
-        self._mse_eval_history = []     
-        self._theta_eval_history = [] 
-        self._iterations_eval_history = []    
-        self._epochs_eval_history = []
-
-        # Initialize search variables
-        iteration = 0
-        epoch = 0
-        theta = self._request['hyper']['theta']
-        learning_rate = self._request['hyper']['learning_rate']
-        self._i_s = self._request['hyper']['i_s']
-        self._iter_no_change = 0
-        
-        # Extract data
-        self._X = self._request['data']['X']
-        self._y = self._request['data']['y']
-        self._X_val = self._request['data']['X_val']
-        self._y_val = self._request['data']['y_val']
-
-        # Initialize State 
-        state = {'prior':100, 'current':10, 'iteration':0}
-        
-        while not self._finished(state):
-            epoch += 1            
-            mse = None
-
-            X, y = self._shuffle(self._X, self._y)            
-
-            for x_i, y_i in zip(X.values, y):
-                iteration += 1
-
-                h = self._hypothesis(x_i, theta)
-                e = self._error(h, y_i)
-                J = self._cost(e)                         
-                g = self._gradient(x_i, e)
-
-                # Update detail history and eval history if first iteration
-                self._update_history(J, theta, epoch, iteration, learning_rate, mse, what='d')
-                if iteration == 1:
-                    self._update_history(J, theta, epoch, iteration, learning_rate, mse, what='e')
-
-                theta = self._update(theta, learning_rate, g)
-            
-            # Compute total training set cost with latest theta
-            J = self._total_cost(self._X, self._y, theta)
-
-            # Compute the norm of the gradient
-            g_norm = self._gradient_norm(g)
-
-            # if cross_validated, compute validation set MSE 
-            if self._request['hyper']['cross_validated']: 
-                mse = self._mse(self._X_val, self._y_val, theta)
-
-            # Update evaluation history
-            self._update_history(J, theta, epoch, iteration, learning_rate, mse, what='e')
-
-            # Update learning rate
-            learning_rate = self._update_learning_rate(learning_rate, epoch)
-
-            # Update state to include current iteration, loss and mse (if cross_validated)            
-            state = self._update_state(state, iteration, J, mse, g_norm)
-
-        self._end = datetime.datetime.now()
-
-
-
-# --------------------------------------------------------------------------- #
-#                         Mini-Batch Gradient Descent                         #
-# --------------------------------------------------------------------------- #            
-class MBGD(GradientDescent):
-
-    def __init__(self, theta=None, X_val=None, y_val=None, learning_rate=0.01,
-                 learning_rate_sched='c', batch_size=10, time_decay=None, 
-                 step_decay=None, step_epochs=None,  exp_decay=None, maxiter=0, 
-                 precision=0.001, i_s=5, stop_metric='j' ):        
-                 
-        self._alg = "Mini-Batch Gradient Descent"
-
-        self._learning_rate_detail_history = []
-        self._J_detail_history = []             
-        self._theta_detail_history = [] 
-        self._iterations_detail_history = []    
-        self._epochs_detail_history = []
-
-        self._learning_rate_eval_history = []
-        self._J_eval_history = []             
-        self._mse_eval_history = []     
-        self._theta_eval_history = [] 
-        self._iterations_eval_history = []    
-        self._epochs_eval_history = []
-            
-        self._X = None           
-        self._y = None
-        self._X_val = None
-        self._y_val = None
-        self._i_s = 5
-        self._iter_no_change = 0
-
-        self._summary = pd.DataFrame()
-        self._detail = pd.DataFrame()
-        self._eval = pd.DataFrame()
-
-        self._start = None
-        self._end =None    
-
-
-    def _shuffle(self, X, y, random_state):
-        y_var = y.name
-        df = pd.concat([X,y], axis=1)
-        df = df.sample(frac=1, replace=False, axis=0, random_state=random_state)
-        X = df.drop(labels = y_var, axis=1)
-        y = df[y_var]
-        return(X, y)
-
-    def _get_batches(self, X, y, batch_size):        
-        df = pd.concat([X,y], axis=1)
-        if batch_size >1:
-            pass
-        else:
-            batch_size = df.shape[0]*batch_size
-        df_group = df.groupby(pd.qcut(np.arange(df.shape[0]), q=int(batch_size)))
-        X_list = []
-        y_list = []
-        for name, group in df_group:
-            X_list.append(group.drop(labels=y.name, axis=1))
-            y_list.append(group[y.name])
-
-        return(X_list,y_list)
-
-
-    def fit(self, request):
-
-        self._request = request
-        self._start = datetime.datetime.now()
-
-        # Initialize search variables
-        iteration = 0
-        epoch = 0        
-        theta = self._request['hyper']['theta']
-        learning_rate = self._request['hyper']['learning_rate']
-
-        self._i_s = self._request['hyper']['i_s']
-        self._iter_no_change = 0
-
-        # Initialize history variables
-        self._learning_rate_detail_history = []
-        self._J_detail_history = []             
-        self._theta_detail_history = [] 
-        self._iterations_detail_history = []    
-        self._epochs_detail_history = []
-
-        self._learning_rate_eval_history = []
-        self._J_eval_history = []             
-        self._mse_eval_history = []     
-        self._theta_eval_history = [] 
-        self._iterations_eval_history = []    
-        self._epochs_eval_history = []
-
-        # Extract data
-        self._X = self._request['data']['X']
-        self._y = self._request['data']['y']
-        self._X_val = self._request['data']['X_val']
-        self._y_val = self._request['data']['y_val']
-
-        # Initialize State 
-        state = {'prior':100, 'current':10, 'iteration':0}
-       
-        while not self._finished(state):
-            epoch += 1        
-            mse = None    
-            X, y = self._shuffle(self._X, self._y, random_state=epoch)
-            X_mb, y_mb = self._get_batches(X,y, self._request['hyper']['batch_size'])
-
-            for x_i, y_i in zip(X_mb, y_mb):
-                iteration += 1                
-
-                h = self._hypothesis(x_i.values, theta)
-                e = self._error(h, y_i.values)
-                J = self._cost(e)
-                g = self._gradient(x_i.values, e)
-                
-                # Update detail history and eval history if first iteration
-                self._update_history(J, theta, epoch, iteration, learning_rate, mse, what='d')
-                if iteration == 1:
-                    self._update_history(J, theta, epoch, iteration, learning_rate, mse, what='e')
-
-                theta = self._update(theta, learning_rate, g)
-
-            # Compute total training set costs with latest theta
-            J = self._cost(self._X, self._y, theta)
-
-            # Compute the norm of the gradient
-            g_norm = self._gradient_norm(g)            
-
-            # if cross_validated, compute validation set MSE 
-            if self._request['hyper']['cross_validated']: 
-                mse = self._mse(self._X_val, self._y_val, theta)  
-                self._mse_eval_history.append(mse)    
-
-            # Update evaluation history
-            self._update_history(J, theta, epoch, iteration, learning_rate, mse, what='e')               
-
-            # Update learning rate
-            learning_rate = self._update_learning_rate(learning_rate, epoch)            
-
-            # Update state to include iteration and current loss and mse (if cross_validated)
-            state = self._update_state(state, iteration, J, mse, g_norm)
-        
-        self._end = datetime.datetime.now()
